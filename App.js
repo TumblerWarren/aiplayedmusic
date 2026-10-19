@@ -4,6 +4,7 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import Slider from '@react-native-community/slider';
 import { PlayingBars, PlayingArtwork } from './src/PlaybackMotion';
+import FolderPicker from './src/FolderPicker';
 import Native from './src/native';
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
@@ -39,6 +40,7 @@ function MusicApp() {
   const [tab, setTab] = useState('Songs');
   const [selection, setSelection] = useState(null);
   const [query, setQuery] = useState('');
+  const [folderPicker, setFolderPicker] = useState(false);
   const [sheet, setSheet] = useState(null);
   const [nameDialog, setNameDialog] = useState(null);
   const [name, setName] = useState('');
@@ -123,7 +125,8 @@ function MusicApp() {
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
   const button = (value, onPress, style) => h(Pressable, { onPress, accessibilityRole: 'button', style: [styles.button, style] }, text(value, styles.buttonText));
   const go = (next, selected = null) => { setPage(next); setSelection(selected); setQuery(''); };
-  const chooseFolder = async () => { try { accept(await Native.chooseFolder()); await scan(); } catch (error) { report(error); } };
+  const chooseFolder = () => setFolderPicker(true);
+  const selectFolder = async path => { const result = await command('addRoot', { path }); if (!result) return false; await scan(); return true; };
   const backFolder = () => { if (selection.name === selection.root) { setTab('Folders'); go('library'); } else { setSelection({ ...selection, name: selection.name.slice(0, selection.name.lastIndexOf('/')) || '/' }); setQuery(''); } };
   const folderOptions = path => setSheet({ title: folderName(path), items: [{ label: 'Exclude folder and subfolders', icon: 'folder-minus', action: async () => { await command('excludeFolder', { path, value: true }); await scan(); setTab('Folders'); go('library'); } }] });
   const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle }); };
@@ -261,6 +264,7 @@ function MusicApp() {
       return h(Pressable, { key: title, onPress, style: styles.navItem, accessibilityRole: 'tab', accessibilityState: { selected: active } },
         h(View, { style: [styles.navIcon, active && { backgroundColor: c.lavender }] }, h(Feather, { name: glyph, size: 22, color: active ? accent : c.muted })), text(title, [styles.navLabel, active && { color: accent, fontWeight: '700' }]));
     })),
+    folderPicker && h(FolderPicker, { c, roots: state.musicRoots || [], onClose: () => setFolderPicker(false), onSelect: selectFolder }),
     h(Modal, { visible: !!sheet, transparent: true, animationType: 'slide', onRequestClose: () => setSheet(null) }, h(View, { style: styles.modalRoot }, h(Pressable, { style: styles.backdrop, onPress: () => setSheet(null), accessibilityLabel: 'Close menu' }), h(SafeAreaView, { edges: ['bottom'], style: styles.sheet }, h(View, { style: styles.sheetHandle }), text(sheet?.title, styles.sheetTitle), h(ScrollView, null, ...(sheet?.items || []).map((item, index) => {
       const tone = colors[index % colors.length];
       return h(Pressable, { key: index, accessibilityRole: 'button', style: [styles.sheetItem, { backgroundColor: tone.bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } },

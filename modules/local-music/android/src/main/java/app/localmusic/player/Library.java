@@ -27,6 +27,24 @@ public final class Library {
         }
         return out;
     }
+    /** Folder catalog ignores roots/exclusions so the in-app picker can expand its scope. */
+    public JSONArray musicFolders(Context c) throws JSONException {
+        Map<String,Integer> folders = new TreeMap<>();
+        try(Cursor cur=c.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,new String[]{"_data"},null,null,null)) {
+            while(cur!=null && cur.moveToNext()) {
+                String path=cur.getString(0);
+                if(path==null || !path.startsWith("/storage/")) continue;
+                int slash=path.lastIndexOf('/');
+                if(slash<=0) continue;
+                String folder=path.substring(0,slash);
+                folders.put(folder,folders.getOrDefault(folder,0)+1);
+            }
+        }
+        JSONArray result=new JSONArray();
+        for(Map.Entry<String,Integer> entry:folders.entrySet())
+            result.put(new JSONObject().put("folder",entry.getKey()).put("count",entry.getValue()));
+        return result;
+    }
     private boolean withinAny(String path,Set<String> roots){for(String root:roots)if(path.equals(root)||path.startsWith(root+"/"))return true;return false;}
     private String clean(String s,String fallback) { return s==null || s.isEmpty() || s.equals("<unknown>")?fallback:s; }
     public Set<String> favorites() { return new HashSet<>(p.getStringSet("favorites",Collections.emptySet())); }
@@ -46,3 +64,4 @@ public final class Library {
     public void saveQueue(List<Song> queue,int index,int position) { JSONArray a=new JSONArray(); for(Song s:queue)a.put(s.json()); p.edit().putString("queue",a.toString()).putInt("index",index).putInt("position",position).apply(); }
     public List<Song> loadQueue() { List<Song> l=new ArrayList<>(); try{JSONArray a=new JSONArray(p.getString("queue","[]"));for(int i=0;i<a.length();i++)l.add(Song.from(a.getJSONObject(i)));}catch(Exception ignored){} return l; }
 }
+
