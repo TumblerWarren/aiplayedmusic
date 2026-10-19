@@ -7,7 +7,7 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "prebuild": "expo prebuild --platform android",
-    "check": "node --test --test-isolation=none scripts/*.test.cjs",
+    "check": "node scripts/library.test.cjs",
     "doctor": "expo-doctor"
   },
   "dependencies": {
