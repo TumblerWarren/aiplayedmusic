@@ -4,8 +4,9 @@ Pure JavaScript library tests: PASS (6)
 JavaScript syntax checks: PASS
 Native Java syntax parse: PASS (5 files)
 JSON and Android XML parse: PASS
-npm dependency installation: NOT RUN (configured HTTP proxy unreachable)
-Expo prebuild / dependency compatibility / Kotlin compile / Android lint: NOT RUN locally
+Local npm dependency installation: NOT RUN (sandbox denies network sockets with EPERM)
+Expo dependency compatibility / prebuild / selector tests: PASS on GitHub
+Kotlin compile / Android lint: pending current GitHub build
 Expo APK generated / signed / device-tested: NO locally
 Exact Mi Music settings/visual parity: NOT VERIFIED
 REA tooling: NOT INSTALLED

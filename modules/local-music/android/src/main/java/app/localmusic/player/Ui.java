@@ -55,7 +55,7 @@ final class Ui {
         void set(Song s,Bitmap b){song=s;bitmap=b;invalidate();}
         @Override protected void onDraw(Canvas c){super.onDraw(c);float w=getWidth(),h=getHeight();Path path=new Path();path.addRoundRect(0,0,w,h,dp(getContext(),round?1000:12),dp(getContext(),round?1000:12),Path.Direction.CW);c.save();c.clipPath(path);
             if(bitmap!=null){float scale=Math.max(w/bitmap.getWidth(),h/bitmap.getHeight());float bw=bitmap.getWidth()*scale,bh=bitmap.getHeight()*scale;c.drawBitmap(bitmap,null,new RectF((w-bw)/2,(h-bh)/2,(w+bw)/2,(h+bh)/2),p);}else{
-                int[] colors={0xFFD7A678,0xFF889BA4,0xFF879B87,0xFFAA91A8,0xFFAD9486,0xFF7D8DA9};int n=song==null?0:(int)Math.floorMod(song.albumId,colors.length);int color=colors[n];p.setShader(new LinearGradient(0,0,w,h,new int[]{color,darken(color)},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);p.setColor(0x18FFFFFF);c.drawCircle(w*.8f,h*.2f,w*.6f,p);c.drawCircle(w*.1f,h*.9f,w*.5f,p);
+                int[] colors={0xFFD7A678,0xFF889BA4,0xFF879B87,0xFFAA91A8,0xFFAD9486,0xFF7D8DA9};int n=song==null?0:(int)Math.floorMod(song.albumId,(long)colors.length);int color=colors[n];p.setShader(new LinearGradient(0,0,w,h,new int[]{color,darken(color)},null,Shader.TileMode.CLAMP));c.drawRect(0,0,w,h,p);p.setShader(null);p.setColor(0x18FFFFFF);c.drawCircle(w*.8f,h*.2f,w*.6f,p);c.drawCircle(w*.1f,h*.9f,w*.5f,p);
                 p.setColor(0xAFFFFFFF);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(Math.max(2,w*.018f));c.drawCircle(w/2,h/2,w*.28f,p);c.drawCircle(w/2,h/2,w*.09f,p);p.setStyle(Paint.Style.FILL);c.drawCircle(w/2,h/2,w*.025f,p);
             } c.restore();
         }

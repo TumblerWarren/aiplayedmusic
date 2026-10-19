@@ -24,6 +24,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
       - uses: android-actions/setup-android@v3
         with:
           packages: platform-tools platforms;android-36 build-tools;36.0.0
@@ -36,9 +39,22 @@ jobs:
         run: npx expo install --check
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
-      - name: Build standalone APK and run Android Lint
+      - name: Build standalone APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease :app:lintRelease --no-daemon
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+      - name: Run Android Lint
+        working-directory: android
+        run: ./gradlew :app:lintRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+      - name: Verify APK signature and offline permissions
+        run: |
+          apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
+          test -n "$apk_path"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose "$apk_path"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump permissions "$apk_path" > apk-permissions.txt
+          if grep -q "android.permission.INTERNET" apk-permissions.txt; then
+            echo "Standalone offline APK unexpectedly requests internet access" >&2
+            exit 1
+          fi
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -53,4 +69,5 @@ jobs:
           path: |
             android/app/build/reports/
             package-lock.json
+            apk-permissions.txt
           if-no-files-found: ignore

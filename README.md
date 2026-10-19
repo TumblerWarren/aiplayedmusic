@@ -2,7 +2,7 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Status:** migration source is written; offline selector tests and syntax/XML checks pass. Dependencies have not been installed in the managed environment because its HTTP proxy is unreachable. No Expo APK or device playback has been verified yet. The original Mi Music settings and visual parity are also unverified.
+**Status:** migration source is written; offline selector tests and syntax/XML checks pass. Dependencies have not been installed in the managed environment because its command sandbox rejects outbound socket connections with `EPERM` (Operation not permitted), including connections to the configured HTTP proxy. SDK installation into this workspace is supported once scoped network access is available. No Expo APK or device playback has been verified yet. The original Mi Music settings and visual parity are also unverified.
 
 ## Architecture and features
 
@@ -18,7 +18,7 @@ This needs a **development build or standalone APK**, not Expo Go, because the c
 
 The `Build Expo Android APK` workflow runs on pushes to `main`, or manually from Actions. It installs the compatible Expo dependencies, runs the selector tests and Expo compatibility checks, generates Android with Expo prebuild, and runs Gradle compilation and Android Lint.
 
-After a successful run, download the `aiplayedmusic-apk` artifact. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. A failed build is not an installable artifact; inspect the uploaded diagnostics.
+After a successful run, download the `aiplayedmusic-apk` artifact. The GitHub phone APK includes 32-bit and 64-bit ARM; local development builds can also target x86 Android emulators. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. A failed build is not an installable artifact; inspect the uploaded diagnostics.
 
 ## Development
 
