@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
@@ -23,6 +23,7 @@ function Artwork({ song, size = 52, round = false }) {
 
 function MusicApp() {
   const system = useColorScheme();
+  const artSize = Math.min(370, Math.max(180, useWindowDimensions().width - 60));
   const [state, setState] = useState(initialState);
   const [songs, setSongs] = useState([]);
   const [permission, setPermission] = useState(false);
@@ -108,7 +109,7 @@ function MusicApp() {
     return () => subscription.remove();
   }, [page, sheet, nameDialog, query]);
 
-  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, style: [styles.iconButton, extra.style], ...extra }, h(Feather, { name: glyph, size, color }));
+  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
   const button = (value, onPress, style) => h(Pressable, { onPress, accessibilityRole: 'button', style: [styles.button, style] }, text(value, styles.buttonText));
   const go = (next, selected = null) => { setPage(next); setSelection(selected); setQuery(''); };
@@ -171,7 +172,7 @@ function MusicApp() {
   if (page === 'player') {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: styles.pageHeader }, icon('chevron-down', () => go('library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
-      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(Artwork, { song, size: 280 }),
+      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(Artwork, { song, size: artSize }),
         h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26)),
         h(Slider, { style: styles.slider, minimumValue: 0, maximumValue: Math.max(1, state.duration), value: dragPosition ?? state.position, onSlidingStart: value => setDragPosition(value), onValueChange: setDragPosition, onSlidingComplete: async value => { await command('seek', { position: Math.round(value) }); setDragPosition(null); }, minimumTrackTintColor: accent, maximumTrackTintColor: c.line, thumbTintColor: accent, accessibilityLabel: 'Playback position' }),
         h(View, { style: styles.times }, text(formatTime(dragPosition ?? state.position), styles.subtitle), text(formatTime(state.duration), styles.subtitle)),
