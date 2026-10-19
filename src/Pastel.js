@@ -1,6 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from './Icons';
 const h = React.createElement;
 
 // Pure native shapes: no image downloads, extra permissions or rendering dependency.

@@ -1,6 +1,6 @@
 import React from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
-import { Feather } from '@expo/vector-icons';
+import Feather from './Icons';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { Fader } from './SoundStudio';

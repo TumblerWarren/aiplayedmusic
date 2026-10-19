@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
-import { Feather } from '@expo/vector-icons';
+import Feather from './src/Icons';
 import Slider from '@react-native-community/slider';
+import { PlayingBars, PlayingArtwork } from './src/PlaybackMotion';
 import Native from './src/native';
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
@@ -168,7 +169,7 @@ function MusicApp() {
   }, [songs, state.favorites, state.playlists, state.recent, state.sort, selection, query]);
 
   const songRow = (song, index, items, queue = false) => h(Pressable, { key: `${song.id}-${index}`, style: styles.songRow, onPress: () => queue ? command('jump', { index }) : play(items, index), onLongPress: () => queue ? queueOptions(song, index) : options(song), accessibilityRole: 'button', accessibilityLabel: `${song.title}, ${song.artist}` },
-    h(Artwork, { song }),
+    h(View, null, h(Artwork, { song }), state.playing && state.current?.id === song.id && h(View, { style: { position: 'absolute', bottom: 2, right: 2, backgroundColor: c.card, borderRadius: 8, padding: 2 } }, h(PlayingBars, { playing: true, color: accent, size: 20 }))),
     h(View, { style: styles.songLabels }, text(song.title, [styles.songTitle, state.current?.id === song.id && { color: accent }], { numberOfLines: 1 }), text(`${song.artist} · ${formatTime(song.duration)}`, styles.subtitle, { numberOfLines: 1 })),
     icon('more-vertical', () => queue ? queueOptions(song, index) : options(song), c.muted));
   const queueOptions = (song, index) => setSheet({ title: song.title, items: [
@@ -195,6 +196,7 @@ function MusicApp() {
   const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
   const mini = h(Pressable, { onPress: () => go('player'), style: styles.mini, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
     h(Artwork, { song: state.current, size: 46 }), h(View, { style: styles.songLabels }, text(state.current?.title || 'Choose a song', styles.miniTitle, { numberOfLines: 1 }), text(state.current?.artist || 'Your music, offline', styles.subtitle, { numberOfLines: 1 })),
+    state.playing && h(PlayingBars, { playing: true, color: accent, size: 20 }),
     icon(state.playing ? 'pause' : 'play', () => state.current ? command('toggle') : play(songs), accent, 23, { label: state.playing ? 'Pause' : 'Play', style: { backgroundColor: c.card, borderRadius: 24 } }), icon('skip-forward', () => command('next'), c.ink, 22, { label: 'Next song' }));
 
   if (!Native || Platform.OS !== 'android') return h(SafeAreaView, { style: styles.root }, h(View, { style: styles.welcome }, h(Feather, { name: 'music', size: 64, color: accent }), text('Your music.\nYour moment.', styles.welcomeTitle), text('Install the full Android app to play music stored on your phone.', styles.welcomeDetail)));
@@ -207,7 +209,7 @@ function MusicApp() {
   } else if (page === 'player') {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: styles.pageHeader }, icon('chevron-down', () => go('library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
-      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(Artwork, { song, size: artSize }),
+      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(PlayingArtwork, { playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize })),
         h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26)),
         h(Slider, { style: styles.slider, minimumValue: 0, maximumValue: Math.max(1, state.duration), value: dragPosition ?? state.position, onSlidingStart: value => setDragPosition(value), onValueChange: setDragPosition, onSlidingComplete: async value => { await command('seek', { position: Math.round(value) }); setDragPosition(null); }, minimumTrackTintColor: accent, maximumTrackTintColor: c.line, thumbTintColor: accent, accessibilityLabel: 'Playback position' }),
         h(View, { style: styles.times }, text(formatTime(dragPosition ?? state.position), styles.subtitle), text(formatTime(state.duration), styles.subtitle)),

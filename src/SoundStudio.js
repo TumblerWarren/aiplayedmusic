@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
-import { Feather } from '@expo/vector-icons';
+import Feather from './Icons';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { formatTime } from './music';
