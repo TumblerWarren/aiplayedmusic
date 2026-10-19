@@ -1,13 +1,18 @@
-2026-10-19 — Expo migration
-Expo SDK 56 / React Native 0.85.3 / React 19.2.3: matched to upstream SDK-56 blank template
+2026-10-19 — successful Expo APK build
+Source commit: 120ff54d6211e39218af96c7a95064f0ee0d1871
+Build: https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430
+APK artifact: https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430/artifacts/12163963175
+Expo SDK 56 / React Native 0.85.3 / React 19.2.3
 Pure JavaScript library tests: PASS (6)
-JavaScript syntax checks: PASS
-Native Java syntax parse: PASS (5 files)
-JSON and Android XML parse: PASS
-Local npm dependency installation: NOT RUN (sandbox denies network sockets with EPERM)
-Expo dependency compatibility / prebuild / selector tests: PASS on GitHub
-Kotlin compile / Android lint: pending current GitHub build
-Expo APK generated / signed / device-tested: NO locally
+Expo dependency compatibility: PASS
+Expo prebuild and local module autolinking: PASS
+Kotlin / Java / native Android release compilation: PASS
+Android Lint: PASS
+APK signature verification: PASS (v2)
+Standalone APK INTERNET permission: ABSENT (verified)
+Phone architectures: armeabi-v7a, arm64-v8a
+Signing: development signing configuration; not a production store key
+Physical-device playback / UI tests: NOT RUN
 Exact Mi Music settings/visual parity: NOT VERIFIED
+Local SDK / npm installation: NOT RUN (sandbox denies network sockets with EPERM)
 REA tooling: NOT INSTALLED
-GitHub workflow: configured to build on push and upload an APK after success

@@ -2,7 +2,9 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Status:** migration source is written; offline selector tests and syntax/XML checks pass. Dependencies have not been installed in the managed environment because its command sandbox rejects outbound socket connections with `EPERM` (Operation not permitted), including connections to the configured HTTP proxy. SDK installation into this workspace is supported once scoped network access is available. No Expo APK or device playback has been verified yet. The original Mi Music settings and visual parity are also unverified.
+**Status:** the Expo APK compiled successfully on [GitHub Actions](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430). All six selector tests, Expo compatibility checks, prebuild, Android compilation, Android Lint, APK signature verification and the offline-permission check passed. [Download the APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430/artifacts/12163963175), extract `app-release.apk`, and install it on an ARM Android 8.0+ phone. This is a development-signed sideload build; physical-device playback and exact Mi Music parity remain unverified.
+
+Local SDK/dependency installation is still blocked because the managed command sandbox rejects network sockets with `EPERM`. SDK installation into the workspace is supported once scoped network access is available. The successful APK was built on GitHub, not in the managed workspace.
 
 ## Architecture and features
 
@@ -58,6 +60,6 @@ No Expo account or EAS project has been linked, and no EAS build has been starte
 
 Run dependency-free library logic tests with `npm run check`. The tests cover playlist order with unavailable files, favourites, collection filtering, immutable sorting, listening history, album counts and durations.
 
-Java files were parsed with Java 17 syntax; JavaScript, JSON and Android XML were checked offline. These checks do **not** validate Expo autolinking, Kotlin types, Android compilation, playback or device UI. See `verification/DEVICE_CHECKLIST.md` before calling the app ready.
+JavaScript, native Java, JSON and Android XML were also checked offline. The successful GitHub build additionally verified native module autolinking, Kotlin/Java compilation, Android Lint, APK signing and removal of internet permission. Physical-device playback, background behaviour, headset controls and UI still require the checks in `verification/DEVICE_CHECKLIST.md`.
 
 The supplied Play Store listing was inspected. REA was not installed, and no original binary/settings screenshots were available, so this is an independent implementation rather than a verified exact replica.
