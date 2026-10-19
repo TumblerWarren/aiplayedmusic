@@ -187,7 +187,7 @@ class LocalMusicModule : Module() {
       put("favorites", JSONArray(lib.favorites().toList()))
       put("recent", JSONArray(lib.recentIds()))
       put("playlists", lib.playlists())
-      put("theme", prefs.getString("theme", "Dark"))
+      put("theme", prefs.getString("theme", "Light"))
       put("sort", prefs.getString("sort", "Title"))
       put("pauseDisconnect", prefs.getBoolean("pauseDisconnect", true))
       put("excludedCount", prefs.getStringSet("excluded", emptySet())?.size ?: 0)

@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, design/multicolor-ui]
 permissions:
   contents: read
 concurrency:
@@ -80,3 +80,4 @@ jobs:
             apk-metadata.txt
             apk-sha256.txt
           if-no-files-found: ignore
+
