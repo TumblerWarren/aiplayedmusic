@@ -4,7 +4,6 @@ import android.content.*
 import android.os.*
 import android.app.Activity
 import android.provider.DocumentsContract
-import com.facebook.react.bridge.BaseActivityEventListener
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
@@ -20,8 +19,7 @@ class LocalMusicModule : Module() {
   private val handler = Handler(Looper.getMainLooper())
   private val pending = mutableListOf<Promise>()
   private var folderPromise: Promise? = null
-  private val activityListener = object : BaseActivityEventListener() {
-    override fun onActivityResult(activity: Activity?, requestCode: Int, resultCode: Int, data: Intent?) {
+  private fun handleFolderResult(requestCode: Int, resultCode: Int, data: Intent?) {
       if (requestCode != 4101) return
       val promise = folderPromise ?: return
       folderPromise = null
@@ -41,7 +39,6 @@ class LocalMusicModule : Module() {
         library.prefs().edit().putStringSet("musicRoots", roots).apply()
         promise.resolve(snapshot())
       } catch (e: Exception) { promise.reject("E_FOLDER", e.message, e) }
-    }
   }
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
   private val library: Library get() = Library(context)
@@ -63,13 +60,15 @@ class LocalMusicModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
     Events("onChange", "onError")
+    OnActivityResult { _, payload ->
+      handleFolderResult(payload.requestCode, payload.resultCode, payload.data)
+    }
     AsyncFunction("initialize") { promise: Promise ->
       if (!registered) {
         val filter = IntentFilter(PlaybackService.CHANGED)
         if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else context.registerReceiver(receiver, filter)
         registered = true
-        appContext.reactContext?.addActivityEventListener(activityListener)
       }
       if (playback != null) promise.resolve(snapshot())
       else {
@@ -170,7 +169,6 @@ class LocalMusicModule : Module() {
         if (ctx != null) {
           if (bound) ctx.unbindService(connection)
           if (registered) ctx.unregisterReceiver(receiver)
-          ctx.removeActivityEventListener(activityListener)
         }
         pending.forEach { it.reject("E_DESTROYED", "Music module closed", null) }; pending.clear()
         folderPromise?.reject("E_DESTROYED", "Folder picker closed", null); folderPromise = null

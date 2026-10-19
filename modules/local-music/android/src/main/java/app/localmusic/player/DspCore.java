@@ -57,7 +57,7 @@ public final class DspCore {
     private final int rate,channels,lookahead,capacity,fadeFrames;
     private final double[] ringL,ringR,peaks;
     private final long[] peakIds;
-    private int head,tail;private long frame;
+    private int head,tail,bypassProtection;private long frame;
     private Bank bank,oldBank;private int fade;
     private Settings settings;
     private double gain=1,linearTarget=1,balance=0,width=1,limiterGain=1,compressorGain=1;
@@ -101,6 +101,10 @@ public final class DspCore {
         double target=mode==0?1:dbToGain(compressorDb(gainToDb(Math.max(Math.abs(l),Math.abs(r))),mode==1?-12:-18,mode==1?1.5:2,6));
         compressorGain+=(target-compressorGain)*(target<compressorGain?attackComp:releaseComp);
         l*=compressorGain;r*=compressorGain;compressionReductionDb=-gainToDb(compressorGain);
+        // A bypass request must not release protection for the hot samples still in the FIFO,
+        // or for a gain/filter crossfade that has not yet reached the original signal.
+        if(!settings.bypass||oldBank!=null||gain>1.000001||width>1.000001)bypassProtection=lookahead+1;
+        else if(bypassProtection>0)bypassProtection--;
         return delay(l,r,out);
     }
     /** Drain with unprocessed zero frames; caller emits only the remaining real frames. */
@@ -111,7 +115,7 @@ public final class DspCore {
         while(head!=tail&&peaks[(tail-1+capacity)%capacity]<=peak)tail=(tail-1+capacity)%capacity;
         peaks[tail]=peak;peakIds[tail]=frame;tail=(tail+1)%capacity;
         boolean available=frame>=lookahead;
-        if(available){int read=(int)((frame-lookahead)%capacity);double required=settings.limiter&&!settings.bypass?Math.min(1,CEILING/Math.max(1e-12,peaks[head])):1;
+        if(available){int read=(int)((frame-lookahead)%capacity);double required=settings.limiter&&(!settings.bypass||bypassProtection>0)?Math.min(1,CEILING/Math.max(1e-12,peaks[head])):1;
             limiterGain=required<limiterGain?required:limiterGain+(required-limiterGain)*release;
             double ol=ringL[read]*limiterGain,or=ringR[read]*limiterGain;
             out[0]=(float)ol;out[1]=(float)or;outputPeak=Math.max(Math.max(Math.abs(ol),Math.abs(or)),outputPeak*.9998);limiterReductionDb=-gainToDb(limiterGain);

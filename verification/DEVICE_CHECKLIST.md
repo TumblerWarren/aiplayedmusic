@@ -24,7 +24,18 @@
 - Pause during initial file loading; audio must remain paused when preparation finishes.
 - Change playback speed while paused; it must stay paused.
 - Test sleep timer expiry with screen off, background playback, and equalizer availability.
-- Change songs while the equalizer dialog is open and verify no stale session errors.
+- Open Sound from the player and Settings; confirm Tone, Output and Playback use the copper theme.
+- Change presets while a song plays, pause, change EQ/speed/pitch, then confirm playback stays paused.
+- Save a named sound profile; restart the app and restore it. Verify all settings, rename conflicts and deletion.
+- Compare bypass with a level-matched reference; transition from 300% boost to bypass without a clipped transient.
+- Play quiet and near-full-scale recordings at 100%, 200% and 300%; confirm limiter reduction and mono/stereo linking.
+- Check bass/treble shelves, EQ headroom, manual preamp, balance, mono cancellation and stereo width.
+- Check Gentle/Night on loud and quiet passages; Off must remove their compression.
+- Confirm speed and pitch are independent, silence skipping is optional, and default music pauses stay intact.
+- Set a sleep timer; during its final fade toggle fade off and confirm normal player gain returns.
+- Test very short WAV files and the final samples of a song; verify EOF drain and repeated seeking.
+- Test gapless album files with correct encoder delay/padding, at normal speed and with pitch/speed changes.
+- Test low-rate mono and multichannel files; the processing-format/unsupported-effects status must be accurate.
 
 ## Library and interface
 
@@ -35,3 +46,7 @@
 - Test local plain-text/LRC lyrics import and file sharing.
 - Test theme changes, rotation, status/navigation insets, font scaling and TalkBack.
 - Compare requested Mi Music version screenshots; record remaining parity gaps.
+- Choose a Music root using Android's directory picker, restart and confirm persistence.
+- Verify Electronic/Ambient and Electronic/House stay inside Electronic; test breadcrumbs and system Back.
+- Play a folder with Include subfolders on/off, and exclude/re-include a parent without leaking sibling paths.
+- Select internal and SD-card roots, remove one and remove the final restriction; recover from picker cancellation.

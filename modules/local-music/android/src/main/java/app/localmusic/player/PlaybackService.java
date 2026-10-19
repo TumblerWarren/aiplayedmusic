@@ -34,7 +34,7 @@ public class PlaybackService extends Service {
     private String error="";
     private final Handler handler=new Handler(Looper.getMainLooper());
     private final Runnable tick=new Runnable(){public void run(){
-        if(sleepAt>0){long remaining=sleepRemaining();if(remaining==0){sleepAt=0;pause();}else if(library.prefs().getBoolean("sleepFade",true))player.setVolume(Math.min(1,remaining/15000f));}
+        if(sleepAt>0){long remaining=sleepRemaining();if(remaining==0){sleepAt=0;pause();}else player.setVolume(library.prefs().getBoolean("sleepFade",true)?Math.min(1,remaining/15000f):1);}
         if(playing()&&SystemClock.elapsedRealtime()-lastSave>5000){save();lastSave=SystemClock.elapsedRealtime();}
         handler.postDelayed(this,500);
     }};
@@ -72,7 +72,7 @@ public class PlaybackService extends Service {
             @Override public void onPlayerError(PlaybackException e){
                 error="Couldn't play this file. It may be missing or unsupported.";
                 sendBroadcast(new Intent(CHANGED).setPackage(getPackageName()).putExtra("error",error));
-                if(++failures<Math.min(3,queue.size()))handler.post(()->{if(!closing){player.seekToDefaultPosition((index+1)%queue.size());player.prepare();player.play();}});
+                if(++failures<Math.min(3,queue.size()))handler.post(()->{if(!closing&&!queue.isEmpty()){player.seekToDefaultPosition((index+1)%queue.size());player.prepare();player.play();}});
                 else {player.pause();if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}publish();}
             }
         });

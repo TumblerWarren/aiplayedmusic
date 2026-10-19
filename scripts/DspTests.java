@@ -42,6 +42,8 @@ public final class DspTests {
         }
         DspCore changing=new DspCore(48000,2,DspCore.Settings.defaults());float[] frame=new float[2];
         for(int i=0;i<48000;i++){if(i==20000)changing.setSettings(settings(bands,true,false,true,true,300,1,true,1));changing.process(Math.sin(i*.1),Math.sin(i*.13),frame);check(Float.isFinite(frame[0])&&Math.abs(frame[0])<=DspCore.CEILING+1e-6,"Changing EQ/gain destabilized output");}
+        DspCore compare=new DspCore(48000,2,settings(null,false,false,true,false,300,0,false,0));
+        for(int i=0;i<96000;i++){if(i==48000)compare.setSettings(settings(null,false,true,true,false,100,0,false,0));double x=.98*Math.sin(i*2*Math.PI*1000/48000);compare.process(x,x,frame);check(Math.abs(frame[0])<=1.000001,"Switching from boost to bypass must not clip queued/ramping samples");}
         System.out.println("Audio DSP verified: "+checks+" assertions (bypass, exact drain, gain, limiter, frequency response, headroom, mono, balance, dynamics, rate/setting stress).");
     }
 }
