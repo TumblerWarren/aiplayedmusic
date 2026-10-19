@@ -1,12 +1,15 @@
-# Required verification — not yet performed
+# Android verification
+
+Automated build checks passed for version 1.2; see `STATUS.txt`. Physical-device checks below remain pending.
 
 ## Build
 
-- Install dependencies and run `npx expo install --check`.
-- Generate Android using Expo prebuild; verify the LocalMusic module autolinks.
-- Compile `:app:assembleRelease` with SDK 36 and JDK 17+.
-- Run `:app:lintRelease` and resolve build/lint errors.
-- Verify APK signature and install on physical Android devices.
+- [x] Install dependencies and run `npx expo install --check`.
+- [x] Generate Android using Expo prebuild; verify the LocalMusic module autolinks.
+- [x] Compile `:app:assembleRelease` with SDK 36 and JDK 17+.
+- [x] Run `:app:lintRelease` and resolve build/lint errors.
+- [x] Verify APK signature and offline permissions.
+- [ ] Install and test on physical Android devices.
 
 ## Permissions and discovery
 

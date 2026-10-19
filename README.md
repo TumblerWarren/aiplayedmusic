@@ -2,9 +2,9 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Version 1.2: build authorized, verification in progress.** The review hold has been lifted by the user. Local library tests, actual Java DSP signal tests, Java syntax checks and JavaScript syntax checks pass; Android/Media3 type checking, Lint, UI and physical-device validation are pending. Review the [sound engineering design and sources](docs/AUDIO_ENGINE.md).
+**Version 1.2 APK ready.** [Download the APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39222538168/artifacts/12172479893), extract `app-release.apk`, and install it on an ARM Android 8.0+ phone. This artifact expires on October 26, 2026. The [successful build](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39222538168) took 14 minutes 52 seconds.
 
-**Previous build: version 1.1.** The earlier Expo APK compiled successfully on [GitHub Actions](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430). [Download that older APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430/artifacts/12163963175). It does **not** include the new theme or sound engine. It is a development-signed sideload build; physical-device playback and exact Mi Music parity remain unverified.
+Seven library tests, actual Java DSP signal tests, Expo compatibility/prebuild, native engine compilation, APK packaging, Android Lint, signature verification and the offline-permission check passed. This is a development-signed sideload APK. Physical-device playback/UI testing and exact Mi Music parity remain unverified. See the [sound engineering design and references](docs/AUDIO_ENGINE.md) and [build record](verification/STATUS.txt).
 
 Local SDK/dependency installation is still blocked because the managed command sandbox rejects network sockets with `EPERM`. SDK installation into the workspace is supported once scoped network access is available. The successful APK was built on GitHub, not in the managed workspace.
 
@@ -12,7 +12,7 @@ Local SDK/dependency installation is still blocked because the managed command s
 
 - `App.js`: Expo / React Native library, search, albums/artists/folders, favourites, playlists, queue, now-playing screen, themes and common settings.
 - `modules/local-music/`: an autolinked local Expo module, using Kotlin to bridge the Android playback service and MediaStore library scanner.
-- The 1.2 draft uses Media3 playlists and native PCM processing, with 10-band EQ, automatic EQ headroom, preamp, bass/treble, 100–300% gain, a stereo-linked sample-peak limiter, optional dynamics, balance/width/mono, saved sound profiles, independent speed/pitch, silence skipping and sleep fade. These controls have custom Expo screens. See [implementation details and limits](docs/AUDIO_ENGINE.md).
+- Version 1.2 uses Media3 playlists and native PCM processing, with 10-band EQ, automatic EQ headroom, preamp, bass/treble, 100–300% gain, a stereo-linked sample-peak limiter, optional dynamics, balance/width/mono, saved sound profiles, independent speed/pitch, silence skipping and sleep fade. These controls have custom Expo screens. See [implementation details and limits](docs/AUDIO_ENGINE.md).
 - Library filters and selected music roots have custom Expo controls. The Android system directory picker chooses roots; the browser keeps descendant folders under their parents. It scans audio indexed by MediaStore, not arbitrary unindexed or cloud-provider files. Local text/LRC lyrics still use the retained native screen.
 - No advertising, streaming, accounts, analytics SDK or microphone access. Offline release builds remove internet/network-state permissions; development builds retain network access for Metro.
 

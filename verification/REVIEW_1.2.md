@@ -22,7 +22,11 @@ This records the pre-build review. The user subsequently authorized the build; c
 - App and new component JavaScript passes syntax checks.
 - Equations, papers, repositories and limitations are documented in `docs/AUDIO_ENGINE.md`.
 
-## Pending after build instruction
+## Post-build status
+
+Automated compilation, packaging, Lint, signing and offline checks passed for build 39222538168. See `STATUS.txt` for the exact source and artifact. Physical-device checks remain pending.
+
+## Original verification plan
 
 Android/Media3/Kotlin type checking; Expo compatibility/prebuild; release APK build; Android Lint; signature/offline permission verification; and UI/listening/background/headset/gapless testing on Android hardware. Local passing tests do not establish that the new Android integration compiles or sounds better on a particular device.
 
