@@ -4,20 +4,22 @@ import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import Native from './src/native';
-import { formatTime, groupsFor, selectSongs, sortSongs } from './src/music';
+import SoundStudio from './src/SoundStudio';
+import LibrarySettings from './src/LibrarySettings';
+import { folderChildren, folderRoots, formatTime, groupsFor, selectSongs, sortSongs } from './src/music';
 
 const h = React.createElement;
-const initialState = { current: null, playing: false, loading: false, position: 0, duration: 0, queue: [], favorites: [], recent: [], playlists: {}, shuffle: false, repeat: 0, speed: 1, theme: 'System', sort: 'Title', pauseDisconnect: true, sleepRemaining: 0 };
+const initialState = { current: null, playing: false, loading: false, position: 0, duration: 0, queue: [], favorites: [], recent: [], playlists: {}, shuffle: false, repeat: 0, speed: 1, theme: 'Dark', includeSubfolders: true, sort: 'Title', pauseDisconnect: true, sleepRemaining: 0 };
 const tabs = ['Songs', 'Playlists', 'Albums', 'Artists', 'Folders'];
-const accent = '#FF642F';
-const palette = dark => ({ bg: dark ? '#111113' : '#FAFAFA', card: dark ? '#202023' : '#FFFFFF', ink: dark ? '#F4F4F5' : '#1B1C1E', muted: dark ? '#A4A4AD' : '#7E8085', line: dark ? '#303034' : '#EDEDEF' });
+
+const palette = dark => ({ bg: dark ? '#171512' : '#F8F3EA', card: dark ? '#24201C' : '#FFFDF8', ink: dark ? '#F3EDE3' : '#241711', muted: dark ? '#BEB2A3' : '#6B584B', line: dark ? '#39312A' : '#E8DCD0', track: dark ? '#87786A' : '#A58C7C', accent: dark ? '#E99574' : '#9C3D22', onAccent: dark ? '#241711' : '#FFF9F0' });
 const folderName = name => name.split('/').filter(Boolean).pop() || name;
 
 function Artwork({ song, size = 52, round = false }) {
   const [failed, setFailed] = useState(false);
   useEffect(() => setFailed(false), [song?.albumId]);
-  const colors = ['#997453', '#718A96', '#78947E', '#93778F', '#A88B7D', '#6C7E9C'];
-  return h(View, { style: { width: size, height: size, borderRadius: round ? size / 2 : size > 100 ? 28 : 12, backgroundColor: colors[Math.abs(Number(song?.albumId || 0)) % colors.length], overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, accessible: false },
+  const colors = ['#785544', '#5B5044', '#755B3D', '#6D4135', '#897464', '#514942'];
+  return h(View, { style: { width: size, height: size, borderRadius: round ? size / 2 : size > 100 ? 16 : 10, backgroundColor: colors[Math.abs(Number(song?.albumId || 0)) % colors.length], overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, accessible: false },
     song && !failed ? h(Image, { source: { uri: `content://media/external/audio/albumart/${song.albumId}` }, style: StyleSheet.absoluteFillObject, onError: () => setFailed(true) }) : h(Feather, { name: 'disc', size: size * 0.48, color: '#FFFFFFB0' }));
 }
 
@@ -30,6 +32,7 @@ function MusicApp() {
   const [ready, setReady] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [page, setPage] = useState('library');
+  const [soundBack, setSoundBack] = useState('player');
   const [tab, setTab] = useState('Songs');
   const [selection, setSelection] = useState(null);
   const [query, setQuery] = useState('');
@@ -41,6 +44,7 @@ function MusicApp() {
   const alive = useRef(true);
   const dark = state.theme === 'Dark' || (state.theme === 'System' && system === 'dark');
   const c = palette(dark);
+  const accent = c.accent;
   const styles = useMemo(() => makeStyles(c), [dark]);
   const report = useCallback(error => { if (alive.current) Alert.alert('Music', error?.message || 'Something went wrong. Please try again.'); }, []);
   const accept = useCallback(raw => { const value = typeof raw === 'string' ? JSON.parse(raw) : raw; if (alive.current) setState(value); return value; }, []);
@@ -102,18 +106,24 @@ function MusicApp() {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
       if (sheet) { setSheet(null); return true; }
       if (nameDialog) { setNameDialog(null); return true; }
+      if (page === 'sound') { setPage(soundBack); return true; }
+      if (page === 'collection' && selection?.kind === 'Folders' && selection.name !== selection.root) { setSelection({ ...selection, name: selection.name.slice(0, selection.name.lastIndexOf('/')) || '/' }); return true; }
       if (page !== 'library') { setPage('library'); setSelection(null); return true; }
       if (query) { setQuery(''); return true; }
       return false;
     });
     return () => subscription.remove();
-  }, [page, sheet, nameDialog, query]);
+  }, [page, sheet, nameDialog, query, soundBack, selection]);
 
   const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
   const button = (value, onPress, style) => h(Pressable, { onPress, accessibilityRole: 'button', style: [styles.button, style] }, text(value, styles.buttonText));
   const go = (next, selected = null) => { setPage(next); setSelection(selected); setQuery(''); };
+  const chooseFolder = async () => { try { accept(await Native.chooseFolder()); await scan(); } catch (error) { report(error); } };
+  const backFolder = () => { if (selection.name === selection.root) { setTab('Folders'); go('library'); } else { setSelection({ ...selection, name: selection.name.slice(0, selection.name.lastIndexOf('/')) || '/' }); setQuery(''); } };
+  const folderOptions = path => setSheet({ title: folderName(path), items: [{ label: 'Exclude folder and subfolders', icon: 'folder-minus', action: async () => { await command('excludeFolder', { path, value: true }); await scan(); setTab('Folders'); go('library'); } }] });
   const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle }); };
+  const openSound = () => { setSoundBack(page); setPage('sound'); };
   const openNative = async screen => { try { await Native.openNative(screen); } catch (error) { report(error); } };
   const createPlaylist = song => { setSheet(null); setName(''); setNameDialog({ kind: 'create', song }); };
   const playlistSheet = song => setSheet({ title: 'Add to playlist', items: [{ label: 'New playlist', icon: 'plus', action: () => createPlaylist(song) }, ...Object.keys(state.playlists).sort().map(title => ({ label: title, icon: 'list', action: () => command('addToPlaylist', { name: title, song }) }))] });
@@ -159,7 +169,7 @@ function MusicApp() {
   const groupRow = (title, detail, glyph, onPress, onLongPress) => h(Pressable, { style: styles.groupRow, onPress, onLongPress, accessibilityRole: 'button' },
     h(View, { style: styles.groupIcon }, h(Feather, { name: glyph, size: 24, color: accent })), h(View, { style: styles.songLabels }, text(title, styles.songTitle, { numberOfLines: 1 }), text(detail, styles.subtitle, { numberOfLines: 2 })), h(Feather, { name: 'chevron-right', color: c.muted, size: 20 }));
   const empty = () => h(View, { style: styles.empty }, h(Feather, { name: 'music', size: 42, color: c.muted }), text('Your library is quiet', styles.emptyTitle), text('Add music to your phone, then scan for songs.', styles.emptyDetail), button(scanning ? 'Scanning…' : 'Scan for songs', scan));
-  const header = (title, extra) => h(View, { style: styles.pageHeader }, icon('chevron-left', () => go('library')), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
+  const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
   const mini = h(Pressable, { onPress: () => go('player'), style: styles.mini, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
     h(Artwork, { song: state.current, size: 46 }), h(View, { style: styles.songLabels }, text(state.current?.title || 'Choose a song', styles.miniTitle, { numberOfLines: 1 }), text(state.current?.artist || 'Your music, offline', styles.subtitle, { numberOfLines: 1 })),
     icon(state.playing ? 'pause' : 'play', () => state.current ? command('toggle') : play(songs)), icon('list', () => go('queue')));
@@ -169,30 +179,49 @@ function MusicApp() {
   if (!permission) return h(SafeAreaView, { style: styles.root }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content' }), h(View, { style: styles.welcome }, h(Feather, { name: 'music', size: 64, color: accent }), text('Your music.\nYour moment.', styles.welcomeTitle), text('All the songs on your phone, together in one place. Offline, uninterrupted.', styles.welcomeDetail), button('Find my music', grant), h(Pressable, { onPress: () => Linking.openSettings(), style: styles.settingsLink }, text('Open app permissions', { color: accent }))));
 
   let content;
-  if (page === 'player') {
+  if (page === 'sound') {
+    content = h(SoundStudio, { state, command, c, onBack: () => setPage(soundBack), onTimer: timerSheet });
+  } else if (page === 'player') {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: styles.pageHeader }, icon('chevron-down', () => go('library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
       h(ScrollView, { contentContainerStyle: styles.playerBody }, h(Artwork, { song, size: artSize }),
         h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26)),
         h(Slider, { style: styles.slider, minimumValue: 0, maximumValue: Math.max(1, state.duration), value: dragPosition ?? state.position, onSlidingStart: value => setDragPosition(value), onValueChange: setDragPosition, onSlidingComplete: async value => { await command('seek', { position: Math.round(value) }); setDragPosition(null); }, minimumTrackTintColor: accent, maximumTrackTintColor: c.line, thumbTintColor: accent, accessibilityLabel: 'Playback position' }),
         h(View, { style: styles.times }, text(formatTime(dragPosition ?? state.position), styles.subtitle), text(formatTime(state.duration), styles.subtitle)),
-        h(View, { style: styles.transport }, icon('shuffle', () => command('shuffle'), state.shuffle ? accent : c.muted), icon('skip-back', () => command('previous'), c.ink, 30), icon(state.playing ? 'pause' : 'play', () => song ? command('toggle') : play(songs), '#FFF', 34, { style: styles.bigPlay }), icon('skip-forward', () => command('next'), c.ink, 30), h(View, null, icon('repeat', () => command('repeat'), state.repeat ? accent : c.muted), state.repeat === 2 && text('1', styles.repeatOne))),
-        h(View, { style: styles.transport }, icon('sliders', () => openNative('settings'), c.muted), icon('clock', timerSheet, state.sleepRemaining ? accent : c.muted), h(Pressable, { onPress: () => openNative('player'), style: styles.iconButton }, text('Lyrics', { color: c.muted })), icon('list', () => go('queue'), c.muted)), state.sleepRemaining > 0 && text(`Sleep timer · ${formatTime(state.sleepRemaining)}`, styles.timer)));
+        h(View, { style: styles.transport }, icon('shuffle', () => command('shuffle'), state.shuffle ? accent : c.muted), icon('skip-back', () => command('previous'), c.ink, 30), icon(state.playing ? 'pause' : 'play', () => song ? command('toggle') : play(songs), c.onAccent, 34, { style: styles.bigPlay }), icon('skip-forward', () => command('next'), c.ink, 30), h(View, null, icon('repeat', () => command('repeat'), state.repeat ? accent : c.muted), state.repeat === 2 && text('1', styles.repeatOne))),
+        h(View, { style: styles.transport }, icon('sliders', openSound, c.muted), icon('clock', timerSheet, state.sleepRemaining ? accent : c.muted), h(Pressable, { onPress: () => openNative('player'), style: styles.iconButton }, text('Lyrics', { color: c.muted })), icon('list', () => go('queue'), c.muted)), h(Pressable, { onPress: openSound, style: styles.boostRow, accessibilityRole: 'button' }, h(Feather, { name: 'volume-2', size: 20, color: accent }), text('Volume boost', { flex: 1 }), text(`${Math.round(state.sound?.volume || 100)}%`, { color: accent, fontWeight: '600' }), h(Feather, { name: 'chevron-right', size: 20, color: c.muted })), state.sleepRemaining > 0 && text(`Sleep timer · ${formatTime(state.sleepRemaining)}`, styles.timer)));
+  } else if (page === 'filters') {
+    content = h(LibrarySettings, { state, command, c, scan, chooseFolder, onBack: () => go('settings') });
   } else if (page === 'settings') {
     content = h(View, { style: styles.flex }, header('Settings'), h(ScrollView, { contentContainerStyle: styles.settingsBody },
-      text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => openNative('settings')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => openNative('settings')),
-      text('PLAYBACK', styles.section), groupRow('Equalizer', 'Fine-tune your sound', 'sliders', () => openNative('settings')), groupRow('Sleep timer', state.sleepRemaining ? `${formatTime(state.sleepRemaining)} remaining` : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
+      text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
+      text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? `${formatTime(state.sleepRemaining)} remaining` : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
       h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { true: accent }, accessibilityLabel: 'Pause when disconnected' })),
-      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Music', 'Version 1.1 · Your music, offline', 'music', () => Alert.alert('Music', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
+      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Music', 'Version 1.2 · Your music, offline', 'music', () => Alert.alert('Music', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
   } else if (page === 'queue') {
     content = h(View, { style: styles.flex }, header('Playing queue'), text(`${state.queue.length} songs`, styles.count), h(FlatList, { data: state.queue, keyExtractor: (item, index) => `${item.id}-${index}`, renderItem: ({ item, index }) => songRow(item, index, state.queue, true), contentContainerStyle: styles.list, ListEmptyComponent: empty }));
+  } else if ((page === 'library' && tab === 'Folders') || (page === 'collection' && selection?.kind === 'Folders')) {
+    const path = page === 'collection' ? selection.name : null;
+    const directories = path ? folderChildren(songs, path, query) : folderRoots(songs, state.musicRoots || []);
+    const direct = path ? selected : [];
+    const rows = [...directories.map(item => ({ ...item, directory: true })), ...direct];
+    const folderSongs = path ? sortSongs(selectSongs(songs, state, { kind: 'Folders', name: path, recursive: state.includeSubfolders }, query), state.sort) : [];
+    content = h(View, { style: styles.flex },
+      path ? header(folderName(path), icon('more-vertical', () => folderOptions(path)), backFolder) : h(View, { style: styles.libraryHeader }, text('Folders', styles.brand), icon('folder-plus', chooseFolder)),
+      path && text(path, [styles.count, { lineHeight: 20 }]),
+      h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }),
+      path && h(View, { style: [styles.listControls, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
+      path && h(View, { style: { paddingHorizontal: 24, marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))),
+      h(FlatList, { data: rows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, keyboardShouldPersistTaps: 'handled',
+        renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name)) : songRow(item, direct.findIndex(song => song.id === item.id), direct),
+        ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose a music folder or adjust library filters.', styles.emptyDetail), button('Choose folder', chooseFolder)) }));
   } else {
     const collection = page === 'collection';
     let groupData = [];
     if (!collection && tab === 'Playlists') groupData = Object.entries(state.playlists).filter(([title]) => title.toLocaleLowerCase().includes(query.toLocaleLowerCase())).map(([title, ids]) => ({ name: title, count: ids.filter(id => songs.some(song => song.id === id)).length }));
     else if (!collection && tab !== 'Songs') groupData = groupsFor(songs, tab, query);
     content = h(View, { style: styles.flex },
-      collection ? header(selection?.kind === 'Folders' ? folderName(selection.name) : selection?.name, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null) : h(View, { style: styles.libraryHeader }, text('Music', styles.brand), icon('settings', () => go('settings'))),
+      collection ? header(selection?.kind === 'Folders' ? folderName(selection.name) : selection?.name, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null) : h(View, { style: styles.libraryHeader }, text('Your music', styles.brand), icon('settings', () => go('settings'))),
       !collection && h(View, { style: styles.shortcuts }, ...[['Favourites', 'heart', 'favorites'], ['Recently played', 'clock', 'recent']].map(([title, glyph, kind]) => h(Pressable, { key: kind, onPress: () => go('collection', { kind, name: title }), style: styles.shortcut }, h(Feather, { name: glyph, color: accent, size: 25 }), text(title, styles.shortcutTitle)))),
       !collection && h(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false, style: styles.tabs, contentContainerStyle: styles.tabContents }, ...tabs.map(title => h(Pressable, { key: title, onPress: () => { setTab(title); setQuery(''); }, style: styles.tab }, text(title, [styles.tabText, tab === title && { color: accent }])))),
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
@@ -200,21 +229,22 @@ function MusicApp() {
         !collection && tab === 'Playlists' ? icon('plus', () => createPlaylist(), accent) : (!collection && tab !== 'Songs') ? null : h(React.Fragment, null, h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll }, text('Shuffle all', { color: accent, fontWeight: '600' })), icon('bar-chart-2', sortSheet, c.muted))),
       collection || tab === 'Songs' ? h(FlatList, { data: selected, keyExtractor: item => String(item.id), renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty, keyboardShouldPersistTaps: 'handled' }) : h(FlatList, { data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, keyboardShouldPersistTaps: 'handled', renderItem: ({ item }) => groupRow(tab === 'Folders' ? folderName(item.name) : item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Folders' ? 'folder' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty }));
   }
-  return h(SafeAreaView, { style: styles.root }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, page !== 'player' && mini,
+  return h(SafeAreaView, { style: styles.root }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, !['player', 'sound'].includes(page) && mini, !['player', 'sound'].includes(page) && h(View, { style: styles.bottomNav }, ...[['Library', 'music', () => { setTab('Songs'); go('library'); }], ['Folders', 'folder', () => { setTab('Folders'); go('library'); }], ['Playlists', 'list', () => { setTab('Playlists'); go('library'); }], ['Settings', 'settings', () => go('settings')]].map(([title, glyph, onPress]) => h(Pressable, { key: title, onPress, style: styles.navItem, accessibilityRole: 'button' }, h(Feather, { name: glyph, size: 22, color: (title === 'Settings' ? page === 'settings' : title === 'Folders' ? page === 'library' && tab === 'Folders' : title === 'Playlists' ? page === 'library' && tab === 'Playlists' : page === 'library' && !['Folders', 'Playlists'].includes(tab)) ? accent : c.muted }), text(title, styles.navLabel)))),
     h(Modal, { visible: !!sheet, transparent: true, animationType: 'slide', onRequestClose: () => setSheet(null) }, h(View, { style: styles.modalRoot }, h(Pressable, { style: styles.backdrop, onPress: () => setSheet(null), accessibilityLabel: 'Close menu' }), h(SafeAreaView, { edges: ['bottom'], style: styles.sheet }, text(sheet?.title, styles.sheetTitle), h(ScrollView, null, ...(sheet?.items || []).map((item, index) => h(Pressable, { key: index, style: styles.sheetItem, onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 21, color: accent }), text(item.label, styles.sheetItemText))))))),
     h(Modal, { visible: !!nameDialog, transparent: true, animationType: 'fade', onRequestClose: () => setNameDialog(null) }, h(View, { style: styles.dialogBackdrop }, h(View, { style: styles.dialog }, text(nameDialog?.kind === 'rename' ? 'Rename playlist' : 'New playlist', styles.sheetTitle), h(TextInput, { value: name, onChangeText: setName, autoFocus: true, maxLength: 100, placeholder: 'Playlist name', placeholderTextColor: c.muted, style: styles.nameInput, onSubmitEditing: saveName }), h(View, { style: styles.dialogButtons }, h(Pressable, { onPress: () => setNameDialog(null), style: styles.cancel }, text('Cancel', { color: c.muted })), button('Save', saveName))))));
 }
 
 function makeStyles(c) {
+  const accent = c.accent;
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { width: 46, height: 46, alignItems: 'center', justifyContent: 'center' },
-    button: { backgroundColor: accent, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-    libraryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 14 }, brand: { fontSize: 36, fontWeight: '700', letterSpacing: -1 },
+    root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    button: { backgroundColor: accent, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.onAccent, fontSize: 15, fontWeight: '600' },
+    libraryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 14 }, brand: { fontSize: 32, fontWeight: '700', letterSpacing: -1 },
     shortcuts: { flexDirection: 'row', gap: 12, paddingHorizontal: 24, marginBottom: 20 }, shortcut: { flex: 1, backgroundColor: c.card, borderRadius: 18, padding: 16, gap: 13 }, shortcutTitle: { fontSize: 13, fontWeight: '600' },
     tabs: { flexGrow: 0, marginBottom: 6 }, tabContents: { paddingHorizontal: 14 }, tab: { paddingHorizontal: 10, paddingVertical: 12 }, tabText: { fontSize: 16, fontWeight: '600', color: c.muted },
     search: { marginHorizontal: 24, backgroundColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 12, minHeight: 46, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', paddingLeft: 24, paddingRight: 12, minHeight: 52 }, shuffleAll: { padding: 10 },
     list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9 }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, fontWeight: '500' }, subtitle: { fontSize: 12, color: c.muted },
-    mini: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 10, backgroundColor: c.card, borderRadius: 22 }, miniTitle: { fontSize: 14, fontWeight: '600' },
+    boostRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.card, borderRadius: 16, padding: 18, marginTop: 24 }, bottomNav: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: c.line, paddingTop: 8, paddingBottom: 4 }, navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 52, gap: 5 }, navLabel: { fontSize: 11, color: c.muted }, mini: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 10, backgroundColor: c.card, borderRadius: 22 }, miniTitle: { fontSize: 14, fontWeight: '600' },
     pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.muted, fontSize: 11, letterSpacing: 2 },
     playerBody: { paddingHorizontal: 30, paddingTop: 18, paddingBottom: 26, alignItems: 'center' }, playerTitles: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', marginTop: 28, marginBottom: 22 }, playerTitle: { fontSize: 25, fontWeight: '600' }, playerArtist: { color: c.muted, fontSize: 15, marginTop: 10 }, slider: { width: '100%', height: 36 }, times: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' }, transport: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }, bigPlay: { width: 76, height: 76, borderRadius: 38, backgroundColor: accent }, repeatOne: { position: 'absolute', right: 6, bottom: 3, fontSize: 10, color: accent }, timer: { color: accent, fontSize: 12, marginTop: 18 },
     groupRow: { flexDirection: 'row', alignItems: 'center', padding: 8, paddingVertical: 12 }, groupIcon: { width: 54, height: 54, borderRadius: 14, backgroundColor: c.line, alignItems: 'center', justifyContent: 'center' }, settingsBody: { paddingHorizontal: 24, paddingBottom: 28 }, section: { color: accent, fontSize: 11, letterSpacing: 1.4, fontWeight: '600', marginTop: 26, marginBottom: 12 }, count: { color: c.muted, fontSize: 13, paddingHorizontal: 24, marginVertical: 10 },

@@ -2,7 +2,9 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Status:** the Expo APK compiled successfully on [GitHub Actions](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430). All six selector tests, Expo compatibility checks, prebuild, Android compilation, Android Lint, APK signature verification and the offline-permission check passed. [Download the APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430/artifacts/12163963175), extract `app-release.apk`, and install it on an ARM Android 8.0+ phone. This is a development-signed sideload build; physical-device playback and exact Mi Music parity remain unverified.
+**Version 1.2: build authorized, verification in progress.** The review hold has been lifted by the user. Local library tests, actual Java DSP signal tests, Java syntax checks and JavaScript syntax checks pass; Android/Media3 type checking, Lint, UI and physical-device validation are pending. Review the [sound engineering design and sources](docs/AUDIO_ENGINE.md).
+
+**Previous build: version 1.1.** The earlier Expo APK compiled successfully on [GitHub Actions](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430). [Download that older APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39201321430/artifacts/12163963175). It does **not** include the new theme or sound engine. It is a development-signed sideload build; physical-device playback and exact Mi Music parity remain unverified.
 
 Local SDK/dependency installation is still blocked because the managed command sandbox rejects network sockets with `EPERM`. SDK installation into the workspace is supported once scoped network access is available. The successful APK was built on GitHub, not in the managed workspace.
 
@@ -10,8 +12,8 @@ Local SDK/dependency installation is still blocked because the managed command s
 
 - `App.js`: Expo / React Native library, search, albums/artists/folders, favourites, playlists, queue, now-playing screen, themes and common settings.
 - `modules/local-music/`: an autolinked local Expo module, using Kotlin to bridge the Android playback service and MediaStore library scanner.
-- The native engine retains background playback, media-session/notification and headset controls, audio focus, equalizer, sleep timer and playback speed. These features do not depend on JavaScript timers to keep playing.
-- Advanced filters, excluded folders, equalizer controls, file sharing and local text/LRC lyrics remain available through retained native screens. The main player and library use React Native; this is not a complete rewrite of the audio engine in JavaScript.
+- The 1.2 draft uses Media3 playlists and native PCM processing, with 10-band EQ, automatic EQ headroom, preamp, bass/treble, 100–300% gain, a stereo-linked sample-peak limiter, optional dynamics, balance/width/mono, saved sound profiles, independent speed/pitch, silence skipping and sleep fade. These controls have custom Expo screens. See [implementation details and limits](docs/AUDIO_ENGINE.md).
+- Library filters and selected music roots have custom Expo controls. The Android system directory picker chooses roots; the browser keeps descendant folders under their parents. It scans audio indexed by MediaStore, not arbitrary unindexed or cloud-provider files. Local text/LRC lyrics still use the retained native screen.
 - No advertising, streaming, accounts, analytics SDK or microphone access. Offline release builds remove internet/network-state permissions; development builds retain network access for Metro.
 
 This needs a **development build or standalone APK**, not Expo Go, because the custom playback module must be compiled into the app. It is Android-only; no iOS or web player is included.
@@ -58,7 +60,7 @@ No Expo account or EAS project has been linked, and no EAS build has been starte
 
 ## Verification
 
-Run dependency-free library logic tests with `npm run check`. The tests cover playlist order with unavailable files, favourites, collection filtering, immutable sorting, listening history, album counts and durations.
+Run `npm run check` with Node and a JDK. It runs the library selectors (including hierarchical folders) and actual Java signal-processing tests. It does not build an APK.
 
 JavaScript, native Java, JSON and Android XML were also checked offline. The successful GitHub build additionally verified native module autolinking, Kotlin/Java compilation, Android Lint, APK signing and removal of internet permission. Physical-device playback, background behaviour, headset controls and UI still require the checks in `verification/DEVICE_CHECKLIST.md`.
 

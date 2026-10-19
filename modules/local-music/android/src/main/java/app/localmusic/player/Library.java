@@ -15,17 +15,19 @@ public final class Library {
         List<Song> out = new ArrayList<>();
         String[] cols={"_id","title","artist","album","album_id","duration","_size","date_added","_data"};
         Set<String> excluded=p.getStringSet("excluded",Collections.emptySet());
+        Set<String> roots=p.getStringSet("musicRoots",Collections.emptySet());
         try(Cursor cur=c.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,cols,null,null,"title COLLATE NOCASE ASC")) {
             while(cur!=null && cur.moveToNext()) {
                 Song s=new Song(); s.id=cur.getLong(0); s.title=clean(cur.getString(1),"Untitled"); s.artist=clean(cur.getString(2),"Unknown artist"); s.album=clean(cur.getString(3),"Unknown album");
                 s.albumId=cur.getLong(4); s.duration=cur.getLong(5); s.size=cur.getLong(6); s.added=cur.getLong(7); s.path=clean(cur.getString(8),"");
                 int slash=s.path.lastIndexOf('/'); s.folder=slash>0?s.path.substring(0,slash):"Other";
-                if(s.duration < p.getInt("minDuration",0)*1000L || s.size < p.getInt("minSize",0)*1024L || excluded.contains(s.folder)) continue;
+                if(s.duration < p.getInt("minDuration",0)*1000L || s.size < p.getInt("minSize",0)*1024L || withinAny(s.folder,excluded) || (!roots.isEmpty()&&!withinAny(s.folder,roots))) continue;
                 out.add(s);
             }
         }
         return out;
     }
+    private boolean withinAny(String path,Set<String> roots){for(String root:roots)if(path.equals(root)||path.startsWith(root+"/"))return true;return false;}
     private String clean(String s,String fallback) { return s==null || s.isEmpty() || s.equals("<unknown>")?fallback:s; }
     public Set<String> favorites() { return new HashSet<>(p.getStringSet("favorites",Collections.emptySet())); }
     public boolean favorite(Song s) { return favorites().contains(""+s.id); }

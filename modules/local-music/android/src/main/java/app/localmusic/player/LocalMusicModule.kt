@@ -2,6 +2,9 @@ package app.localmusic.player
 
 import android.content.*
 import android.os.*
+import android.app.Activity
+import android.provider.DocumentsContract
+import com.facebook.react.bridge.BaseActivityEventListener
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
@@ -9,13 +12,37 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import org.json.JSONArray
 import org.json.JSONObject
 
-/** Expo bridge; all MediaPlayer/service operations stay on Android's main thread. */
+/** Expo bridge; all player/service operations stay on Android's main thread. */
 class LocalMusicModule : Module() {
   private var playback: PlaybackService? = null
   private var bound = false
   private var registered = false
   private val handler = Handler(Looper.getMainLooper())
   private val pending = mutableListOf<Promise>()
+  private var folderPromise: Promise? = null
+  private val activityListener = object : BaseActivityEventListener() {
+    override fun onActivityResult(activity: Activity?, requestCode: Int, resultCode: Int, data: Intent?) {
+      if (requestCode != 4101) return
+      val promise = folderPromise ?: return
+      folderPromise = null
+      if (resultCode != Activity.RESULT_OK || data?.data == null) { promise.resolve(snapshot()); return }
+      try {
+        val uri = requireNotNull(data.data)
+        val id = DocumentsContract.getTreeDocumentId(uri).split(":", limit = 2)
+        require(id.size == 2) { "Choose a folder on internal storage or an SD card" }
+        val base = if (id[0] == "primary") Environment.getExternalStorageDirectory() else java.io.File("/storage", id[0])
+        val chosen = java.io.File(base, id[1]).canonicalPath
+        require(chosen == base.canonicalPath || chosen.startsWith(base.canonicalPath + "/")) { "Invalid music folder" }
+        require(java.io.File(chosen).isDirectory) { "Choose a folder on internal storage or an SD card" }
+        val roots = library.prefs().getStringSet("musicRoots", emptySet())!!.toMutableSet()
+        require(roots.size < 10 || roots.contains(chosen)) { "You can select up to ten music folders" }
+        roots.add(chosen)
+        try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
+        library.prefs().edit().putStringSet("musicRoots", roots).apply()
+        promise.resolve(snapshot())
+      } catch (e: Exception) { promise.reject("E_FOLDER", e.message, e) }
+    }
+  }
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
   private val library: Library get() = Library(context)
   private val connection = object : ServiceConnection {
@@ -42,6 +69,7 @@ class LocalMusicModule : Module() {
         if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else context.registerReceiver(receiver, filter)
         registered = true
+        appContext.reactContext?.addActivityEventListener(activityListener)
       }
       if (playback != null) promise.resolve(snapshot())
       else {
@@ -80,6 +108,26 @@ class LocalMusicModule : Module() {
         "shuffle" -> service.setShuffle(!service.shuffle)
         "repeat" -> service.setRepeat((service.repeat + 1) % 3)
         "speed" -> service.setSpeed(data.getDouble("value").toFloat().coerceIn(0.5f, 2f))
+        "pitch" -> service.setPitch(data.getDouble("value").toFloat().coerceIn(-12f, 12f))
+        "sound" -> service.updateSound(data)
+        "soundReset" -> service.resetSound()
+        "profileApply" -> service.applyProfile(data.getString("name"))
+        "profileSave" -> service.saveProfile(data.getString("name").trim())
+        "profileDelete" -> service.deleteProfile(data.getString("name"))
+        "skipSilence" -> service.setSkipSilence(data.getBoolean("value"))
+        "sleepFade" -> lib.prefs().edit().putBoolean("sleepFade", data.getBoolean("value")).apply()
+        "includeSubfolders" -> lib.prefs().edit().putBoolean("includeSubfolders", data.getBoolean("value")).apply()
+        "removeRoot" -> {
+          val roots = lib.prefs().getStringSet("musicRoots", emptySet())!!.toMutableSet()
+          roots.remove(data.getString("path")); lib.prefs().edit().putStringSet("musicRoots", roots).apply()
+        }
+        "filters" -> lib.prefs().edit().putInt("minDuration", data.optInt("minDuration", lib.prefs().getInt("minDuration",0)).coerceIn(0,120))
+          .putInt("minSize", data.optInt("minSize", lib.prefs().getInt("minSize",0)).coerceIn(0,2048)).apply()
+        "excludeFolder" -> {
+          val excluded = lib.prefs().getStringSet("excluded", emptySet())!!.toMutableSet()
+          if (data.getBoolean("value")) excluded.add(data.getString("path")) else excluded.remove(data.getString("path"))
+          lib.prefs().edit().putStringSet("excluded", excluded).apply()
+        }
         "sleep" -> service.sleep(data.getInt("minutes").coerceIn(0, 1440))
         "favorite" -> lib.toggleFavorite(Song.from(data.getJSONObject("song")))
         "enqueue" -> service.enqueue(Song.from(data.getJSONObject("song")), data.optBoolean("next", false))
@@ -94,10 +142,21 @@ class LocalMusicModule : Module() {
         "theme" -> lib.prefs().edit().putString("theme", data.getString("value")).apply()
         "sort" -> lib.prefs().edit().putString("sort", data.getString("value")).apply()
         "clearHistory" -> lib.prefs().edit().remove("recent").apply()
-        "pauseDisconnect" -> lib.prefs().edit().putBoolean("pauseDisconnect", data.getBoolean("value")).apply()
+        "pauseDisconnect" -> service.setPauseDisconnect(data.getBoolean("value"))
         else -> throw IllegalArgumentException("Unknown music action: $action")
       }
       snapshot()
+    }.runOnQueue(Queues.MAIN)
+
+    AsyncFunction("chooseFolder") { promise: Promise ->
+      if (folderPromise != null) promise.reject("E_FOLDER_BUSY", "Finish choosing the current folder first", null)
+      else {
+        try {
+          val activity = requireNotNull(appContext.currentActivity) { "Open the app before choosing a folder" }
+          folderPromise = promise
+          activity.startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), 4101)
+        } catch (e: Exception) { folderPromise = null; promise.reject("E_FOLDER", e.message, e) }
+      }
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("openNative") { screen: String ->
@@ -111,8 +170,10 @@ class LocalMusicModule : Module() {
         if (ctx != null) {
           if (bound) ctx.unbindService(connection)
           if (registered) ctx.unregisterReceiver(receiver)
+          ctx.removeActivityEventListener(activityListener)
         }
         pending.forEach { it.reject("E_DESTROYED", "Music module closed", null) }; pending.clear()
+        folderPromise?.reject("E_DESTROYED", "Folder picker closed", null); folderPromise = null
         bound = false; registered = false; playback = null
         handler.removeCallbacksAndMessages(null)
       }
@@ -139,12 +200,25 @@ class LocalMusicModule : Module() {
       put("shuffle", s?.shuffle ?: prefs.getBoolean("shuffle", false))
       put("repeat", s?.repeat ?: prefs.getInt("repeat", 0))
       put("speed", s?.speed() ?: prefs.getFloat("speed", 1f))
+      put("pitch", s?.pitch() ?: prefs.getFloat("pitch", 0f))
+      put("skipSilence", prefs.getBoolean("skipSilence", false))
+      put("sleepFade", prefs.getBoolean("sleepFade", true))
+      put("sound", s?.sound() ?: SoundSettings().json())
+      put("soundStatus", s?.soundStatus() ?: JSONObject())
+      put("soundPresets", JSONArray(SoundSettings.PRESET_NAMES.toList()))
+      put("soundProfiles", s?.savedProfiles() ?: JSONObject())
+      put("equalizerPresets", JSONObject().also { presets -> SoundSettings.PRESET_NAMES.forEach { presets.put(it, SoundSettings.preset(it)) } })
+      put("musicRoots", JSONArray(prefs.getStringSet("musicRoots", emptySet())!!.sorted()))
+      put("excluded", JSONArray(prefs.getStringSet("excluded", emptySet())!!.sorted()))
+      put("minDuration", prefs.getInt("minDuration",0))
+      put("minSize", prefs.getInt("minSize",0))
+      put("includeSubfolders", prefs.getBoolean("includeSubfolders",true))
       put("sleepRemaining", s?.sleepRemaining() ?: 0)
       put("queue", JSONArray().also { a -> s?.queue?.forEach { a.put(it.json()) } })
       put("favorites", JSONArray(lib.favorites().toList()))
       put("recent", JSONArray(lib.recentIds()))
       put("playlists", lib.playlists())
-      put("theme", prefs.getString("theme", "System"))
+      put("theme", prefs.getString("theme", "Dark"))
       put("sort", prefs.getString("sort", "Title"))
       put("pauseDisconnect", prefs.getBoolean("pauseDisconnect", true))
       put("excludedCount", prefs.getStringSet("excluded", emptySet())?.size ?: 0)

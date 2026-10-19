@@ -39,3 +39,19 @@ test('durations remain valid for long songs and invalid values', async () => {
   assert.equal(formatTime(-100), '0:00');
   assert.equal(formatTime(undefined), '0:00');
 });
+test('folder browsing shows immediate children, not flattened descendants', async () => {
+  const { folderChildren, folderRoots, selectSongs } = await api;
+  const nested = [
+    { id: 1, folder: '/storage/emulated/0/Music/Electronic/Ambient', title: 'One' },
+    { id: 2, folder: '/storage/emulated/0/Music/Electronic/House', title: 'Two' },
+    { id: 3, folder: '/storage/emulated/0/Music/Jazz', title: 'Three' },
+    { id: 4, folder: '/storage/emulated/0/Music', title: 'Four' },
+    { id: 5, folder: '/storage/emulated/0/Musicals', title: 'Five' }
+  ];
+  assert.deepEqual(folderChildren(nested, '/storage/emulated/0/Music').map(g => [g.name.split('/').pop(), g.count]), [['Electronic', 2], ['Jazz', 1]]);
+  assert.deepEqual(folderChildren(nested, '/storage/emulated/0/Music/Electronic').map(g => g.name.split('/').pop()), ['Ambient', 'House']);
+  assert.deepEqual(selectSongs(nested, {}, { kind: 'Folders', name: '/storage/emulated/0/Music' }).map(s => s.id), [4]);
+  assert.deepEqual(selectSongs(nested, {}, { kind: 'Folders', name: '/storage/emulated/0/Music', recursive: true }).map(s => s.id), [1, 2, 3, 4]);
+  assert.deepEqual(folderRoots(nested), [{ name: '/storage/emulated/0', count: 5 }]);
+  assert.deepEqual(folderRoots(nested, ['/storage/emulated/0/Music', '/storage/SD/Music']).map(g => g.count), [4, 0]);
+});

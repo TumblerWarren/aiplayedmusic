@@ -33,7 +33,7 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - name: Install Expo dependencies
         run: npm install --no-audit --no-fund
-      - name: Check library selectors and configuration
+      - name: Verify library and audio signal processing
         run: npm run check
       - name: Verify Expo dependency compatibility
         run: npx expo install --check
@@ -59,6 +59,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: aiplayedmusic-apk
+          retention-days: 7
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
       - name: Upload build diagnostics
@@ -66,6 +67,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-diagnostics
+          retention-days: 7
           path: |
             android/app/build/reports/
             package-lock.json

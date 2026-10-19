@@ -14,10 +14,34 @@ export function selectSongs(songs, state, selection, query = '') {
     result = ids.map(id => byId.get(id)).filter(Boolean);
   } else if (selection?.kind === 'Albums' || selection?.kind === 'Artists' || selection?.kind === 'Folders') {
     const key = { Albums: 'album', Artists: 'artist', Folders: 'folder' }[selection.kind];
-    result = songs.filter(song => song[key] === selection.name);
+    result = songs.filter(song => song[key] === selection.name || (selection.kind === 'Folders' && selection.recursive && song.folder.startsWith(`${selection.name}/`)));
   }
   const term = query.trim().toLocaleLowerCase();
   return result.filter(song => !term || `${song.title} ${song.artist} ${song.album}`.toLocaleLowerCase().includes(term));
+}
+
+export function folderRoots(songs, chosen = []) {
+  if (chosen.length) return chosen.map(name => ({ name, count: songs.filter(s => s.folder === name || s.folder.startsWith(`${name}/`)).length }));
+  const roots = new Map();
+  for (const song of songs) {
+    const parts = song.folder.split('/').filter(Boolean);
+    const root = parts[0] === 'storage' ? `/${parts.slice(0, parts[1] === 'emulated' ? 3 : 2).join('/')}` : song.folder.startsWith('/') ? '/' : song.folder;
+    roots.set(root, (roots.get(root) || 0) + 1);
+  }
+  return [...roots].sort(([a], [b]) => a.localeCompare(b)).map(([name, count]) => ({ name, count }));
+}
+
+/** Immediate children only; descendants remain inside their real parent directory. */
+export function folderChildren(songs, path, query = '') {
+  const children = new Map(), prefix = path.endsWith('/') ? path : `${path}/`;
+  for (const song of songs) {
+    if (!song.folder.startsWith(prefix)) continue;
+    const part = song.folder.slice(prefix.length).split('/')[0];
+    if (!part) continue;
+    const child = `${prefix}${part}`;
+    children.set(child, (children.get(child) || 0) + 1);
+  }
+  return [...children].filter(([name]) => name.slice(prefix.length).toLocaleLowerCase().includes(query.toLocaleLowerCase())).sort(([a], [b]) => a.localeCompare(b)).map(([name, count]) => ({ name, count }));
 }
 export function sortSongs(songs, sort) {
   return [...songs].sort((a, b) => sort === 'Date added' ? b.added - a.added : sort === 'Duration' ? b.duration - a.duration : String(sort === 'Artist' ? a.artist : a.title).localeCompare(sort === 'Artist' ? b.artist : b.title));
