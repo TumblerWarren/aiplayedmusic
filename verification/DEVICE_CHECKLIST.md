@@ -15,6 +15,7 @@
 - Index actual MP3, AAC/M4A, FLAC, OGG and WAV samples; verify SD card media where supported.
 - Verify the empty state, search, sort, rescan, size/duration filters and folder exclusions.
 - Verify unsupported/missing files fail visibly without an infinite skip loop.
+- Restore a paused queue whose current file was deleted; it must stay paused. Pause during an error retry and confirm the next song does not start.
 
 ## Playback and audio
 

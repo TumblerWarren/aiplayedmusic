@@ -72,7 +72,10 @@ public class PlaybackService extends Service {
             @Override public void onPlayerError(PlaybackException e){
                 error="Couldn't play this file. It may be missing or unsupported.";
                 sendBroadcast(new Intent(CHANGED).setPackage(getPackageName()).putExtra("error",error));
-                if(++failures<Math.min(3,queue.size()))handler.post(()->{if(!closing&&!queue.isEmpty()){player.seekToDefaultPosition((index+1)%queue.size());player.prepare();player.play();}});
+                Song failedSong=current();
+                if(player.getPlayWhenReady()&&++failures<Math.min(3,queue.size()))handler.post(()->{
+                    if(!closing&&!queue.isEmpty()&&player.getPlayWhenReady()&&current()==failedSong){player.seekToDefaultPosition((index+1)%queue.size());player.prepare();player.play();}
+                });
                 else {player.pause();if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}publish();}
             }
         });
