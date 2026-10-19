@@ -1,0 +1,11 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'app.localmusic.player'
+version = '1.0.0'
+android {
+  namespace 'app.localmusic.engine'
+  defaultConfig { minSdkVersion 26 }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

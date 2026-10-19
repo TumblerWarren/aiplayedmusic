@@ -19,7 +19,7 @@ import java.io.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class MainActivity extends Activity {
+public class NativeMusicActivity extends Activity {
     private Library library;
     private PlaybackService service;
     private boolean bound=false, scanning=false, resumed=false, dragging=false;
@@ -41,7 +41,7 @@ public class MainActivity extends Activity {
     private final BroadcastReceiver changes=new BroadcastReceiver(){public void onReceive(Context c,Intent i){String error=i.getStringExtra("error");if(error!=null)toast(error);updatePlayback();}};
     private final ServiceConnection connection=new ServiceConnection(){public void onServiceConnected(ComponentName n,IBinder b){service=((PlaybackService.LocalBinder)b).service();updatePlayback();}public void onServiceDisconnected(ComponentName n){service=null;}};
 
-    @Override public void onCreate(Bundle state){super.onCreate(state);library=new Library(this);if(state!=null){page=state.getString("page","library");tab=state.getString("tab","Songs");group=state.getString("group","");category=state.getString("category","");}applyTheme();bound=bindService(new Intent(this,PlaybackService.class),connection,BIND_AUTO_CREATE);render();if(hasPermission())scan();}
+    @Override public void onCreate(Bundle state){super.onCreate(state);library=new Library(this);if(state!=null){page=state.getString("page","library");tab=state.getString("tab","Songs");group=state.getString("group","");category=state.getString("category","");}if(getIntent().hasExtra("screen"))page=getIntent().getStringExtra("screen");applyTheme();bound=bindService(new Intent(this,PlaybackService.class),connection,BIND_AUTO_CREATE);render();if(hasPermission())scan();}
     @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("page",page);b.putString("tab",tab);b.putString("group",group);b.putString("category",category);}
     @Override public void onConfigurationChanged(Configuration c){super.onConfigurationChanged(c);applyTheme();render();}
     @Override protected void onResume(){super.onResume();resumed=true;if(Build.VERSION.SDK_INT>=33)registerReceiver(changes,new IntentFilter(PlaybackService.CHANGED),Context.RECEIVER_NOT_EXPORTED);else registerReceiver(changes,new IntentFilter(PlaybackService.CHANGED));handler.post(ticker);if(hasPermission()&&songs.isEmpty()&&!scanning)scan();updatePlayback();}
@@ -114,7 +114,7 @@ public class MainActivity extends Activity {
     }
     private class SongRow extends LinearLayout {
         TextView main,sub;Ui.Artwork art;Song song;
-        SongRow(){super(MainActivity.this);setGravity(Gravity.CENTER_VERTICAL);pad(this,8,8);art=new Ui.Artwork(MainActivity.this);addView(art,lp(50,50));LinearLayout labels=column();pad(labels,13,0);main=title("",15);main.setSingleLine();main.setEllipsize(TextUtils.TruncateAt.END);labels.addView(main);sub=text("",12,Ui.muted);sub.setSingleLine();sub.setEllipsize(TextUtils.TruncateAt.END);LinearLayout.LayoutParams sm=lp(-1,24);labels.addView(sub,sm);addView(labels,new LinearLayout.LayoutParams(0,-2,1));Ui.Icon more=icon("more",Ui.muted,()->songOptions(song));more.setFocusable(false);addView(more);}
+        SongRow(){super(NativeMusicActivity.this);setGravity(Gravity.CENTER_VERTICAL);pad(this,8,8);art=new Ui.Artwork(NativeMusicActivity.this);addView(art,lp(50,50));LinearLayout labels=column();pad(labels,13,0);main=title("",15);main.setSingleLine();main.setEllipsize(TextUtils.TruncateAt.END);labels.addView(main);sub=text("",12,Ui.muted);sub.setSingleLine();sub.setEllipsize(TextUtils.TruncateAt.END);LinearLayout.LayoutParams sm=lp(-1,24);labels.addView(sub,sm);addView(labels,new LinearLayout.LayoutParams(0,-2,1));Ui.Icon more=icon("more",Ui.muted,()->songOptions(song));more.setFocusable(false);addView(more);}
     }
     private void loadArt(Ui.Artwork v,Song s){v.set(s,s==null?null:artCache.get(s.albumId));if(s==null||artMissing.contains(s.albumId)||artCache.get(s.albumId)!=null||!artLoading.add(s.albumId))return;
         worker.execute(()->{Bitmap b=null;try(InputStream in=getContentResolver().openInputStream(s.art())){BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=2;b=BitmapFactory.decodeStream(in,null,options);}catch(Exception ignored){}if(b!=null)artCache.put(s.albumId,b);else artMissing.add(s.albumId);artLoading.remove(s.albumId);handler.post(()->{if(isDestroyed())return;if(adapter!=null)adapter.notifyDataSetChanged();if(miniArt!=null&&service!=null&&service.current()!=null)miniArt.set(service.current(),artCache.get(service.current().albumId));if(playerArt!=null&&service!=null&&service.current()!=null)playerArt.set(service.current(),artCache.get(service.current().albumId));});});

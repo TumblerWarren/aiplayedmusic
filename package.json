@@ -1,0 +1,32 @@
+{
+  "name": "aiplayedmusic",
+  "version": "1.1.0",
+  "private": true,
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start --dev-client",
+    "android": "expo run:android",
+    "prebuild": "expo prebuild --platform android",
+    "check": "node --test --test-isolation=none scripts/*.test.cjs",
+    "doctor": "expo-doctor"
+  },
+  "dependencies": {
+    "expo": "~56.0.23",
+    "expo-dev-client": "~56.0.27",
+    "expo-modules-core": "~56.0.27",
+    "react": "19.2.3",
+    "react-native": "0.85.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "@expo/vector-icons": "^15.0.2",
+    "@react-native-community/slider": "5.2.0",
+    "expo-build-properties": "~56.0.27"
+  },
+  "expo": {
+    "autolinking": {
+      "nativeModulesDir": "./modules"
+    }
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  }
+}

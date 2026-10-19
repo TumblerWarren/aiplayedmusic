@@ -1,58 +1,63 @@
-# Music for Android
+# AI Played Music — Expo Android app
 
-Independent local music player inspired by Mi Music. Android 8.0 (API 26) and later; targets Android 15 (API 35). Package: `app.localmusic.player`. Uses native Android Java APIs without third-party runtime libraries.
+A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Current status: source draft only. No APK has been compiled or tested.** The managed environment has Java but no Android SDK or Gradle. Terminal HTTP requests fail to connect to its configured proxy. Network-permission attempts did not complete. Do not treat syntax checks as a successful Android build.
+**Status:** migration source is written; offline selector tests and syntax/XML checks pass. Dependencies have not been installed in the managed environment because its HTTP proxy is unreachable. No Expo APK or device playback has been verified yet. The original Mi Music settings and visual parity are also unverified.
 
-## Implemented in source
+## Architecture and features
 
-- On-device audio discovery, search, sorting, albums, artists and folders.
-- Persistent favourites, listening history, and create/rename/delete playlists.
-- Background playback with media notification, lock-screen media session, audio focus, and pause on headphone/Bluetooth disconnection.
-- Now-playing screen, seeking, shuffle, repeat, queue editing and reordering.
-- Device-provided equalizer bands and presets, playback speed and sleep timer.
-- System/light/dark themes; minimum duration/size filters; excluded folders.
-- Local UTF-8 text/LRC lyrics import with timed highlighting.
-- Song information and sharing through Android's share sheet.
+- `App.js`: Expo / React Native library, search, albums/artists/folders, favourites, playlists, queue, now-playing screen, themes and common settings.
+- `modules/local-music/`: an autolinked local Expo module, using Kotlin to bridge the Android playback service and MediaStore library scanner.
+- The native engine retains background playback, media-session/notification and headset controls, audio focus, equalizer, sleep timer and playback speed. These features do not depend on JavaScript timers to keep playing.
+- Advanced filters, excluded folders, equalizer controls, file sharing and local text/LRC lyrics remain available through retained native screens. The main player and library use React Native; this is not a complete rewrite of the audio engine in JavaScript.
+- No advertising, streaming, accounts, analytics SDK or microphone access. Offline release builds remove internet/network-state permissions; development builds retain network access for Metro.
 
-There are no ads, video features, accounts, analytics SDKs, or internet permission. Playback formats depend on the phone's codecs; DRM-protected or unsupported files cannot be played. Audio must be available through Android's shared media library, including a mounted SD card when indexed there. App-private files and cloud-only files are outside this scanner.
+This needs a **development build or standalone APK**, not Expo Go, because the custom playback module must be compiled into the app. It is Android-only; no iOS or web player is included.
 
-The UI is an original interpretation, not an exact copy of every Mi Music screen or setting. The supplied Play Store listing was inspected; the original app binary and settings screens were not available. REA was not installed or used because package downloads were unavailable. Exact visual/settings parity remains unverified and needs screenshots or an APK of the intended original version.
+## Build an APK with GitHub Actions
 
-## Build in Android Studio
+The `Build Expo Android APK` workflow runs on pushes to `main`, or manually from Actions. It installs the compatible Expo dependencies, runs the selector tests and Expo compatibility checks, generates Android with Expo prebuild, and runs Gradle compilation and Android Lint.
 
-1. Open this folder in a current Android Studio compatible with Android Gradle Plugin 8.9.2.
-2. Use a full JDK 17 or newer and install Android SDK Platform 35 and Build Tools 35.0.0.
-3. Allow Gradle 8.11.1 and Android Gradle Plugin dependencies to download.
-4. Run `:app:assembleDebug` and `:app:lintDebug`, or choose **Build APK(s)**.
-5. The installable debug-signed APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
+After a successful run, download the `aiplayedmusic-apk` artifact. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. A failed build is not an installable artifact; inspect the uploaded diagnostics.
 
-A wrapper JAR is not bundled. `gradlew` uses a project-local Gradle installation created by the script below, a wrapper JAR if added, or Gradle from PATH. Android Studio can select the specified Gradle distribution directly.
+## Development
 
-## Build from Linux/macOS
-
-With a full JDK 17+, Python 3, curl and unzip installed, run:
+Use Node.js 22.13+ and a full JDK 17, plus Android Studio / Android SDK 36:
 
 ```sh
-./scripts/bootstrap.sh
+npm install
+npx expo install --check
+npx expo run:android
 ```
 
-The script downloads Gradle and the Android command-line tools into `.build-tools`, asks you to accept the Android SDK licences, installs the SDK packages, compiles a debug APK and runs Android Lint. **This script has not been exercised here because downloads are blocked.**
-
-With the tools already installed:
+Subsequent JavaScript development uses:
 
 ```sh
-export ANDROID_HOME=/path/to/android-sdk
-./gradlew :app:assembleDebug :app:lintDebug
+npm start
 ```
 
-A manual GitHub Actions workflow is included as another build route. In this repository, run **Build Android APK** under Actions, then download the `music-debug-apk` artifact. No remote build has been started yet.
+`android/` is generated and ignored. Native source changes belong in `modules/local-music`, and manifest changes in `app.config.js` / `plugins/withMusic.js`. Regenerate Android after native or config changes:
 
-## Validation so far
+```sh
+npx expo prebuild --platform android --no-install --clean
+```
 
-- Five Java source files parse with Java 17 source syntax.
-- Four Android XML files parse successfully.
-- Manifest inspection confirms no internet permission.
-- No Android type checking, Android Lint, APK packaging/signing, emulator execution, device playback or UI verification has run.
+To build a standalone APK locally with a project-local SDK, run `./scripts/bootstrap.sh`. It downloads the SDK tools, requests SDK licence acceptance, installs SDK 36, installs npm dependencies, runs checks, prebuilds Android and builds the release APK. Network access is required for the SDK, npm and Gradle/Maven/NDK dependencies, even if the SDK itself is supplied as an archive.
 
-See `verification/DEVICE_CHECKLIST.md` for checks required before calling this ready. A debug build receives an automatically generated development signing key. A distributable release requires a private signing configuration, which is intentionally absent from this source.
+## Optional Expo EAS builds
+
+`eas.json` includes development, preview APK and production app-bundle profiles. With an Expo account and project configured:
+
+```sh
+npx eas-cli build --platform android --profile preview
+```
+
+No Expo account or EAS project has been linked, and no EAS build has been started. EAS is optional; GitHub Actions and local prebuild can build without an Expo account.
+
+## Verification
+
+Run dependency-free library logic tests with `npm run check`. The tests cover playlist order with unavailable files, favourites, collection filtering, immutable sorting, listening history, album counts and durations.
+
+Java files were parsed with Java 17 syntax; JavaScript, JSON and Android XML were checked offline. These checks do **not** validate Expo autolinking, Kotlin types, Android compilation, playback or device UI. See `verification/DEVICE_CHECKLIST.md` before calling the app ready.
+
+The supplied Play Store listing was inspected. REA was not installed, and no original binary/settings screenshots were available, so this is an independent implementation rather than a verified exact replica.

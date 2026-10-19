@@ -1,5 +1,7 @@
 package app.localmusic.player;
 
+import app.localmusic.engine.R;
+
 import android.app.*;
 import android.content.*;
 import android.media.*;
@@ -100,7 +102,7 @@ public class PlaybackService extends Service {
     private void save(){library.saveQueue(queue,index,position());}
     private PendingIntent action(String a){return PendingIntent.getService(this,a.hashCode(),new Intent(this,PlaybackService.class).setAction(a),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     private Notification notification(){
-        Song s=current();Intent open=new Intent(this,MainActivity.class);PendingIntent pi=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+        Song s=current();Intent open=getPackageManager().getLaunchIntentForPackage(getPackageName());if(open==null)open=new Intent(this,NativeMusicActivity.class);PendingIntent pi=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this,"playback").setSmallIcon(R.drawable.ic_note).setContentTitle(s==null?"Music":s.title).setContentText(s==null?"Your music, offline":s.artist).setContentIntent(pi).setVisibility(Notification.VISIBILITY_PUBLIC).setOnlyAlertOnce(true).setOngoing(playing()).setCategory(Notification.CATEGORY_TRANSPORT)
             .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous,"Previous",action("previous")).build())
             .addAction(new Notification.Action.Builder(playing()?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play,playing()?"Pause":"Play",action(playing()?"pause":"play")).build())

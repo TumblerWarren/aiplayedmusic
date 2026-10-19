@@ -2,8 +2,10 @@
 
 ## Build
 
-- Compile `:app:assembleDebug` with SDK 35 and JDK 17+.
-- Run `:app:lintDebug` and resolve build/lint errors.
+- Install dependencies and run `npx expo install --check`.
+- Generate Android using Expo prebuild; verify the LocalMusic module autolinks.
+- Compile `:app:assembleRelease` with SDK 36 and JDK 17+.
+- Run `:app:lintRelease` and resolve build/lint errors.
 - Verify APK signature and install on physical Android devices.
 
 ## Permissions and discovery
