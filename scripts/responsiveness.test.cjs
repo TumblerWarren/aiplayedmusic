@@ -121,3 +121,20 @@ test('cached selectors preserve playlist/recent ordering, sorting, search and fo
   assert.deepEqual(index.groups('Artists', 'infra'), groupsFor(songs, 'Artists', 'infra'));
   assert.deepEqual(index.folders('/storage/emulated/0/Music'), folderChildren(songs, '/storage/emulated/0/Music'));
 });
+
+test('newer lightweight progress cannot swallow a pending full settings response', async () => {
+  const { createMusicStore } = await import('../src/stateStore.js');
+  const store = createMusicStore();
+  const current = song(1, 'Track');
+  store.accept({ sequence: 1, current, position: 0, speed: 1, sound: { volume: 100 } });
+  store.telemetry({ sequence: 3, currentId: 1, position: 500 });
+  store.accept({ sequence: 2, current, position: 250, speed: 1.5, sound: { volume: 110 } });
+  assert.equal(store.get('main').speed, 1.5);
+  assert.equal(store.get('main').sound.volume, 110);
+  assert.equal(store.get('progress').position, 500, 'the older full response must not rewind progress');
+  const initializing = createMusicStore({ current: null });
+  initializing.telemetry({ sequence: 2, currentId: 1, position: 500 });
+  initializing.accept({ sequence: 1, current, position: 250 });
+  assert.equal(initializing.get('main').current.id, 1);
+  assert.equal(initializing.get('progress').position, 500, 'initialization can also complete after the first status response');
+});
