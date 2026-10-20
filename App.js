@@ -201,7 +201,7 @@ function MusicApp() {
   const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
   const mini = h(Pressable, { onPress: () => go('player'), style: styles.mini, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
     h(Artwork, { song: state.current, size: 46 }), h(View, { style: styles.songLabels }, text(state.current?.title || 'Choose a song', styles.miniTitle, { numberOfLines: 1 }), text(state.current?.artist || 'Your music, offline', styles.subtitle, { numberOfLines: 1 })),
-    state.playing && h(PlayingBars, { playing: true, color: accent, size: 20 }),
+    state.playing && h(View, { style: { marginRight: 12 } }, h(PlayingBars, { playing: true, color: accent, size: 20 })),
     icon(state.playing ? 'pause' : 'play', () => state.current ? command('toggle') : play(songs), accent, 23, { label: state.playing ? 'Pause' : 'Play', style: { backgroundColor: c.card, borderRadius: 24 } }), icon('skip-forward', () => command('next'), c.ink, 22, { label: 'Next song' }));
 
   if (!Native || Platform.OS !== 'android') return h(SafeAreaView, { style: styles.root }, h(View, { style: styles.welcome }, h(Feather, { name: 'music', size: 64, color: accent }), text('Your music.\nYour moment.', styles.welcomeTitle), text('Install the full Android app to play music stored on your phone.', styles.welcomeDetail)));
@@ -240,7 +240,6 @@ function MusicApp() {
     content = h(View, { style: styles.flex },
       path ? header(folderName(path), icon('more-vertical', () => folderOptions(path)), backFolder) : h(View, { style: styles.libraryHeader }, text('Folders', styles.brand), icon('folder-plus', chooseFolder)),
       !path && libraryTabs,
-      path && text(path, [styles.count, { lineHeight: 20 }]),
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }),
       path && h(View, { style: [styles.listControls, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
       path && h(View, { style: { paddingHorizontal: 24, marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))),
