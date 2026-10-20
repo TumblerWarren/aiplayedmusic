@@ -9,3 +9,11 @@
 Validation: npm run check passes UI syntax/imports, 7 library tests, 6 navigation/gesture tests and 426333 DSP assertions.
 
 Device checks pending: launcher appearance after prebuild, filled/outlined hearts at all sizes, swipe versus tap/scroll on mini-player and artwork, menu outside-tap and handle dismissal with large text and keyboard visible. No APK was built for this change.
+
+## Blank artwork screenshot follow-up
+
+The supplied screenshot shows a rounded-square artwork treatment, unlike this branch's circular vinyl player. It does not establish the installed APK's commit. A new build from this branch is needed to test these fixes.
+
+The app now always draws the bundled Aiplayed PNG behind album art instead of relying on SVG fallback artwork. Missing or failed album-art lookups leave the branded image visible. Artwork state is keyed by album so late callbacks from an earlier song cannot reveal stale art. The existing record and center artwork rotate together only during foreground playback when Reduce Motion is off. Button layout reserves its width so long song titles cannot squeeze the heart.
+
+Validation: npm run check. Physical Android rendering and animation remain unverified in this environment.

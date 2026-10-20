@@ -11,7 +11,7 @@ import SwipeSurface from './src/SwipeSurface';
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
 import { palette, tones } from './src/design';
-import { Pattern, FallbackArt } from './src/Pastel';
+import { Pattern } from './src/Pastel';
 import { folderChildren, folderRoots, formatTime, groupsFor, selectSongs, sortSongs } from './src/music';
 
 const h = React.createElement;
@@ -20,14 +20,19 @@ const tabs = ['Songs', 'Playlists', 'Albums', 'Artists', 'Folders'];
 
 const folderName = name => name.split('/').filter(Boolean).pop() || name;
 
-function Artwork({ song, size = 52, round = false }) {
+// Remount on album changes so late image callbacks cannot reveal the previous album.
+function Artwork(props) {
+  return h(AlbumArtwork, { ...props, key: String(props.song?.albumId || 'fallback') });
+}
+
+function AlbumArtwork({ song, size = 52, round = false }) {
   const [failed, setFailed] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  useEffect(() => { setFailed(false); setLoaded(false); }, [song?.albumId]);
-  const seed = Math.abs(Number(song?.albumId || 0));
+  const uri = Number(song?.albumId) > 0 ? `content://media/external/audio/albumart/${song.albumId}` : null;
   return h(View, { style: { width: size, height: size, borderRadius: round ? size / 2 : size > 100 ? 16 : 10, backgroundColor: '#EDE5FC', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, accessible: false },
-    h(View, { style: { position: 'absolute', width: size, height: size }, pointerEvents: 'none' }, h(FallbackArt, { size, seed })),
-    song && !failed ? h(Image, { source: { uri: `content://media/external/audio/albumart/${song.albumId}` }, style: { position: 'absolute', width: size, height: size, opacity: loaded ? 1 : 0 }, onLoad: () => setLoaded(true), onError: () => { setFailed(true); setLoaded(false); } }) : null);
+    // A bundled native image remains visible while album art loads or is unavailable.
+    h(Image, { source: require('./assets/aiplayed-icon.png'), resizeMode: 'cover', fadeDuration: 0, style: { width: size, height: size } }),
+    uri && !failed ? h(Image, { source: { uri }, resizeMode: 'cover', fadeDuration: 0, style: { position: 'absolute', width: size, height: size, opacity: loaded ? 1 : 0 }, onLoad: () => setLoaded(true), onError: () => { setFailed(true); setLoaded(false); } }) : null);
 }
 
 function MusicApp() {
@@ -216,7 +221,7 @@ function MusicApp() {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: styles.pageHeader }, icon('chevron-down', () => go('library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
       h(ScrollView, { contentContainerStyle: styles.playerBody }, h(SwipeSurface, { enabled: !!song && !sheet && !nameDialog, onAction: command, accessibilityHint: 'Swipe left for next song or right for previous song' }, h(PlayingArtwork, { playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.52, round: true }))),
-        h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26, { label: song && state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', filled: !!song && state.favorites.includes(String(song.id)) })),
+        h(View, { style: styles.playerTitles }, h(View, { style: [styles.flex, { minWidth: 0 }] }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26, { label: song && state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', filled: !!song && state.favorites.includes(String(song.id)) })),
         h(Slider, { style: styles.slider, minimumValue: 0, maximumValue: Math.max(1, state.duration), value: dragPosition ?? state.position, onSlidingStart: value => setDragPosition(value), onValueChange: setDragPosition, onSlidingComplete: async value => { await command('seek', { position: Math.round(value) }); setDragPosition(null); }, minimumTrackTintColor: accent, maximumTrackTintColor: c.line, thumbTintColor: accent, accessibilityLabel: 'Playback position' }),
         h(View, { style: styles.times }, text(formatTime(dragPosition ?? state.position), styles.subtitle), text(formatTime(state.duration), styles.subtitle)),
         h(View, { style: styles.transport }, icon('shuffle', () => command('shuffle'), state.shuffle ? accent : c.muted), icon('skip-back', () => command('previous'), c.ink, 30), icon(state.playing ? 'pause' : 'play', () => song ? command('toggle') : play(songs), c.onAccent, 34, { label: state.playing ? 'Pause' : 'Play', style: styles.bigPlay }), icon('skip-forward', () => command('next'), c.ink, 30), h(View, null, icon('repeat', () => command('repeat'), state.repeat ? accent : c.muted), state.repeat === 2 && text('1', styles.repeatOne))),
@@ -280,13 +285,13 @@ function MusicApp() {
 function makeStyles(c) {
   const accent = c.accent;
   return StyleSheet.create({
-    root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+    root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     button: { backgroundColor: accent, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.onAccent, fontSize: 15, fontWeight: '600' },
     libraryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 4 }, brand: { fontSize: 28, fontWeight: '700', letterSpacing: -1 },
     shortcuts: { flexDirection: 'row', gap: 8, marginBottom: 10 }, shortcut: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: 22, padding: 13, overflow: 'hidden' }, shortcutTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
     tabs: { flexGrow: 0, marginBottom: 10 }, tabContents: { paddingHorizontal: 20, gap: 8 }, tab: { paddingHorizontal: 15, paddingVertical: 9, minHeight: 40, borderRadius: 24, backgroundColor: c.line }, tabText: { fontSize: 13, fontWeight: '600', color: c.muted },
     search: { marginHorizontal: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', paddingLeft: 24, paddingRight: 12, minHeight: 44 }, shuffleAll: { padding: 10 },
-    list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, minHeight: 72 }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, fontWeight: '500' }, subtitle: { fontSize: 12, color: c.muted },
+    list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, minHeight: 72 }, songLabels: { flex: 1, minWidth: 0, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, fontWeight: '500' }, subtitle: { fontSize: 12, color: c.muted },
     boostRow: { width: '100%', flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: c.lemon, borderRadius: 22, padding: 18, marginTop: 18 }, bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 54, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
     pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.muted, fontSize: 11, letterSpacing: 2 },
     playerBody: { paddingHorizontal: 30, paddingTop: 18, paddingBottom: 26, alignItems: 'center' }, playerTitles: { flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch', marginTop: 28, marginBottom: 22 }, playerTitle: { fontSize: 25, fontWeight: '600' }, playerArtist: { color: c.muted, fontSize: 15, marginTop: 10 }, slider: { width: '100%', height: 36 }, times: { width: '100%', flexDirection: 'row', justifyContent: 'space-between' }, transport: { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 20 }, playerActions: { width: '100%', flexDirection: 'row', gap: 12, marginTop: 24 }, playerPill: { flex: 1, minHeight: 54, borderRadius: 28, backgroundColor: c.line, flexDirection: 'row', gap: 10, alignItems: 'center', justifyContent: 'center' }, bigPlay: { width: 84, height: 84, borderRadius: 42, backgroundColor: accent }, repeatOne: { position: 'absolute', right: 6, bottom: 3, fontSize: 10, color: accent }, timer: { color: accent, fontSize: 12, marginTop: 18 },
