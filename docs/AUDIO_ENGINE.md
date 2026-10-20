@@ -21,6 +21,27 @@ The custom processor is placed **after** Media3's time/pitch processors. A final
 
 ### Output and dynamics
 
+- Output now includes eight presets in wrapping rows. Selecting one sends a single partial `sound` command, which the service validates, persists in `soundV2` and applies to the existing processor. Manual edits update the selected preset from the actual settings; unmatched combinations display Custom. Saved sound profiles already include these controls.
+
+| Output preset | Volume | Dynamics | Stereo width | Mono |
+|---|---:|---|---:|---|
+| Balanced | 100% | Off | 100% | Off |
+| Gentle | 100% | Gentle | 100% | Off |
+| Night | 100% | Night | 100% | Off |
+| Boost 125% | 125% | Off | 100% | Off |
+| Boost 150% | 150% | Off | 100% | Off |
+| Mono | 100% | Off | 100% (ignored in mono) | On |
+| Narrow stereo | 100% | Off | 60% | Off |
+| Wide stereo | 100% | Off | 125% | Off |
+
+All presets enable the limiter. They preserve EQ bands/enabled state, bass, treble, preamp, automatic headroom, personal L/R balance and playback speed/pitch. They preserve bypass and cannot be selected while bypass is on. Balanced resets only the preset-managed output controls; it does not bypass tone processing. The percentage values are app-specific starting points, not measured device calibration or a claim of superior sound. They do not normalize track loudness, add surround processing or manufacture stereo from mono.
+
+Research behind the choices:
+
+- [Giannoulis, Massberg & Reiss, JAES 2012](https://joshreiss.github.io/documents/2012/GiannoulisMassbergReiss-dynamicrangecompression-JAES2012.pdf) explains threshold/ratio, soft knees and attack/release. Gentle and Night use the app's existing compressor curves; they reduce loud passages without make-up gain, so quiet passages are not automatically amplified.
+- [Android LoudnessEnhancer documentation](https://developer.android.com/reference/android/media/audiofx/LoudnessEnhancer) distinguishes target amplification from the compression needed when amplified samples exceed range. This supports keeping peak protection with boost presets; this app continues using its existing DSP rather than stacking a platform LoudnessEnhancer on it.
+- [Ableton's Utility reference](https://www.ableton.com/en/live-manual/12/live-audio-effect-reference/#utility) documents mono and stereo-width controls; [Audacity's mono conversion documentation](https://manual.audacityteam.org/man/faq_editing.html#How_do_I_convert_a_stereo_track_to_mono.2C_or_mono_to_stereo.3F) describes averaging L/R. The app uses its existing mid/side scaling and mono average. Its exact width values are our design choices; widening does not create differences between identical L/R channels.
+
 - 100–300% boost is a **linear amplitude multiplier**; 300% corresponds to approximately +9.54 dB before headroom/compression/limiting. It does not promise three times perceived loudness.
 - Stereo-linked limiter: 5 ms look-ahead, immediate protective gain reduction and 80 ms one-pole recovery, with a −1 dBFS sample-peak ceiling. The FIFO withholds frames at the start and drains the same number at EOF; it does not append leading/trailing silence or discard the end of a short file.
 - This is a **sample-peak limiter, not an oversampled true-peak meter/limiter**, and no EBU R128 compliance is claimed. Android's mixer, device processing and Bluetooth codec can change the signal after the app.
@@ -53,6 +74,8 @@ The custom processor is placed **after** Media3's time/pitch processors. A final
 ## Verification and limits
 
 `npm run check` runs library selectors and **the actual Java DSP core**, compiled with the JDK and tested without Android. Signal tests cover exact bypass samples and EOF drain, short streams, 3× gain below limiting, impulse ceilings at multiple sample rates, stereo linking, a measured +6 dB center-frequency response, EQ headroom, mono cancellation, balance, compressor curve/knee, extreme controls and changes during playback.
+
+Output preset tests generate a fixture from the actual JavaScript preset definitions, then feed those settings through the Java DSP. They verify low-level amplitude gain, preservation of centred audio, side-only width scaling/mono cancellation, Gentle versus Night gain reduction and finite output within the sample-peak ceiling for mono/stereo at 44.1/48 kHz. UI tests also check atomic command patches, bypass disabling, persisted-value recognition and preservation of unrelated controls. Native Android persistence and physical-device listening still require device verification.
 
 The Android build and Lint check the actual Media3 integration and Expo bridge. Neither compilation nor the DSP tests substitute for listening/physical-device tests. Verify UI, gapless playback with real album files, seeking, focus interruptions, wired/Bluetooth output, background playback and route changes using `verification/DEVICE_CHECKLIST.md`. Audio quality enhancement is listener- and device-dependent; no restoration of missing source detail or measured perceptual superiority is claimed.
 

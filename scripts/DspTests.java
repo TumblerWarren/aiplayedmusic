@@ -8,7 +8,7 @@ public final class DspTests {
     static float[][] render(DspCore dsp,float[][] input){float[][] result=new float[input.length][2];float[] out=new float[2];int at=0;for(float[] frame:input)if(dsp.process(frame[0],frame[1],out))result[at++]=out.clone();while(at<input.length)if(dsp.drain(out))result[at++]=out.clone();return result;}
     static float[][] sine(int rate,int n,double hz,double amplitude){float[][] result=new float[n][2];for(int i=0;i<n;i++)result[i][0]=result[i][1]=(float)(amplitude*Math.sin(2*Math.PI*hz*i/rate));return result;}
     static double rms(float[][] input,int start){double sum=0;for(int i=start;i<input.length;i++)sum+=input[i][0]*input[i][0];return Math.sqrt(sum/(input.length-start));}
-    public static void main(String[] args){
+    public static void main(String[] args)throws Exception{
         Random random=new Random(2718);float[][] raw=new float[1000][2];for(float[] f:raw){f[0]=(random.nextInt(65536)-32768)/32768f;f[1]=(random.nextInt(65536)-32768)/32768f;}
         DspCore.Settings bypass=settings(null,false,true,false,false,100,0,false,0);
         float[][] unchanged=render(new DspCore(48000,2,bypass),raw);
@@ -44,6 +44,31 @@ public final class DspTests {
         for(int i=0;i<48000;i++){if(i==20000)changing.setSettings(settings(bands,true,false,true,true,300,1,true,1));changing.process(Math.sin(i*.1),Math.sin(i*.13),frame);check(Float.isFinite(frame[0])&&Math.abs(frame[0])<=DspCore.CEILING+1e-6,"Changing EQ/gain destabilized output");}
         DspCore compare=new DspCore(48000,2,settings(null,false,false,true,false,300,0,false,0));
         for(int i=0;i<96000;i++){if(i==48000)compare.setSettings(settings(null,false,true,true,false,100,0,false,0));double x=.98*Math.sin(i*2*Math.PI*1000/48000);compare.process(x,x,frame);check(Math.abs(frame[0])<=1.000001,"Switching from boost to bypass must not clip queued/ramping samples");}
+        if(args.length>0)outputPresets(args[0]);
         System.out.println("Audio DSP verified: "+checks+" assertions (bypass, exact drain, gain, limiter, frequency response, headroom, mono, balance, dynamics, rate/setting stress).");
+    }
+
+    static void outputPresets(String fixture)throws Exception{
+        Map<String,Double> loudness=new HashMap<>();int count=0;
+        for(String line:java.nio.file.Files.readAllLines(java.nio.file.Path.of(fixture))){
+            String[] p=line.split("\t");String name=p[0];double volume=Double.parseDouble(p[1]),width=Double.parseDouble(p[3])/100;
+            int dynamics=Integer.parseInt(p[2]);boolean mono=Boolean.parseBoolean(p[4]),limiter=Boolean.parseBoolean(p[5]);count++;
+            DspCore.Settings s=new DspCore.Settings(null,false,false,limiter,true,0,volume,0,0,0,width,mono,dynamics);
+            float[][] quiet=sine(48000,24000,1000,.03);
+            float[][] centre=render(new DspCore(48000,2,s),quiet);
+            check(Math.abs(rms(centre,12000)/rms(quiet,12000)-volume/100)<1e-5,name+": width/mono must preserve centred audio and low-level gain");
+            float[][] side=sine(48000,24000,1000,.03);for(float[] frame:side)frame[1]=-frame[0];
+            float[][] spread=render(new DspCore(48000,2,s),side);
+            double expected=mono?0:volume/100*width;
+            check(Math.abs(rms(spread,12000)/rms(side,12000)-expected)<1e-5,name+": incorrect mid/side width or mono summing");
+            float[][] hot=sine(48000,24000,1000,.8);
+            loudness.put(name,rms(render(new DspCore(48000,2,s),hot),12000));
+            for(int rate:new int[]{44100,48000})for(int channels:new int[]{1,2}){
+                float[][] input=sine(rate,rate/5,997,.99);for(int i=0;i<input.length;i++){input[i][1]=(float)(.99*Math.sin(i*.23));if(i%97==0)input[i][0]=1;}
+                for(float[] frame:render(new DspCore(rate,channels,s),input))check(Float.isFinite(frame[0])&&Float.isFinite(frame[1])&&Math.abs(frame[0])<=DspCore.CEILING+1e-6&&Math.abs(frame[1])<=DspCore.CEILING+1e-6,name+": hot output exceeded sample-peak ceiling");
+            }
+        }
+        check(loudness.get("night")<loudness.get("gentle")&&loudness.get("gentle")<loudness.get("balanced"),"Night must reduce loud passages more than Gentle, and Gentle more than Balanced");
+        System.out.println("Output preset signals verified: "+count+" presets, gain, mid/side width, mono, dynamics and peak ceilings.");
     }
 }

@@ -6,6 +6,7 @@ import Feather from './Icons';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { formatTime } from './music';
+import { findOutputPreset, outputPresets } from './outputPresets';
 
 const h = React.createElement;
 const frequencies = ['31 Hz', '63 Hz', '125 Hz', '250 Hz', '500 Hz', '1 kHz', '2 kHz', '4 kHz', '8 kHz', '16 kHz'];
@@ -52,6 +53,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
   const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright'];
   const profiles = Object.keys(state.soundProfiles || {}).sort();
   const selectedPreset = sound.eqEnabled && !sound.bass && !sound.treble ? builtins.find(value => state.equalizerPresets?.[value]?.bands.every((gain, i) => gain === sound.bands[i])) : null;
+  const selectedOutput = findOutputPreset(sound);
   let body;
   if (tab === 'Tone') body = h(React.Fragment, null,
     toggle('Equalizer', 'Ten bands, from sub-bass to air.', sound.eqEnabled, value => update({ eqEnabled: value }), sound.bypass),
@@ -68,6 +70,9 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     profiles.length ? h(View, { style: s.saved }, ...profiles.map(value => pill(value, false, () => command('profileApply', { name: value }), { onLongPress: () => setDialog({ kind: 'delete', name: value }) }))) : txt('Your saved presets will appear here.', s.detail),
     h(Pressable, { style: s.primary, accessibilityRole: 'button', onPress: () => { setName(''); setDialog({ kind: 'save' }); } }, txt('Save sound preset', s.primaryText)));
   else if (tab === 'Output') body = h(React.Fragment, null,
+    title('Output presets', 'Choose a starting point, then fine-tune below. EQ and balance stay as set.'),
+    h(View, { style: [s.pills, sound.bypass && { opacity: 0.45 }] }, ...outputPresets.map(preset => pill(preset.label, selectedOutput?.id === preset.id, () => update({ ...preset.settings }), { disabled: sound.bypass }))),
+    txt(selectedOutput ? selectedOutput.detail : 'Custom output · your manual settings are active.', s.detail, { accessibilityLiveRegion: 'polite' }),
     title('Volume boost', 'Adds gain to the music in this app. Loud recordings may trigger the limiter.'),
     txt(`${Math.round(sound.volume)}%`, s.heroValue),
     fader('volume', 'Boost', 100, 300, { step: 5, format: v => `${Math.round(v)}%` }),

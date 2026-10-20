@@ -12,7 +12,7 @@ class RunAudioTests {
             "modules/local-music/android/src/main/java/app/localmusic/player/DspCore.java","scripts/DspTests.java");
         if(status!=0)System.exit(status);
         try(var loader=new URLClassLoader(new URL[]{output.toUri().toURL()})) {
-            loader.loadClass("app.localmusic.player.DspTests").getMethod("main",String[].class).invoke(null,(Object)new String[0]);
+            loader.loadClass("app.localmusic.player.DspTests").getMethod("main",String[].class).invoke(null,(Object)args);
         }finally{try(var files=Files.walk(output)){files.sorted(java.util.Comparator.reverseOrder()).forEach(p->{try{Files.delete(p);}catch(Exception ignored){}});}}
     }
 }
