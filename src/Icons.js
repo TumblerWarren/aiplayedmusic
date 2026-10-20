@@ -34,6 +34,6 @@ export default function Icon({ name, size = 24, color = '#7353BB', style, filled
   ];
   else if (name === 'pause') content = [line('left', { left: 5, top: 3, width: 5, height: 18 }), line('right', { left: 14, top: 3, width: 5, height: 18 })];
   else if (name === 'disc') content = [shape('disc', { left: 1, top: 1, width: 22, height: 22 }, { backgroundColor: color, opacity: 0.25, borderRadius: size / 2 }), shape('ring', { left: 5, top: 5, width: 14, height: 14 }, { borderWidth: 2 * unit, borderColor: color, borderRadius: size / 2 }), shape('hub', { left: 10, top: 10, width: 4, height: 4 }, { backgroundColor: color, borderRadius: size / 2 })];
-  else return h(Feather, { name, size, color, style, filled = true, ...props });
+  else return h(Feather, { name, size, color, style, ...props });
   return h(View, { ...props, accessible: false, style: [{ width: size, height: size, overflow: 'hidden' }, style] }, content);
 }
