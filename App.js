@@ -21,11 +21,12 @@ const folderName = name => name.split('/').filter(Boolean).pop() || name;
 
 function Artwork({ song, size = 52, round = false }) {
   const [failed, setFailed] = useState(false);
-  useEffect(() => setFailed(false), [song?.albumId]);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { setFailed(false); setLoaded(false); }, [song?.albumId]);
   const seed = Math.abs(Number(song?.albumId || 0));
   return h(View, { style: { width: size, height: size, borderRadius: round ? size / 2 : size > 100 ? 16 : 10, backgroundColor: '#EDE5FC', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' }, accessible: false },
-    h(FallbackArt, { size, seed }),
-    song && !failed ? h(Image, { source: { uri: `content://media/external/audio/albumart/${song.albumId}` }, style: StyleSheet.absoluteFillObject, onError: () => setFailed(true) }) : null);
+    h(View, { style: { position: 'absolute', width: size, height: size }, pointerEvents: 'none' }, h(FallbackArt, { size, seed })),
+    song && !failed ? h(Image, { source: { uri: `content://media/external/audio/albumart/${song.albumId}` }, style: { position: 'absolute', width: size, height: size, opacity: loaded ? 1 : 0 }, onLoad: () => setLoaded(true), onError: () => { setFailed(true); setLoaded(false); } }) : null);
 }
 
 function MusicApp() {
@@ -122,7 +123,7 @@ function MusicApp() {
     return () => subscription.remove();
   }, [page, sheet, nameDialog, query, soundBack, selection]);
 
-  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color }));
+  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color, filled: extra.filled }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
   const button = (value, onPress, style) => h(Pressable, { onPress, accessibilityRole: 'button', style: [styles.button, style] }, text(value, styles.buttonText));
   const go = (next, selected = null) => { setPage(next); setSelection(selected); setQuery(''); };
@@ -213,8 +214,8 @@ function MusicApp() {
   } else if (page === 'player') {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: styles.pageHeader }, icon('chevron-down', () => go('library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
-      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(PlayingArtwork, { playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize })),
-        h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26)),
+      h(ScrollView, { contentContainerStyle: styles.playerBody }, h(PlayingArtwork, { playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.52, round: true })),
+        h(View, { style: styles.playerTitles }, h(View, { style: styles.flex }, text(song?.title || 'Choose a song', styles.playerTitle), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', styles.playerArtist)), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26, { label: song && state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', filled: !!song && state.favorites.includes(String(song.id)) })),
         h(Slider, { style: styles.slider, minimumValue: 0, maximumValue: Math.max(1, state.duration), value: dragPosition ?? state.position, onSlidingStart: value => setDragPosition(value), onValueChange: setDragPosition, onSlidingComplete: async value => { await command('seek', { position: Math.round(value) }); setDragPosition(null); }, minimumTrackTintColor: accent, maximumTrackTintColor: c.line, thumbTintColor: accent, accessibilityLabel: 'Playback position' }),
         h(View, { style: styles.times }, text(formatTime(dragPosition ?? state.position), styles.subtitle), text(formatTime(state.duration), styles.subtitle)),
         h(View, { style: styles.transport }, icon('shuffle', () => command('shuffle'), state.shuffle ? accent : c.muted), icon('skip-back', () => command('previous'), c.ink, 30), icon(state.playing ? 'pause' : 'play', () => song ? command('toggle') : play(songs), c.onAccent, 34, { label: state.playing ? 'Pause' : 'Play', style: styles.bigPlay }), icon('skip-forward', () => command('next'), c.ink, 30), h(View, null, icon('repeat', () => command('repeat'), state.repeat ? accent : c.muted), state.repeat === 2 && text('1', styles.repeatOne))),

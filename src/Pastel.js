@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Feather from './Icons';
 const h = React.createElement;
 
@@ -23,10 +24,11 @@ export function SectionBanner({ title, detail, icon = 'sliders', tone }) {
 
 export function FallbackArt({ size, seed = 0 }) {
   const palettes = [['#E9DFFC', '#A895D8', '#F5BCAC', '#83BAAA'], ['#DDF2E7', '#74AD9A', '#B6CEF0', '#F2CB83'], ['#FFE1D7', '#D797A8', '#C6B5EB', '#F0C56F']];
-  const colors = palettes[Math.abs(seed) % palettes.length];
-  return h(View, { style: [StyleSheet.absoluteFillObject, { backgroundColor: colors[0], overflow: 'hidden' }], accessible: false },
-    h(View, { style: { position: 'absolute', width: size * 0.48, height: size * 0.48, borderRadius: size, backgroundColor: colors[2], top: size * 0.12, right: size * 0.08 } }),
-    h(View, { style: { position: 'absolute', width: size * 1.1, height: size * 0.8, borderRadius: size * 0.3, backgroundColor: colors[1], top: size * 0.48, left: -size * 0.3, transform: [{ rotate: '-30deg' }] } }),
-    h(View, { style: { position: 'absolute', width: size, height: size * 0.7, borderRadius: size * 0.3, backgroundColor: colors[3], top: size * 0.7, right: -size * 0.26, transform: [{ rotate: '32deg' }] } }),
-    h(Pattern, { kind: 'stripes', color: '#FFFFFF', size: size * 0.6 }));
+  const colors = palettes[Math.abs(Math.trunc(Number(seed) || 0)) % palettes.length];
+  return h(Svg, { width: size, height: size, viewBox: '0 0 240 240', accessible: false },
+    h(Rect, { width: 240, height: 240, fill: colors[0] }),
+    h(Circle, { cx: 168, cy: 70, r: 43, fill: colors[2] }),
+    h(Path, { d: 'M-20 170Q40 60 115 144T260 142V260H-20Z', fill: colors[1] }),
+    h(Path, { d: 'M-20 220Q58 112 136 195T260 185V260H-20Z', fill: colors[3] }),
+    h(Path, { d: 'M0 182Q67 140 135 182T260 171M0 198Q67 156 135 198T260 187', fill: 'none', stroke: '#FFFFFF', strokeOpacity: 0.45, strokeWidth: 3 }));
 }
