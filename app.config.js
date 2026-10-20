@@ -2,6 +2,7 @@ module.exports = {
   expo: {
     name: 'Aiplayed',
     slug: 'aiplayedmusic',
+    icon: './assets/aiplayed-icon.png',
     version: '1.2.0',
     platforms: ['android'],
     orientation: 'default',
@@ -16,3 +17,4 @@ module.exports = {
     updates: { enabled: false }
   }
 };
+
