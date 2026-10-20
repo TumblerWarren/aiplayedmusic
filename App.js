@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, Image, Keyboard, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import Slider from '@react-native-community/slider';
@@ -42,6 +42,31 @@ function MusicApp() {
   const [tab, setTab] = useState('Songs');
   const [selection, setSelection] = useState(null);
   const [query, setQuery] = useState('');
+  const [searchVisible, setSearchVisible] = useState(true);
+  const searchScroll = useRef({ offset: null, direction: 0, distance: 0 });
+  const resetSearchScroll = useCallback(() => {
+    searchScroll.current = { offset: null, direction: 0, distance: 0 };
+  }, []);
+  useEffect(() => { resetSearchScroll(); setSearchVisible(true); }, [page, tab, selection?.kind, selection?.name, query, resetSearchScroll]);
+  const onSearchScroll = useCallback(({ nativeEvent: { contentOffset, contentSize, layoutMeasurement } }) => {
+    const max = Math.max(0, contentSize.height - layoutMeasurement.height);
+    const offset = Math.max(0, Math.min(max, contentOffset.y));
+    const previous = searchScroll.current;
+    const delta = previous.offset === null ? 0 : offset - previous.offset;
+    previous.offset = offset;
+    if (offset <= 0) {
+      previous.direction = 0; previous.distance = 0; setSearchVisible(true); return;
+    }
+    if (contentOffset.y < 0 || contentOffset.y > max || delta === 0) return;
+    const direction = Math.sign(delta);
+    if (direction === previous.direction && previous.distance >= 12) return;
+    previous.distance = direction === previous.direction ? previous.distance + Math.abs(delta) : Math.abs(delta);
+    previous.direction = direction;
+    if (previous.distance < 12) return;
+    setSearchVisible(direction < 0);
+    if (direction > 0) Keyboard.dismiss();
+  }, []);
+  const searchListProps = { onScroll: onSearchScroll, onLayout: resetSearchScroll, scrollEventThrottle: 16, keyboardDismissMode: 'on-drag' };
   const [folderPicker, setFolderPicker] = useState(false);
   const [sheet, setSheet] = useState(null);
   const [nameDialog, setNameDialog] = useState(null);
@@ -240,10 +265,10 @@ function MusicApp() {
     content = h(View, { style: styles.flex },
       path ? header(folderName(path), icon('more-vertical', () => folderOptions(path)), backFolder) : h(View, { style: styles.libraryHeader }, text('Folders', styles.brand), icon('folder-plus', chooseFolder)),
       !path && libraryTabs,
-      h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }),
+      h(TextInput, { style: [styles.search, !searchVisible && { display: 'none' }], value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }),
       path && h(View, { style: [styles.listControls, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
       path && h(View, { style: { paddingHorizontal: 24, marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))),
-      h(FlatList, { data: rows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, keyboardShouldPersistTaps: 'handled',
+      h(FlatList, { ...searchListProps, data: rows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, keyboardShouldPersistTaps: 'handled',
         renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name)) : songRow(item, direct.findIndex(song => song.id === item.id), direct),
         ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose a music folder or adjust library filters.', styles.emptyDetail), button('Choose folder', chooseFolder)) }));
   } else {
@@ -254,10 +279,10 @@ function MusicApp() {
     content = h(View, { style: styles.flex },
       collection ? header(selection?.kind === 'Folders' ? folderName(selection.name) : selection?.name, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null) : h(View, { style: styles.libraryHeader }, text('Library', styles.brand), icon('more-horizontal', mainMenu, c.ink, 25, { label: 'Open library menu' })),
       !collection && libraryTabs,
-      h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
+      h(TextInput, { style: [styles.search, !searchVisible && { display: 'none' }], value: query, onChangeText: setQuery, placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
       h(View, { style: styles.listControls }, text(scanning ? 'Scanning…' : `${collection || tab === 'Songs' ? selected.length : groupData.length} ${!collection && tab !== 'Songs' ? tab.toLowerCase() : 'songs'}`, styles.subtitle), h(View, { style: styles.flex }),
         !collection && tab === 'Playlists' ? icon('plus', () => createPlaylist(), accent) : (!collection && tab !== 'Songs') ? null : h(React.Fragment, null, h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll }, text('Shuffle all', { color: accent, fontWeight: '600' })), icon('bar-chart-2', sortSheet, c.muted))),
-      collection || tab === 'Songs' ? h(IndexedSongList, { c, indexed: !['playlist', 'recent'].includes(selection?.kind) && ['Title', 'Artist'].includes(state.sort), field: state.sort === 'Artist' ? 'artist' : 'title', ListHeaderComponent: !collection && !query ? shortcuts : null, data: selected, keyExtractor: item => String(item.id), renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty, keyboardShouldPersistTaps: 'handled' }) : h(FlatList, { data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, keyboardShouldPersistTaps: 'handled', renderItem: ({ item }) => groupRow(tab === 'Folders' ? folderName(item.name) : item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Folders' ? 'folder' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty }));
+      collection || tab === 'Songs' ? h(IndexedSongList, { ...searchListProps, c, indexed: !['playlist', 'recent'].includes(selection?.kind) && ['Title', 'Artist'].includes(state.sort), field: state.sort === 'Artist' ? 'artist' : 'title', ListHeaderComponent: !collection && !query ? shortcuts : null, data: selected, keyExtractor: item => String(item.id), renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty, keyboardShouldPersistTaps: 'handled' }) : h(FlatList, { ...searchListProps, data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, keyboardShouldPersistTaps: 'handled', renderItem: ({ item }) => groupRow(tab === 'Folders' ? folderName(item.name) : item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Folders' ? 'folder' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty }));
   }
   return h(SafeAreaView, { style: styles.root }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, !['player', 'sound'].includes(page) && mini, !['player', 'sound'].includes(page) && h(View, { style: styles.bottomNav }, ...[['Library', 'music', () => { setTab('Songs'); go('library'); }], ['Playlists', 'list', () => { setTab('Playlists'); go('library'); }], ['Sound', 'sliders', openSound], ['Settings', 'settings', () => go('settings')]].map(([title, glyph, onPress]) => {
       const active = title === 'Settings' ? ['settings', 'filters'].includes(page) : title === 'Playlists' ? page === 'library' && tab === 'Playlists' : title === 'Library' && ['library', 'collection', 'queue'].includes(page) && tab !== 'Playlists';
@@ -295,4 +320,3 @@ function makeStyles(c) {
 }
 
 export default function App() { return h(SafeAreaProvider, null, h(MusicApp)); }
-
