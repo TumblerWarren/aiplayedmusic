@@ -1,0 +1,22 @@
+name: Inspect packaged launcher diagnostics
+on:
+  push:
+    branches: [fix/launcher-apk-verification]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-diagnostics
+          run-id: 39449957327
+          github-token: ${{ github.token }}
+          path: diagnostics
+      - name: Read packaged app and resource metadata
+        run: |
+          cat diagnostics/apk-metadata.txt
+          head -n 20 diagnostics/apk-resources.txt
+          grep -Ei 'aiplayed|launcher|mipmap' diagnostics/apk-resources.txt || true
