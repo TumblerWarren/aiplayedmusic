@@ -5,6 +5,7 @@ import Feather from './src/Icons';
 import Slider from '@react-native-community/slider';
 import { PlayingBars, PlayingArtwork } from './src/PlaybackMotion';
 import IndexedSongList from './src/IndexedSongList';
+import CollapsibleHeader from './src/CollapsibleHeader';
 import FolderPicker from './src/FolderPicker';
 import Native from './src/native';
 import SoundStudio from './src/SoundStudio';
@@ -58,6 +59,7 @@ function MusicApp() {
     const previous = searchScroll.current;
     const delta = previous.offset === null ? 0 : offset - previous.offset;
     previous.offset = offset;
+    if (delta === 0) return;
     if (offset <= 0) {
       previous.direction = 0; previous.distance = 0; setSearchVisible(true); return;
     }
@@ -70,7 +72,7 @@ function MusicApp() {
     setSearchVisible(direction < 0);
     if (direction > 0) Keyboard.dismiss();
   }, []);
-  const searchListProps = { onScroll: onSearchScroll, onLayout: resetSearchScroll, scrollEventThrottle: 16, keyboardDismissMode: 'on-drag' };
+  const searchListProps = { onScroll: onSearchScroll, onLayout: resetSearchScroll, onTouchStart: () => { if (searchScroll.current.offset === 0) setSearchVisible(true); }, scrollEventThrottle: 16, keyboardDismissMode: 'on-drag' };
   const [folderPicker, setFolderPicker] = useState(false);
   const [sheet, setSheet] = useState(null);
   const [nameDialog, setNameDialog] = useState(null);
@@ -217,7 +219,7 @@ function MusicApp() {
       h(View, { style: [styles.groupIcon, { backgroundColor: tone.bg }] }, h(Pattern, { kind: tone.pattern, color: tone.ink, size: 54 }), h(Feather, { name: glyph, size: 24, color: tone.ink })),
       h(View, { style: styles.songLabels }, text(title, styles.songTitle, { numberOfLines: 1 }), text(detail, styles.subtitle, { numberOfLines: 2 })), h(Feather, { name: 'chevron-right', color: c.muted, size: 20 }));
   };
-  const libraryTabs = h(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false, style: styles.tabs, contentContainerStyle: styles.tabContents }, ...tabs.map(title => h(Pressable, { key: title, onPress: () => { setTab(title); setQuery(''); }, accessibilityRole: 'tab', accessibilityState: { selected: tab === title }, style: [styles.tab, tab === title && { backgroundColor: c.accent }] }, text(title, [styles.tabText, tab === title && { color: c.onAccent }]))));
+  const libraryTabs = h(View, { style: styles.tabs }, ...[tabs.slice(0, 3), tabs.slice(3)].map((row, index) => h(View, { key: index, style: styles.tabContents }, ...row.map(title => h(Pressable, { key: title, onPress: () => { setTab(title); setQuery(''); }, accessibilityRole: 'tab', accessibilityState: { selected: tab === title }, style: [styles.tab, tab === title && { backgroundColor: c.accent }] }, text(title, [styles.tabText, tab === title && { color: c.onAccent }], { numberOfLines: 1, maxFontSizeMultiplier: 1.3 }))))));
   const shortcuts = h(View, { style: styles.shortcuts }, ...[
     { title: 'Favourites', glyph: 'heart', count: `${state.favorites.length} songs`, tone: colors[2], action: () => go('collection', { kind: 'favorites', name: 'Favourites' }) },
     { title: 'Recently played', glyph: 'clock', count: `${state.recent.length} songs`, tone: colors[4], action: () => go('collection', { kind: 'recent', name: 'Recently played' }) },
@@ -273,8 +275,8 @@ function MusicApp() {
     const folderSongs = path ? sortSongs(selectSongs(songs, state, { kind: 'Folders', name: path, recursive: state.includeSubfolders }, query), state.sort) : [];
     content = h(View, { style: styles.flex },
       path ? header(folderName(path), icon('more-vertical', () => folderOptions(path)), backFolder) : h(View, { style: styles.libraryHeader }, text('Folders', styles.brand), icon('folder-plus', chooseFolder)),
-      !path && libraryTabs,
-      h(TextInput, { style: [styles.search, !searchVisible && { display: 'none' }], value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }),
+      h(CollapsibleHeader, { visible: searchVisible }, !path && libraryTabs,
+        h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' })),
       path && h(View, { style: [styles.listControls, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
       path && h(View, { style: { paddingHorizontal: 24, marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))),
       h(FlatList, { ...searchListProps, data: rows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, keyboardShouldPersistTaps: 'handled',
@@ -287,8 +289,8 @@ function MusicApp() {
     else if (!collection && tab !== 'Songs') groupData = groupsFor(songs, tab, query);
     content = h(View, { style: styles.flex },
       collection ? header(selection?.kind === 'Folders' ? folderName(selection.name) : selection?.name, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null) : h(View, { style: styles.libraryHeader }, text('Library', styles.brand), icon('more-horizontal', mainMenu, c.ink, 25, { label: 'Open library menu' })),
-      !collection && libraryTabs,
-      h(TextInput, { style: [styles.search, !searchVisible && { display: 'none' }], value: query, onChangeText: setQuery, placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
+      h(CollapsibleHeader, { visible: searchVisible }, !collection && libraryTabs,
+        h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false })),
       h(View, { style: styles.listControls }, text(scanning ? 'Scanning…' : `${collection || tab === 'Songs' ? selected.length : groupData.length} ${!collection && tab !== 'Songs' ? tab.toLowerCase() : 'songs'}`, styles.subtitle), h(View, { style: styles.flex }),
         !collection && tab === 'Playlists' ? icon('plus', () => createPlaylist(), accent) : (!collection && tab !== 'Songs') ? null : h(React.Fragment, null, h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll }, text('Shuffle all', { color: accent, fontWeight: '600' })), icon('bar-chart-2', sortSheet, c.muted))),
       collection || tab === 'Songs' ? h(IndexedSongList, { ...searchListProps, c, indexed: !['playlist', 'recent'].includes(selection?.kind) && ['Title', 'Artist'].includes(state.sort), field: state.sort === 'Artist' ? 'artist' : 'title', ListHeaderComponent: !collection && !query ? shortcuts : null, data: selected, keyExtractor: item => String(item.id), renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty, keyboardShouldPersistTaps: 'handled' }) : h(FlatList, { ...searchListProps, data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, keyboardShouldPersistTaps: 'handled', renderItem: ({ item }) => groupRow(tab === 'Folders' ? folderName(item.name) : item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Folders' ? 'folder' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty }));
@@ -316,7 +318,7 @@ function makeStyles(c, compactPlayer = false) {
     button: { backgroundColor: accent, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.onAccent, fontSize: 15, fontWeight: '600' },
     libraryHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 4 }, brand: { fontSize: 28, fontWeight: '700', letterSpacing: -1 },
     shortcuts: { flexDirection: 'row', gap: 8, marginBottom: 10 }, shortcut: { flex: 1, minWidth: 0, backgroundColor: c.card, borderRadius: 22, padding: 13, overflow: 'hidden' }, shortcutTitle: { fontSize: 13, fontWeight: '700', lineHeight: 18 },
-    tabs: { flexGrow: 0, marginBottom: 10 }, tabContents: { paddingHorizontal: 20, gap: 8 }, tab: { paddingHorizontal: 15, paddingVertical: 9, minHeight: 40, borderRadius: 24, backgroundColor: c.line }, tabText: { fontSize: 13, fontWeight: '600', color: c.muted },
+    tabs: { gap: 8, marginBottom: 10 }, tabContents: { flexDirection: 'row', paddingHorizontal: 20, gap: 8 }, tab: { flex: 1, minWidth: 0, paddingHorizontal: 8, paddingVertical: 10, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: c.line }, tabText: { fontSize: 13, fontWeight: '600', color: c.muted },
     search: { marginHorizontal: 20, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', paddingLeft: 24, paddingRight: 12, minHeight: 44 }, shuffleAll: { padding: 10 },
     list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, minHeight: 72 }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, fontWeight: '500' }, subtitle: { fontSize: 12, color: c.muted },
     bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navItem: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 54, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
