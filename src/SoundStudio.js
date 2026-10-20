@@ -43,21 +43,25 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     h(Switch, { value: !!value, onValueChange: run, disabled, trackColor: { false: c.track, true: c.accent }, thumbColor: value ? c.onAccent : c.muted, accessibilityLabel: title }));
   const title = (value, detail) => h(View, { style: s.sectionHead }, txt(value, s.heading), detail && txt(detail, s.detail));
   const fader = (key, label, min, max, options = {}) => h(Fader, { key, label, min, max, c, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
-  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', accessibilityState: { selected }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
+  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
   const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     try { const result = await command('profileSave', { name: name.trim() }); if (result) setDialog(null); }
     finally { setSaving(false); }
   };
-  const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright'];
+  const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright', 'Rock', 'Jazz', 'Classical', 'Speech'];
   const profiles = Object.keys(state.soundProfiles || {}).sort();
-  const selectedPreset = sound.eqEnabled && !sound.bass && !sound.treble ? builtins.find(value => state.equalizerPresets?.[value]?.bands.every((gain, i) => gain === sound.bands[i])) : null;
+  const selectedPreset = sound.eqEnabled && !sound.bass && !sound.treble ? builtins.find(value => {
+    const bands = state.equalizerPresets?.[value]?.bands;
+    return Array.isArray(bands) && bands.length === 10 && sound.bands.length === 10 && bands.every((gain, i) => gain === sound.bands[i]);
+  }) : null;
   const selectedOutput = findOutputPreset(sound);
   let body;
   if (tab === 'Tone') body = h(React.Fragment, null,
     toggle('Equalizer', 'Ten bands, from sub-bass to air.', sound.eqEnabled, value => update({ eqEnabled: value }), sound.bypass),
-    h(View, { style: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('profileApply', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
+    h(View, { style: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('equalizerPreset', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
+    selectedPreset && state.equalizerPresetDetails?.[selectedPreset] && txt(state.equalizerPresetDetails[selectedPreset], s.detail, { accessibilityLiveRegion: 'polite' }),
     h(View, { style: [s.panel, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(Fader, {
       key: label, label, min: -12, max: 12, step: 0.5, value: sound.bands[index], c, disabled: !sound.eqEnabled || sound.bypass,
       onCommit: value => { const bands = [...sound.bands]; bands[index] = value; return update({ bands }); }

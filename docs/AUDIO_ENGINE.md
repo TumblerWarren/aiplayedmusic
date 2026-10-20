@@ -14,10 +14,11 @@ The custom processor is placed **after** Media3's time/pitch processors. A final
 
 - Ten peaking bands: 31, 63, 125, 250, 500, 1k, 2k, 4k, 8k and 16k Hz; ±12 dB; Q 1.4.
 - Separate 80 Hz low shelf and 8 kHz high shelf; ±12 dB; shelf slope S=1.
-- Flat, Warm, Bass, Vocal, Acoustic and Bright presets. These are taste presets, not measured headphone calibration.
+- Flat, Warm, Bass, Vocal, Acoustic, Bright, Rock, Jazz, Classical and Speech presets, with descriptions supplied by the native catalog. The original six curves are preserved. These are taste presets, not measured headphone calibration.
 - Automatic headroom estimates the combined filter response on a logarithmic grid and adds 0.5 dB margin when positive gain is present. This complements the limiter; it is not a proof of a worst-case bound between grid points.
-- Manual preamp attenuation: 0 to −24 dB. Filter-bank changes crossfade over 20 ms. Gain, balance and width changes are smoothed.
+- Manual preamp attenuation: 0 to −24 dB. Filter-bank changes crossfade over 20 ms. Rapid changes coalesce to the latest request after the current fade finishes, rather than replacing a partially audible bank. Headroom is cached per bank and applied before blending, so adding/removing boosted EQ does not expose uncompensated filters. Gain, balance, width and automatic-headroom enable/disable changes are smoothed.
 - Up to 20 named local profiles store the complete EQ/tone/gain/stereo/dynamics configuration. Applying a built-in EQ preset changes its EQ/tone settings without unexpectedly resetting the volume boost.
+- Built-in EQ and saved profiles use separate application commands. Existing saved profiles that share one of the newly added names remain accessible and can be overwritten; built-in buttons always apply the built-in curve.
 
 ### Output and dynamics
 
@@ -73,6 +74,8 @@ Research behind the choices:
 
 ## Verification and limits
 
+The [four-iteration audio review](AUDIO_REVIEW.md) records reproduced failures, fixes, preset choices, research sources and the final stress-test matrix.
+
 `npm run check` runs library selectors and **the actual Java DSP core**, compiled with the JDK and tested without Android. Signal tests cover exact bypass samples and EOF drain, short streams, 3× gain below limiting, impulse ceilings at multiple sample rates, stereo linking, a measured +6 dB center-frequency response, EQ headroom, mono cancellation, balance, compressor curve/knee, extreme controls and changes during playback.
 
 Output preset tests generate a fixture from the actual JavaScript preset definitions, then feed those settings through the Java DSP. They verify low-level amplitude gain, preservation of centred audio, side-only width scaling/mono cancellation, Gentle versus Night gain reduction and finite output within the sample-peak ceiling for mono/stereo at 44.1/48 kHz. UI tests also check atomic command patches, bypass disabling, persisted-value recognition and preservation of unrelated controls. Native Android persistence and physical-device listening still require device verification.
@@ -84,6 +87,7 @@ The Android build and Lint check the actual Media3 integration and Expo bridge. 
 - `DspCore.java`: platform-independent filters, gain, stereo, compressor, look-ahead limiter.
 - `MusicAudioProcessor.java`: PCM adapter, exact EOF handling and chain ordering.
 - `SoundSettings.java`: validation, defaults and built-in presets.
+- `TonePresets.java`: canonical tone curves and descriptions, with copied arrays at its public boundary.
 - `PlaybackService.java`: playlist/session lifecycle and persistent profiles.
 - `src/SoundStudio.js`: custom Tone, Output and Playback screens.
 

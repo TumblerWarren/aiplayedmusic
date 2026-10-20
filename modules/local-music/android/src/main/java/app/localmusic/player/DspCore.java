@@ -48,8 +48,10 @@ public final class DspCore {
     }
     static final class Bank {
         final Biquad[] filters=new Biquad[12];
+        final double headroomDb,compensation;
         Bank(Settings s,int rate){for(int i=0;i<10;i++)filters[i]=Biquad.create(0,FREQUENCIES[i],s.enabled&&!s.bypass?s.bands[i]:0,rate);
-            filters[10]=Biquad.create(1,80,s.bypass?0:s.bass,rate);filters[11]=Biquad.create(2,8000,s.bypass?0:s.treble,rate);}
+            filters[10]=Biquad.create(1,80,s.bypass?0:s.bass,rate);filters[11]=Biquad.create(2,8000,s.bypass?0:s.treble,rate);
+            double peak=peakDb(rate);headroomDb=peak>.01?peak+.5:0;compensation=dbToGain(-headroomDb);}
         double process(double x,int ch){for(Biquad f:filters)x=f.process(x,ch);return x;}
         double peakDb(int rate){double max=1;for(int i=0;i<=512;i++){double hz=10*Math.pow(Math.min(rate*.475,22000)/10,i/512.0),g=1;for(Biquad f:filters)g*=f.response(2*Math.PI*hz/rate);max=Math.max(max,g);}return gainToDb(max);}
     }
@@ -59,8 +61,8 @@ public final class DspCore {
     private final long[] peakIds;
     private int head,tail,bypassProtection;private long frame;
     private Bank bank,oldBank;private int fade;
-    private Settings settings;
-    private double gain=1,linearTarget=1,balance=0,width=1,limiterGain=1,compressorGain=1;
+    private Settings settings,filterSettings;
+    private double gain=1,linearTarget=1,balance=0,width=1,limiterGain=1,compressorGain=1,headroomMix;
     private final double smoothing,release,attackComp,releaseComp;
     public volatile double headroomDb,outputPeak,limiterReductionDb,compressionReductionDb;
 
@@ -70,17 +72,22 @@ public final class DspCore {
         ringL=new double[capacity];ringR=new double[capacity];peaks=new double[capacity];peakIds=new long[capacity];
         smoothing=1-Math.exp(-1.0/(.02*rate));release=1-Math.exp(-1.0/(.08*rate));
         attackComp=1-Math.exp(-1.0/(.01*rate));releaseComp=1-Math.exp(-1.0/(.15*rate));
-        settings=s;bank=new Bank(s,rate);updateHeadroom();gain=targetGain();balance=s.bypass?0:s.balance;width=s.bypass?1:s.mono?0:s.width;
+        settings=filterSettings=s;bank=new Bank(s,rate);headroomMix=s.autoHeadroom?1:0;updateHeadroom();gain=targetGain();balance=s.bypass?0:s.balance;width=s.bypass?1:s.mono?0:s.width;
     }
     public int latencyFrames(){return lookahead;}
     public void setSettings(Settings s){
         if(s==settings)return;
-        boolean filtersChanged=s.enabled!=settings.enabled||s.bypass!=settings.bypass||s.bass!=settings.bass||s.treble!=settings.treble||!Arrays.equals(s.bands,settings.bands);
         settings=s;
-        if(filtersChanged){oldBank=bank;bank=new Bank(s,rate);fade=0;}
+        // Keep an in-flight crossfade intact; its end picks up the latest requested filters.
+        if(oldBank==null&&filtersDiffer(s,filterSettings))startBank(s);
         updateHeadroom();
     }
-    private void updateHeadroom(){headroomDb=settings.autoHeadroom&&!settings.bypass?Math.max(0,bank.peakDb(rate)):0;if(headroomDb>0.01)headroomDb+=.5;linearTarget=settings.bypass?1:dbToGain(settings.preamp-headroomDb)*settings.volume/100;}
+    private static boolean filtersDiffer(Settings a,Settings b){return a.enabled!=b.enabled||a.bypass!=b.bypass||a.bass!=b.bass||a.treble!=b.treble||!Arrays.equals(a.bands,b.bands);}
+    private void startBank(Settings s){oldBank=bank;bank=new Bank(s,rate);filterSettings=s;fade=0;}
+    private void updateHeadroom(){
+        headroomDb=settings.autoHeadroom?Math.max(bank.headroomDb,oldBank==null?0:oldBank.headroomDb):0;
+        linearTarget=settings.bypass?1:dbToGain(settings.preamp)*settings.volume/100;
+    }
     private double targetGain(){return linearTarget;}
     /** Soft-knee gain computer (Giannoulis et al., Eq. 4); no hidden make-up gain. */
     public static double compressorDb(double level,double threshold,double ratio,double knee){
@@ -91,8 +98,16 @@ public final class DspCore {
     /** Returns false only while filling the fixed 5 ms look-ahead. No leading silence emitted. */
     public boolean process(double left,double right,float[] out){
         left=Double.isFinite(left)?left:0;right=Double.isFinite(right)?right:0;
-        double l=bank.process(left,0),r=bank.process(right,1);
-        if(oldBank!=null){double t=Math.min(1,++fade/(double)fadeFrames);l=oldBank.process(left,0)*(1-t)+l*t;r=oldBank.process(right,1)*(1-t)+r*t;if(t==1)oldBank=null;}
+        headroomMix+=((settings.autoHeadroom?1:0)-headroomMix)*smoothing;
+        // Normalize each bank before blending. Moving one shared gain after the blend can
+        // expose the old boosted filter or the new one before its compensation has settled.
+        double compensation=1+(bank.compensation-1)*headroomMix;
+        double l=bank.process(left,0)*compensation,r=bank.process(right,1)*compensation;
+        if(oldBank!=null){
+            double t=Math.min(1,++fade/(double)fadeFrames),oldCompensation=1+(oldBank.compensation-1)*headroomMix;
+            l=oldBank.process(left,0)*oldCompensation*(1-t)+l*t;r=oldBank.process(right,1)*oldCompensation*(1-t)+r*t;
+            if(t==1){oldBank=null;if(filtersDiffer(settings,filterSettings))startBank(settings);updateHeadroom();}
+        }
         gain+=(targetGain()-gain)*smoothing;balance+=((settings.bypass?0:settings.balance)-balance)*smoothing;
         width+=((settings.bypass?1:settings.mono?0:settings.width)-width)*smoothing;
         if(channels==2){double mid=(l+r)*.5,side=(l-r)*.5*width;l=mid+side;r=mid-side;l*=1-Math.max(0,balance);r*=1+Math.min(0,balance);}
