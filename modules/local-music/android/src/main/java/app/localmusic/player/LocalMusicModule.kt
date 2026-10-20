@@ -2,8 +2,6 @@ package app.localmusic.player
 
 import android.content.*
 import android.os.*
-import android.app.Activity
-import android.provider.DocumentsContract
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
 import expo.modules.kotlin.modules.Module
@@ -18,28 +16,6 @@ class LocalMusicModule : Module() {
   private var registered = false
   private val handler = Handler(Looper.getMainLooper())
   private val pending = mutableListOf<Promise>()
-  private var folderPromise: Promise? = null
-  private fun handleFolderResult(requestCode: Int, resultCode: Int, data: Intent?) {
-      if (requestCode != 4101) return
-      val promise = folderPromise ?: return
-      folderPromise = null
-      if (resultCode != Activity.RESULT_OK || data?.data == null) { promise.resolve(snapshot()); return }
-      try {
-        val uri = requireNotNull(data.data)
-        val id = DocumentsContract.getTreeDocumentId(uri).split(":", limit = 2)
-        require(id.size == 2) { "Choose a folder on internal storage or an SD card" }
-        val base = if (id[0] == "primary") Environment.getExternalStorageDirectory() else java.io.File("/storage", id[0])
-        val chosen = java.io.File(base, id[1]).canonicalPath
-        require(chosen == base.canonicalPath || chosen.startsWith(base.canonicalPath + "/")) { "Invalid music folder" }
-        require(java.io.File(chosen).isDirectory) { "Choose a folder on internal storage or an SD card" }
-        val roots = library.prefs().getStringSet("musicRoots", emptySet())!!.toMutableSet()
-        require(roots.size < 10 || roots.contains(chosen)) { "You can select up to ten music folders" }
-        roots.add(chosen)
-        try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: SecurityException) { }
-        library.prefs().edit().putStringSet("musicRoots", roots).apply()
-        promise.resolve(snapshot())
-      } catch (e: Exception) { promise.reject("E_FOLDER", e.message, e) }
-  }
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
   private val library: Library get() = Library(context)
   private val connection = object : ServiceConnection {
@@ -60,9 +36,6 @@ class LocalMusicModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
     Events("onChange", "onError")
-    OnActivityResult { _, payload ->
-      handleFolderResult(payload.requestCode, payload.resultCode, payload.data)
-    }
     AsyncFunction("initialize") { promise: Promise ->
       if (!registered) {
         val filter = IntentFilter(PlaybackService.CHANGED)
@@ -84,6 +57,7 @@ class LocalMusicModule : Module() {
     AsyncFunction("scan") {
       JSONArray().also { result -> library.scan(context).forEach { result.put(it.json()) } }.toString()
     }
+    AsyncFunction("musicFolders") { library.musicFolders(context).toString() }
     AsyncFunction("snapshot") { snapshot() }.runOnQueue(Queues.MAIN)
     AsyncFunction("command") { action: String, raw: String ->
       val data = JSONObject(raw)
@@ -116,6 +90,15 @@ class LocalMusicModule : Module() {
         "skipSilence" -> service.setSkipSilence(data.getBoolean("value"))
         "sleepFade" -> lib.prefs().edit().putBoolean("sleepFade", data.getBoolean("value")).apply()
         "includeSubfolders" -> lib.prefs().edit().putBoolean("includeSubfolders", data.getBoolean("value")).apply()
+        "addRoot" -> {
+          val rawPath = data.getString("path")
+          val chosen = java.io.File(rawPath).canonicalPath
+          require(chosen == rawPath && chosen.startsWith("/storage/")) { "Choose a music folder on this device" }
+          val roots = lib.prefs().getStringSet("musicRoots", emptySet())!!.toMutableSet()
+          require(roots.size < 10 || roots.contains(chosen)) { "You can select up to ten music folders" }
+          roots.add(chosen)
+          lib.prefs().edit().putStringSet("musicRoots", roots).apply()
+        }
         "removeRoot" -> {
           val roots = lib.prefs().getStringSet("musicRoots", emptySet())!!.toMutableSet()
           roots.remove(data.getString("path")); lib.prefs().edit().putStringSet("musicRoots", roots).apply()
@@ -147,17 +130,6 @@ class LocalMusicModule : Module() {
       snapshot()
     }.runOnQueue(Queues.MAIN)
 
-    AsyncFunction("chooseFolder") { promise: Promise ->
-      if (folderPromise != null) promise.reject("E_FOLDER_BUSY", "Finish choosing the current folder first", null)
-      else {
-        try {
-          val activity = requireNotNull(appContext.currentActivity) { "Open the app before choosing a folder" }
-          folderPromise = promise
-          activity.startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION), 4101)
-        } catch (e: Exception) { folderPromise = null; promise.reject("E_FOLDER", e.message, e) }
-      }
-    }.runOnQueue(Queues.MAIN)
-
     AsyncFunction("openNative") { screen: String ->
       val activity = requireNotNull(appContext.currentActivity) { "Open the app before adjusting settings" }
       activity.startActivity(Intent(activity, NativeMusicActivity::class.java).putExtra("screen", if (screen == "player") "player" else "settings"))
@@ -171,7 +143,6 @@ class LocalMusicModule : Module() {
           if (registered) ctx.unregisterReceiver(receiver)
         }
         pending.forEach { it.reject("E_DESTROYED", "Music module closed", null) }; pending.clear()
-        folderPromise?.reject("E_DESTROYED", "Folder picker closed", null); folderPromise = null
         bound = false; registered = false; playback = null
         handler.removeCallbacksAndMessages(null)
       }
@@ -216,10 +187,11 @@ class LocalMusicModule : Module() {
       put("favorites", JSONArray(lib.favorites().toList()))
       put("recent", JSONArray(lib.recentIds()))
       put("playlists", lib.playlists())
-      put("theme", prefs.getString("theme", "Dark"))
+      put("theme", prefs.getString("theme", "Light"))
       put("sort", prefs.getString("sort", "Title"))
       put("pauseDisconnect", prefs.getBoolean("pauseDisconnect", true))
       put("excludedCount", prefs.getStringSet("excluded", emptySet())?.size ?: 0)
     }.toString()
   }
 }
+

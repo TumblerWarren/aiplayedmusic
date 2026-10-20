@@ -2,7 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
-import { Feather } from '@expo/vector-icons';
+import Feather from './Icons';
+import { SectionBanner } from './Pastel';
+import { tones } from './design';
 import { formatTime } from './music';
 
 const h = React.createElement;
@@ -96,9 +98,10 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     title('Playback engine'), txt('Gapless queue playback with Android media controls. File format and output-device support depend on your phone.', s.detail));
 
   return h(View, { style: s.root },
-    h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound', s.screenTitle), h(Pressable, { style: s.icon, onPress: () => setDialog({ kind: 'reset' }), accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
+    h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.icon, onPress: () => setDialog({ kind: 'reset' }), accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
     h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => setTab(value), { style: { flex: 1, alignItems: 'center' } }))),
     h(ScrollView, { contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
+      h(SectionBanner, { title: tab === 'Tone' ? 'Find your colour.' : tab === 'Output' ? 'Make every note yours.' : 'Set your own pace.', detail: tab === 'Tone' ? 'Shape your sound, from the first bass note to the last shimmer.' : tab === 'Output' ? 'Fine-tune volume, dynamics and your stereo balance.' : 'Your speed, your pitch, your listening routine.', icon: tab === 'Tone' ? 'sliders' : tab === 'Output' ? 'volume-2' : 'headphones', tone: tones(c)[tab === 'Tone' ? 0 : tab === 'Output' ? 1 : 2] }),
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
       sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body),
     h(Modal, { visible: !!dialog, transparent: true, animationType: 'fade', onRequestClose: () => setDialog(null) },
@@ -113,10 +116,11 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
 }
 
 function styles(c) {
-  return StyleSheet.create({ root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, header: { flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 10 }, icon: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, screenTitle: { fontSize: 28, fontWeight: '700', flex: 1, paddingLeft: 8 },
-    tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 22, paddingBottom: 10 }, body: { paddingHorizontal: 24, paddingBottom: 40 }, heading: { fontSize: 21, fontWeight: '600' }, label: { fontSize: 15, fontWeight: '500' }, detail: { color: c.muted, fontSize: 12, lineHeight: 19, marginTop: 5 }, sectionHead: { marginTop: 25, marginBottom: 15 }, toggle: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15 },
-    pills: { flexDirection: 'row', gap: 8, paddingVertical: 8 }, pill: { paddingHorizontal: 17, minHeight: 44, justifyContent: 'center', backgroundColor: c.card, borderRadius: 12 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 16, padding: 18, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
-    rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18, marginBottom: 15 }, notice: { color: c.accent, lineHeight: 20, fontSize: 13, marginVertical: 10 }, saved: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, primary: { minHeight: 50, paddingHorizontal: 22, paddingVertical: 13, backgroundColor: c.accent, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 22 }, primaryText: { color: c.onAccent, fontWeight: '700', fontSize: 15 }, secondary: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-    meters: { flexDirection: 'row', gap: 12, paddingVertical: 12 }, meter: { fontSize: 18, fontVariant: ['tabular-nums'], marginTop: 8 }, overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0009' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 18 }, input: { color: c.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: c.track, paddingVertical: 14, marginVertical: 14, minHeight: 48 }, dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 18 }
+  return StyleSheet.create({ root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, header: { flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 10 }, icon: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, screenTitle: { fontSize: 25, fontWeight: '700', flex: 1, paddingLeft: 8 },
+    tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 22, paddingBottom: 10 }, body: { paddingHorizontal: 24, paddingBottom: 40 }, heading: { fontSize: 21, fontWeight: '600' }, label: { fontSize: 15, fontWeight: '500' }, detail: { color: c.muted, fontSize: 12, lineHeight: 19, marginTop: 5 }, sectionHead: { marginTop: 25, marginBottom: 15 }, toggle: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, marginBottom: 12 },
+    pills: { flexDirection: 'row', gap: 8, paddingVertical: 8 }, pill: { paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', backgroundColor: c.lavender, borderRadius: 24 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: c.line, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
+    rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18, marginBottom: 15 }, notice: { color: c.accent, lineHeight: 20, fontSize: 13, marginVertical: 10 }, saved: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, primary: { minHeight: 50, paddingHorizontal: 22, paddingVertical: 13, backgroundColor: c.accent, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginTop: 22 }, primaryText: { color: c.onAccent, fontWeight: '700', fontSize: 15 }, secondary: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+    meters: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16, borderRadius: 22, backgroundColor: c.mint }, meter: { fontSize: 18, fontVariant: ['tabular-nums'], marginTop: 8 }, overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0009' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 28 }, input: { color: c.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: c.track, paddingVertical: 14, marginVertical: 14, minHeight: 48 }, dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 18 }
   });
 }
+
