@@ -85,6 +85,7 @@ class LocalMusicModule : Module() {
         "sound" -> service.updateSound(data)
         "soundReset" -> service.resetSound()
         "profileApply" -> service.applyProfile(data.getString("name"))
+        "equalizerPreset" -> service.applyEqualizerPreset(data.getString("name"))
         "profileSave" -> service.saveProfile(data.getString("name").trim())
         "profileDelete" -> service.deleteProfile(data.getString("name"))
         "skipSilence" -> service.setSkipSilence(data.getBoolean("value"))
@@ -177,6 +178,7 @@ class LocalMusicModule : Module() {
       put("soundPresets", JSONArray(SoundSettings.PRESET_NAMES.toList()))
       put("soundProfiles", s?.savedProfiles() ?: JSONObject())
       put("equalizerPresets", JSONObject().also { presets -> SoundSettings.PRESET_NAMES.forEach { presets.put(it, SoundSettings.preset(it)) } })
+      put("equalizerPresetDetails", JSONObject().also { details -> SoundSettings.PRESET_NAMES.forEach { details.put(it, TonePresets.detail(it)) } })
       put("musicRoots", JSONArray(prefs.getStringSet("musicRoots", emptySet())!!.sorted()))
       put("excluded", JSONArray(prefs.getStringSet("excluded", emptySet())!!.sorted()))
       put("minDuration", prefs.getInt("minDuration",0))
@@ -194,4 +196,3 @@ class LocalMusicModule : Module() {
     }.toString()
   }
 }
-

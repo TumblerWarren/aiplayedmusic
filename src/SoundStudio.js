@@ -6,6 +6,7 @@ import Feather from './Icons';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { formatTime } from './music';
+import { findOutputPreset, outputPresets } from './outputPresets';
 
 const h = React.createElement;
 const frequencies = ['31 Hz', '63 Hz', '125 Hz', '250 Hz', '500 Hz', '1 kHz', '2 kHz', '4 kHz', '8 kHz', '16 kHz'];
@@ -42,20 +43,25 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     h(Switch, { value: !!value, onValueChange: run, disabled, trackColor: { false: c.track, true: c.accent }, thumbColor: value ? c.onAccent : c.muted, accessibilityLabel: title }));
   const title = (value, detail) => h(View, { style: s.sectionHead }, txt(value, s.heading), detail && txt(detail, s.detail));
   const fader = (key, label, min, max, options = {}) => h(Fader, { key, label, min, max, c, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
-  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', accessibilityState: { selected }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
+  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
   const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
     try { const result = await command('profileSave', { name: name.trim() }); if (result) setDialog(null); }
     finally { setSaving(false); }
   };
-  const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright'];
+  const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright', 'Rock', 'Jazz', 'Classical', 'Speech'];
   const profiles = Object.keys(state.soundProfiles || {}).sort();
-  const selectedPreset = sound.eqEnabled && !sound.bass && !sound.treble ? builtins.find(value => state.equalizerPresets?.[value]?.bands.every((gain, i) => gain === sound.bands[i])) : null;
+  const selectedPreset = sound.eqEnabled && !sound.bass && !sound.treble ? builtins.find(value => {
+    const bands = state.equalizerPresets?.[value]?.bands;
+    return Array.isArray(bands) && bands.length === 10 && sound.bands.length === 10 && bands.every((gain, i) => gain === sound.bands[i]);
+  }) : null;
+  const selectedOutput = findOutputPreset(sound);
   let body;
   if (tab === 'Tone') body = h(React.Fragment, null,
     toggle('Equalizer', 'Ten bands, from sub-bass to air.', sound.eqEnabled, value => update({ eqEnabled: value }), sound.bypass),
-    h(ScrollView, { horizontal: true, showsHorizontalScrollIndicator: false, contentContainerStyle: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('profileApply', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
+    h(View, { style: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('equalizerPreset', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
+    selectedPreset && state.equalizerPresetDetails?.[selectedPreset] && txt(state.equalizerPresetDetails[selectedPreset], s.detail, { accessibilityLiveRegion: 'polite' }),
     h(View, { style: [s.panel, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(Fader, {
       key: label, label, min: -12, max: 12, step: 0.5, value: sound.bands[index], c, disabled: !sound.eqEnabled || sound.bypass,
       onCommit: value => { const bands = [...sound.bands]; bands[index] = value; return update({ bands }); }
@@ -68,6 +74,9 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     profiles.length ? h(View, { style: s.saved }, ...profiles.map(value => pill(value, false, () => command('profileApply', { name: value }), { onLongPress: () => setDialog({ kind: 'delete', name: value }) }))) : txt('Your saved presets will appear here.', s.detail),
     h(Pressable, { style: s.primary, accessibilityRole: 'button', onPress: () => { setName(''); setDialog({ kind: 'save' }); } }, txt('Save sound preset', s.primaryText)));
   else if (tab === 'Output') body = h(React.Fragment, null,
+    title('Output presets', 'Choose a starting point, then fine-tune below. EQ and balance stay as set.'),
+    h(View, { style: [s.pills, sound.bypass && { opacity: 0.45 }] }, ...outputPresets.map(preset => pill(preset.label, selectedOutput?.id === preset.id, () => update({ ...preset.settings }), { disabled: sound.bypass }))),
+    txt(selectedOutput ? selectedOutput.detail : 'Custom output · your manual settings are active.', s.detail, { accessibilityLiveRegion: 'polite' }),
     title('Volume boost', 'Adds gain to the music in this app. Loud recordings may trigger the limiter.'),
     txt(`${Math.round(sound.volume)}%`, s.heroValue),
     fader('volume', 'Boost', 100, 300, { step: 5, format: v => `${Math.round(v)}%` }),
@@ -118,9 +127,8 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
 function styles(c) {
   return StyleSheet.create({ root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, header: { flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 10 }, icon: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, screenTitle: { fontSize: 25, fontWeight: '700', flex: 1, paddingLeft: 8 },
     tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 22, paddingBottom: 10 }, body: { paddingHorizontal: 24, paddingBottom: 40 }, heading: { fontSize: 21, fontWeight: '600' }, label: { fontSize: 15, fontWeight: '500' }, detail: { color: c.muted, fontSize: 12, lineHeight: 19, marginTop: 5 }, sectionHead: { marginTop: 25, marginBottom: 15 }, toggle: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, marginBottom: 12 },
-    pills: { flexDirection: 'row', gap: 8, paddingVertical: 8 }, pill: { paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', backgroundColor: c.lavender, borderRadius: 24 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: c.line, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
+    pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 }, pill: { paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', backgroundColor: c.lavender, borderRadius: 24 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: c.line, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
     rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18, marginBottom: 15 }, notice: { color: c.accent, lineHeight: 20, fontSize: 13, marginVertical: 10 }, saved: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, primary: { minHeight: 50, paddingHorizontal: 22, paddingVertical: 13, backgroundColor: c.accent, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginTop: 22 }, primaryText: { color: c.onAccent, fontWeight: '700', fontSize: 15 }, secondary: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
     meters: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16, borderRadius: 22, backgroundColor: c.mint }, meter: { fontSize: 18, fontVariant: ['tabular-nums'], marginTop: 8 }, overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0009' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 28 }, input: { color: c.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: c.track, paddingVertical: 14, marginVertical: 14, minHeight: 48 }, dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 18 }
   });
 }
-

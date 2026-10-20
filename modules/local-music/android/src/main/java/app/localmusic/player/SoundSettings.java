@@ -47,13 +47,9 @@ public final class SoundSettings {
         return new DspCore.Settings(bands,data.optBoolean("eqEnabled"),data.optBoolean("bypass"),data.optBoolean("limiter"),data.optBoolean("autoHeadroom"),
             data.optDouble("preamp"),data.optDouble("volume"),data.optDouble("bass"),data.optDouble("treble"),data.optDouble("balance")/100,data.optDouble("width")/100,data.optBoolean("mono"),data.optInt("dynamics"));
     }
-    public static final String[] PRESET_NAMES={"Flat","Warm","Bass","Vocal","Acoustic","Bright"};
-    private static final double[][] PRESETS={
-        {0,0,0,0,0,0,0,0,0,0}, {2,2,1,0,0,0,-1,-1,-2,-2}, {5,4,3,1,0,0,0,0,0,0},
-        {-2,-2,-1,0,1,3,3,1,0,-1}, {0,1,1,0,-1,0,1,2,1,0}, {-1,-1,0,0,0,1,2,3,3,2}
-    };
+    public static final String[] PRESET_NAMES=TonePresets.names();
     public static JSONObject preset(String name)throws JSONException{
-        for(int i=0;i<PRESET_NAMES.length;i++)if(PRESET_NAMES[i].equals(name))return new JSONObject().put("bands",new JSONArray(PRESETS[i])).put("eqEnabled",true).put("bass",0).put("treble",0);
-        throw new JSONException("Unknown equalizer preset");
+        try{return new JSONObject().put("bands",new JSONArray(TonePresets.bands(name))).put("eqEnabled",true).put("bass",0).put("treble",0);}
+        catch(IllegalArgumentException e){throw new JSONException(e.getMessage());}
     }
 }
