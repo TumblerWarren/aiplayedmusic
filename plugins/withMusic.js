@@ -5,6 +5,11 @@ module.exports = config => withAndroidManifest(config, mod => {
   for (const permission of permissions) {
     if (permission.$?.['android:name'] === 'android.permission.READ_EXTERNAL_STORAGE') permission.$['android:maxSdkVersion'] = '32';
   }
-  manifest.application[0].$['android:allowBackup'] = 'false';
+  const application = manifest.application[0].$;
+  application['android:allowBackup'] = 'false';
+  application['android:label'] = '@string/app_name';
+  application['android:icon'] = '@mipmap/aiplayed_launcher';
+  application['android:roundIcon'] = '@mipmap/aiplayed_launcher';
   return mod;
 });
+

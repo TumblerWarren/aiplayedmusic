@@ -2,7 +2,7 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Version 1.2 APK ready.** [Download the APK ZIP](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39222538168/artifacts/12172479893), extract `app-release.apk`, and install it on an ARM Android 8.0+ phone. This artifact expires on October 26, 2026. The [successful build](https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39222538168) took 14 minutes 52 seconds.
+**APK downloads:** Open [Android builds](https://github.com/TumblerWarren/aiplayedmusic/actions/workflows/android.yml), select the latest successful build, and download its `aiplayedmusic-apk` artifact. Extract `app-release.apk` and install it on an ARM Android 8.0+ phone. Artifacts expire after seven days. The current source is version **1.2.1** (Android version code **4**), shown in Settings → About after installation.
 
 Seven library tests, actual Java DSP signal tests, Expo compatibility/prebuild, native engine compilation, APK packaging, Android Lint, signature verification and the offline-permission check passed. This is a development-signed sideload APK. Physical-device playback/UI testing and exact Mi Music parity remain unverified. See the [sound engineering design and references](docs/AUDIO_ENGINE.md) and [build record](verification/STATUS.txt).
 
@@ -65,3 +65,4 @@ Run `npm run check` with Node and a JDK. It runs the library selectors (includin
 JavaScript, native Java, JSON and Android XML were also checked offline. The successful GitHub build additionally verified native module autolinking, Kotlin/Java compilation, Android Lint, APK signing and removal of internet permission. Physical-device playback, background behaviour, headset controls and UI still require the checks in `verification/DEVICE_CHECKLIST.md`.
 
 The supplied Play Store listing was inspected. REA was not installed, and no original binary/settings screenshots were available, so this is an independent implementation rather than a verified exact replica.
+
