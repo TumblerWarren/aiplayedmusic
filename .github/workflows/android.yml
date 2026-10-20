@@ -45,6 +45,17 @@ jobs:
         run: npx expo install --check
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
+      - name: Verify generated launcher manifest
+        run: |
+          python - <<'PY'
+          import xml.etree.ElementTree as ET
+          application = ET.parse('android/app/src/main/AndroidManifest.xml').getroot().find('application')
+          android = '{http://schemas.android.com/apk/res/android}'
+          for attribute in ('icon', 'roundIcon'):
+              assert application.get(android + attribute) == '@mipmap/aiplayed_launcher', attribute
+          assert application.get(android + 'label') == '@string/app_name'
+          print('Generated Android manifest uses the Aiplayed launcher and app name.')
+          PY
       - name: Compile music engine before native packaging
         working-directory: android
         run: ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
@@ -54,7 +65,7 @@ jobs:
       - name: Run Android Lint
         working-directory: android
         run: ./gradlew :app:lintRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
-      - name: Verify APK signature and offline permissions
+      - name: Verify APK signature, launcher and offline permissions
         run: |
           apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
           test -n "$apk_path"
@@ -67,9 +78,21 @@ jobs:
           grep -Fx "application-label:'$app_name'" apk-metadata.txt
           grep -F "versionCode='$app_version_code'" apk-metadata.txt | grep -F "versionName='$app_version'"
           unzip -Z1 "$apk_path" > apk-resources.txt
-          grep -E '^res/mipmap-anydpi-v[0-9]+/aiplayed_launcher.xml$' apk-resources.txt
+          launcher_path=$(python - <<'PY'
+          import pathlib, re
+          metadata = pathlib.Path('apk-metadata.txt').read_text()
+          match = re.search(r"^application:.*icon='([^']+)'", metadata, re.MULTILINE)
+          assert match, 'APK application icon is missing'
+          print(match.group(1))
+          PY
+          )
+          grep -Fx "$launcher_path" apk-resources.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$launcher_path" > apk-launcher.txt
+          grep -F 'E: adaptive-icon' apk-launcher.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file AndroidManifest.xml > apk-manifest.txt
-          cat apk-metadata.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources "$apk_path" > apk-resource-table.txt
+          grep -E '^package:|^application-label:|^application:' apk-metadata.txt
+          cat apk-launcher.txt
           sha256sum "$apk_path" > apk-sha256.txt
           if grep -q "android.permission.INTERNET" apk-permissions.txt; then
             echo "Standalone offline APK unexpectedly requests internet access" >&2
@@ -95,6 +118,8 @@ jobs:
             apk-metadata.txt
             apk-resources.txt
             apk-manifest.txt
+            apk-launcher.txt
+            apk-resource-table.txt
             apk-sha256.txt
           if-no-files-found: ignore
 
