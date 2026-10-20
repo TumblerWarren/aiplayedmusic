@@ -38,8 +38,8 @@ test('Output buttons apply one complete patch and are disabled during bypass', a
   const nodes = tree => typeof tree === 'object' ? [tree, ...tree.children.flatMap(nodes)] : [];
   for (const bypass of [false, true]) {
     const calls = [];
-    const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial === 'Tone' ? 'Output' : initial, () => {}], useEffect: () => {}, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '', console };
-    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface']) ctx[name] = name;
+    const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial === 'Tone' ? 'Output' : initial, () => {}], useEffect: () => {}, memo: x => x, useMemo: fn => fn(), useRef: value => ({ current: value }), useAppActive: () => true, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '', console };
+    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface', 'SleepRemaining']) ctx[name] = name;
     vm.createContext(ctx); vm.runInContext(source + '\nglobalThis.render = SoundStudio;', ctx);
     const tree = ctx.render({ state: { sound: { bypass } }, command: (...args) => calls.push(args), c: {}, onBack() {}, onTimer() {} });
     const buttons = nodes(tree).filter(node => node.type === 'Pressable');
@@ -70,8 +70,8 @@ test('actual Java DSP verifies output preset gain, compression, stereo and limit
     const h = (type, props, ...children) => ({ type, props: props || {}, children: children.flat().filter(x => x != null && x !== false) });
     const nodes = tree => typeof tree === 'object' ? [tree, ...tree.children.flatMap(nodes)] : [];
     const { findOutputPreset } = await api;
-    const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial, () => {}], useEffect: () => {}, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '' };
-    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface']) ctx[name] = name;
+    const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial, () => {}], useEffect: () => {}, memo: x => x, useMemo: fn => fn(), useRef: value => ({ current: value }), useAppActive: () => true, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '' };
+    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface', 'SleepRemaining']) ctx[name] = name;
     vm.createContext(ctx); vm.runInContext(source + '\nglobalThis.render = SoundStudio;', ctx);
     for (const selected of catalog.soundPresets) for (const bypass of [false, true]) {
       const calls = [];

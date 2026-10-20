@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -6,7 +6,9 @@ import Feather from './Icons';
 import ScrollSurface from './ScrollSurface';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
-import { formatTime } from './music';
+import { musicStore, soundPreview, useMusicSlice } from './useMusic';
+import { useAppActive } from './PlaybackMotion';
+import { SleepRemaining } from './PlayerProgress';
 import { findOutputPreset, outputPresets } from './outputPresets';
 
 const h = React.createElement;
@@ -14,28 +16,81 @@ const frequencies = ['31 Hz', '63 Hz', '125 Hz', '250 Hz', '500 Hz', '1 kHz', '2
 const defaults = { eqEnabled: false, bands: Array(10).fill(0), volume: 100, preamp: 0, bass: 0, treble: 0, balance: 0, width: 100, mono: false, limiter: true, autoHeadroom: true, bypass: false, dynamics: 0 };
 const db = value => `${value > 0 ? '+' : ''}${Number(value || 0).toFixed(1)} dB`;
 
-export function Fader({ label, value, min, max, step = 1, onCommit, format = db, c, disabled = false, detail }) {
+export function Fader({ label, value, min, max, step = 1, onCommit, live, onError = () => {}, format = db, c, disabled = false, detail }) {
   const [draft, setDraft] = useState(null);
-  useEffect(() => setDraft(null), [value]);
+  const editing = useRef(null), gesture = useRef(0), pending = useRef(false), mounted = useRef(true), frame = useRef(null), latest = useRef(value), thumb = useRef(value);
+  if (draft === null) thumb.current = value;
+  useEffect(() => {
+    if (!editing.current?.active() && !pending.current) setDraft(null);
+  }, [value, disabled]);
+  useEffect(() => { mounted.current = true; return () => { mounted.current = false; cancelAnimationFrame(frame.current); editing.current?.cancel().catch(() => {}); }; }, []);
+  const start = next => {
+    gesture.current++; pending.current = false;
+    editing.current = live?.start(error => { cancelAnimationFrame(frame.current); frame.current = null; if (mounted.current) setDraft(null); onError(error); });
+    latest.current = next; setDraft(next);
+  };
+  const move = next => {
+    if (editing.current && !editing.current.active()) return;
+    latest.current = next; editing.current?.preview(next);
+    if (frame.current === null) frame.current = requestAnimationFrame(() => { frame.current = null; if (mounted.current) setDraft(latest.current); });
+  };
+  const finish = async next => {
+    const owner = gesture.current, session = editing.current;
+    cancelAnimationFrame(frame.current); frame.current = null; pending.current = true; setDraft(next);
+    try { if (session) await session.commit(next); else await onCommit(next); }
+    catch (error) { onError(error); }
+    finally { if (gesture.current === owner) { pending.current = false; editing.current = null; if (mounted.current) setDraft(null); } }
+  };
   return h(View, { style: { marginBottom: 13, opacity: disabled ? 0.45 : 1 } },
     h(View, { style: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } },
       h(Text, { style: { color: c.ink, fontSize: 14, fontWeight: '500' } }, label),
       h(Text, { style: { color: c.accent, fontSize: 14, fontVariant: ['tabular-nums'] }, accessibilityLiveRegion: 'polite' }, format(draft ?? value))),
     detail && h(Text, { style: { color: c.muted, fontSize: 12, marginTop: 5, lineHeight: 18 } }, detail),
-    h(Slider, { style: { height: 48, marginHorizontal: -10 }, minimumValue: min, maximumValue: max, step, value: draft ?? value, disabled,
-      onValueChange: setDraft, onSlidingComplete: async next => { await onCommit(next); setDraft(null); },
+    h(Slider, { style: { height: 48, marginHorizontal: -10 }, minimumValue: min, maximumValue: max, step, value: thumb.current, disabled,
+      onSlidingStart: start, onValueChange: move, onSlidingComplete: finish,
       minimumTrackTintColor: c.accent, maximumTrackTintColor: c.track, thumbTintColor: c.accent, accessibilityLabel: label,
       accessibilityValue: { min, max, now: draft ?? value, text: format(draft ?? value) } }));
 }
+const MemoFader = memo(Fader);
+function liveControl(key, action = 'sound') {
+  const patch = value => () => {
+    if (key.startsWith('band:')) {
+      const bands = [...(musicStore.get('main').sound?.bands || defaults.bands)];
+      bands[Number(key.slice(5))] = value; return { bands };
+    }
+    return action === 'sound' ? { [key]: value } : { value };
+  };
+  return { start(onError) {
+    const session = soundPreview.start(onError);
+    return { active: session.active, preview: value => session.preview(action === 'sound' ? patch(value) : { [key]: value }), commit: value => session.commit(action, patch(value)), cancel: session.cancel };
+  } };
+}
+function HeadroomDetail({ c }) {
+  const status = useMusicSlice('meters');
+  return h(Text, { style: { color: c.muted } }, status.active ? `${Number(status.headroomDb || 0).toFixed(1)} dB of compensation` : 'Compensation follows your EQ and tone settings.');
+}
+function SoundSignal({ c }) {
+  const status = useMusicSlice('meters');
+  const s = useMemo(() => styles(c), [c]);
+  const txt = (value, style) => h(Text, { style: [s.text, style] }, value);
+  return h(View, null,
+    h(View, { style: s.sectionHead }, txt('Signal', s.heading), txt(status.active ? `${(status.sampleRate / 1000).toFixed(1)} kHz · ${status.channels === 1 ? 'Mono' : 'Stereo'} · ${status.outputBits}-bit processing output` : status.sourceChannels > 2 ? 'Sound effects support mono and stereo. This file has more than two channels.' : 'Start a song to see the processing format and levels.', s.detail)),
+    status.active && h(View, { style: s.meters }, ...[['Signal peak', Math.max(-96, status.peakDb ?? -96)], ['Limiter reduction', -(status.limiterReductionDb || 0)], ['Dynamics reduction', -(status.compressionReductionDb || 0)]].map(([label, value]) => h(View, { key: label, style: s.flex }, txt(label, s.detail), txt(db(value), s.meter)))));
+}
 
-export default function SoundStudio({ state, command, c, onBack, onTimer }) {
-  const [tab, setTab] = useState('Tone');
+export default function SoundStudio({ state, command, c, onBack, onTimer, tab: chosenTab, onTab, offsets, report = () => {} }) {
+  const [localTab, setLocalTab] = useState('Tone');
+  const tab = chosenTab ?? localTab, setTab = onTab || setLocalTab;
+  const scroll = useRef(null), offsetMap = useRef(offsets || {}).current, controls = useRef(new Map()).current;
+  const active = useAppActive();
+  const control = (key, action = 'sound') => { const id = `${action}:${key}`; if (!controls.has(id)) controls.set(id, liveControl(key, action)); return controls.get(id); };
+  useEffect(() => { const frame = requestAnimationFrame(() => scroll.current?.scrollTo({ y: offsetMap[tab] || 0, animated: false })); return () => cancelAnimationFrame(frame); }, [tab, offsetMap]);
+  useEffect(() => { if (!active) soundPreview.cancel().catch(report); return () => { soundPreview.cancel().catch(() => {}); }; }, [active]);
   const [dialog, setDialog] = useState(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
   const sound = { ...defaults, ...state.sound };
-  const status = state.soundStatus || {};
-  const s = styles(c);
+  const s = useMemo(() => styles(c), [c]);
   const txt = (value, style, props = {}) => h(Text, { style: [s.text, style], ...props }, value);
   const action = (label, glyph, run) => h(Pressable, { onPress: run, style: s.icon, accessibilityRole: 'button', accessibilityLabel: label }, h(Feather, { name: glyph, size: 23, color: c.ink }));
   const update = patch => command('sound', patch);
@@ -43,8 +98,8 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     h(View, { style: s.flex }, txt(title, s.label), detail && txt(detail, s.detail)),
     h(Switch, { value: !!value, onValueChange: run, disabled, trackColor: { false: c.track, true: c.accent }, thumbColor: value ? c.onAccent : c.muted, accessibilityLabel: title }));
   const title = (value, detail) => h(View, { style: s.sectionHead }, txt(value, s.heading), detail && txt(detail, s.detail));
-  const fader = (key, label, min, max, options = {}) => h(Fader, { key, label, min, max, c, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
-  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
+  const fader = (key, label, min, max, options = {}) => h(MemoFader, { key, label, min, max, c, live: control(key), onError: report, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
+  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', hitSlop: 2, android_ripple: { color: c.line }, accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
   const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
@@ -63,12 +118,12 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     toggle('Equalizer', 'Ten bands, from sub-bass to air.', sound.eqEnabled, value => update({ eqEnabled: value }), sound.bypass),
     h(View, { style: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('equalizerPreset', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
     selectedPreset && state.equalizerPresetDetails?.[selectedPreset] && txt(state.equalizerPresetDetails[selectedPreset], s.detail, { accessibilityLiveRegion: 'polite' }),
-    h(View, { style: [s.panel, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(Fader, {
-      key: label, label, min: -12, max: 12, step: 0.5, value: sound.bands[index], c, disabled: !sound.eqEnabled || sound.bypass,
+    h(View, { style: [s.panel, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(MemoFader, {
+      key: label, label, min: -12, max: 12, step: 0.5, live: control(`band:${index}`), onError: report, value: sound.bands[index], c, disabled: !sound.eqEnabled || sound.bypass,
       onCommit: value => { const bands = [...sound.bands]; bands[index] = value; return update({ bands }); }
     }))),
     title('Headroom', 'Keep EQ boosts from overloading the signal.'),
-    toggle('Automatic EQ headroom', status.active ? `${Number(status.headroomDb || 0).toFixed(1)} dB of compensation` : 'Compensation follows your EQ and tone settings.', sound.autoHeadroom, value => update({ autoHeadroom: value }), sound.bypass),
+    toggle('Automatic EQ headroom', h(HeadroomDetail, { c }), sound.autoHeadroom, value => update({ autoHeadroom: value }), sound.bypass),
     fader('preamp', 'Preamp', -24, 0, { step: 0.5 }),
     title('Tone'), fader('bass', 'Bass', -12, 12, { step: 0.5 }), fader('treble', 'Treble', -12, 12, { step: 0.5 }),
     title('Saved sound presets', 'Includes EQ, gain, dynamics and stereo settings. Hold a preset to remove it.'),
@@ -79,7 +134,6 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     h(View, { style: [s.pills, sound.bypass && { opacity: 0.45 }] }, ...outputPresets.map(preset => pill(preset.label, selectedOutput?.id === preset.id, () => update({ ...preset.settings }), { disabled: sound.bypass }))),
     txt(selectedOutput ? selectedOutput.detail : 'Custom output · your manual settings are active.', s.detail, { accessibilityLiveRegion: 'polite' }),
     title('Volume boost', 'Adds gain to the music in this app. Loud recordings may trigger the limiter.'),
-    txt(`${Math.round(sound.volume)}%`, s.heroValue),
     fader('volume', 'Boost', 100, 300, { step: 5, format: v => `${Math.round(v)}%` }),
     h(View, { style: s.rangeLabels }, txt('100%', s.detail), txt('200%', s.detail), txt('300%', s.detail)),
     toggle('Limiter', 'Reduces clipping from boosted levels. Stereo channels stay linked.', sound.limiter, value => update({ limiter: value }), sound.bypass),
@@ -90,27 +144,23 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
     toggle('Mono audio', 'Combines the left and right channels.', sound.mono, value => update({ mono: value }), sound.bypass),
     fader('balance', 'Balance', -100, 100, { format: v => v === 0 ? 'Centre' : `${v < 0 ? 'Left' : 'Right'} ${Math.abs(Math.round(v))}%` }),
     fader('width', 'Stereo width', 0, 150, { step: 5, disabled: sound.bypass || sound.mono, format: v => `${Math.round(v)}%`, detail: '100% keeps the original stereo image.' }),
-    title('Signal', status.active ? `${(status.sampleRate / 1000).toFixed(1)} kHz · ${status.channels === 1 ? 'Mono' : 'Stereo'} · ${status.outputBits}-bit processing output` : status.sourceChannels > 2 ? 'Sound effects support mono and stereo. This file has more than two channels.' : 'Start a song to see the processing format and levels.'),
-    status.active && h(View, { style: s.meters },
-      h(View, { style: s.flex }, txt('Signal peak', s.detail), txt(db(Math.max(-96, status.peakDb ?? -96)), s.meter)),
-      h(View, { style: s.flex }, txt('Limiter reduction', s.detail), txt(db(-(status.limiterReductionDb || 0)), s.meter)),
-      h(View, { style: s.flex }, txt('Dynamics reduction', s.detail), txt(db(-(status.compressionReductionDb || 0)), s.meter))));
+    h(SoundSignal, { c }));
   else body = h(React.Fragment, null,
     title('Speed & pitch', 'Change tempo and pitch independently.'),
-    h(Fader, { label: 'Playback speed', min: 0.5, max: 2, step: 0.05, value: state.speed, c, format: v => `${Number(v).toFixed(2)}×`, onCommit: value => command('speed', { value }) }),
-    h(Fader, { label: 'Pitch', min: -12, max: 12, step: 1, value: state.pitch || 0, c, format: v => `${v > 0 ? '+' : ''}${Math.round(v)} semitones`, onCommit: value => command('pitch', { value }) }),
+    h(MemoFader, { label: 'Playback speed', live: control('speed', 'speed'), onError: report, min: 0.5, max: 2, step: 0.05, value: state.speed, c, format: v => `${Number(v).toFixed(2)}×`, onCommit: value => command('speed', { value }) }),
+    h(MemoFader, { label: 'Pitch', live: control('pitch', 'pitch'), onError: report, min: -12, max: 12, step: 1, value: state.pitch || 0, c, format: v => `${v > 0 ? '+' : ''}${Math.round(v)} semitones`, onCommit: value => command('pitch', { value }) }),
     h(Pressable, { style: s.secondary, onPress: async () => { await command('speed', { value: 1 }); await command('pitch', { value: 0 }); }, accessibilityRole: 'button' }, txt('Reset speed & pitch', { color: c.accent, fontWeight: '600' })),
     toggle('Skip silence', 'Useful for spoken audio. Can remove intentional pauses in music.', state.skipSilence, value => command('skipSilence', { value })),
     title('Listening'),
     toggle('Pause when disconnected', 'Pause when headphones or Bluetooth disconnect.', state.pauseDisconnect, value => command('pauseDisconnect', { value })),
-    h(Pressable, { style: s.toggle, onPress: onTimer, accessibilityRole: 'button' }, h(View, { style: s.flex }, txt('Sleep timer', s.label), txt(state.sleepRemaining ? `${formatTime(state.sleepRemaining)} remaining` : 'Off', s.detail)), h(Feather, { name: 'chevron-right', size: 22, color: c.muted })),
+    h(Pressable, { style: s.toggle, onPress: onTimer, accessibilityRole: 'button' }, h(View, { style: s.flex }, txt('Sleep timer', s.label), h(SleepRemaining, { style: s.detail })), h(Feather, { name: 'chevron-right', size: 22, color: c.muted })),
     toggle('Fade out sleep timer', 'Fade gently during the final 15 seconds.', state.sleepFade, value => command('sleepFade', { value })),
     title('Playback engine'), txt('Gapless queue playback with Android media controls. File format and output-device support depend on your phone.', s.detail));
 
   return h(View, { style: s.root },
     h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.icon, onPress: () => setDialog({ kind: 'reset' }), accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
-    h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => setTab(value), { style: { flex: 1, alignItems: 'center' } }))),
-    h(ScrollSurface, { color: c.bg }, h(ScrollView, { contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
+    h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => { if (value !== tab) { soundPreview.cancel().catch(report); setTab(value); } }, { style: { flex: 1, alignItems: 'center' } }))),
+    h(ScrollSurface, { color: c.bg }, h(ScrollView, { ref: scroll, onScroll: event => { offsetMap[tab] = Math.max(0, event.nativeEvent.contentOffset.y); }, scrollEventThrottle: 32, contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
       h(SectionBanner, { title: tab === 'Tone' ? 'Find your colour.' : tab === 'Output' ? 'Make every note yours.' : 'Set your own pace.', detail: tab === 'Tone' ? 'Shape your sound, from the first bass note to the last shimmer.' : tab === 'Output' ? 'Fine-tune volume, dynamics and your stereo balance.' : 'Your speed, your pitch, your listening routine.', icon: tab === 'Tone' ? 'sliders' : tab === 'Output' ? 'volume-2' : 'headphones', tone: tones(c)[tab === 'Tone' ? 0 : tab === 'Output' ? 1 : 2] }),
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
       sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body)),

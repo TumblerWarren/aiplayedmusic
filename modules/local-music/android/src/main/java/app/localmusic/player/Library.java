@@ -62,6 +62,8 @@ public final class Library {
     public List<Long> recentIds() { List<Long> l=new ArrayList<>(); try{JSONArray a=new JSONArray(p.getString("recent","[]")); for(int i=0;i<a.length();i++)l.add(a.getLong(i));}catch(Exception ignored){} return l; }
     public static List<Song> byIds(List<Song> all,List<Long> ids) { Map<Long,Song> map=new HashMap<>(); for(Song s:all)map.put(s.id,s); List<Song> out=new ArrayList<>(); for(Long id:ids)if(map.containsKey(id))out.add(map.get(id)); return out; }
     public void saveQueue(List<Song> queue,int index,int position) { JSONArray a=new JSONArray(); for(Song s:queue)a.put(s.json()); p.edit().putString("queue",a.toString()).putInt("index",index).putInt("position",position).apply(); }
+    public void savePosition(int index,int position) { p.edit().putInt("index",index).putInt("position",position).apply(); }
     public List<Song> loadQueue() { List<Song> l=new ArrayList<>(); try{JSONArray a=new JSONArray(p.getString("queue","[]"));for(int i=0;i<a.length();i++)l.add(Song.from(a.getJSONObject(i)));}catch(Exception ignored){} return l; }
 }
+
 

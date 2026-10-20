@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, AppState, Easing, View } from 'react-native';
 const h = React.createElement;
 
-export function useMotionAllowed(playing) {
-  // Stay still until the accessibility preference has been read.
+const MotionContext = createContext({ active: false, reduced: true });
+export function MotionProvider({ children }) {
   const [reduced, setReduced] = useState(true);
   const [active, setActive] = useState(AppState.currentState === 'active');
   useEffect(() => {
@@ -13,6 +13,12 @@ export function useMotionAllowed(playing) {
     const app = AppState.addEventListener('change', value => setActive(value === 'active'));
     return () => { mounted = false; motion.remove(); app.remove(); };
   }, []);
+  const value = useMemo(() => ({ active, reduced }), [active, reduced]);
+  return h(MotionContext.Provider, { value }, children);
+}
+export function useAppActive() { return useContext(MotionContext).active; }
+export function useMotionAllowed(playing) {
+  const { active, reduced } = useContext(MotionContext);
   return playing && active && !reduced;
 }
 

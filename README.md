@@ -2,9 +2,9 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**APK downloads:** Open [Android builds](https://github.com/TumblerWarren/aiplayedmusic/actions/workflows/android.yml), select the latest successful build, and download its `aiplayedmusic-apk` artifact. Extract `app-release.apk` and install it on an ARM Android 8.0+ phone. Artifacts expire after seven days. The current source is version **1.2.1** (Android version code **4**), shown in Settings → About after installation.
+**APK downloads:** Open [Android builds](https://github.com/TumblerWarren/aiplayedmusic/actions/workflows/android.yml), select the latest successful build, and download its `aiplayedmusic-apk` artifact. Extract `app-release.apk` and install it on an ARM Android 8.0+ phone. Artifacts expire after seven days. The current source is version **1.2.2** (Android version code **5**), shown in Settings → About after installation.
 
-Seven library tests, actual Java DSP signal tests, Expo compatibility/prebuild, native engine compilation, APK packaging, Android Lint, signature verification and the offline-permission check passed. This is a development-signed sideload APK. Physical-device playback/UI testing and exact Mi Music parity remain unverified. See the [sound engineering design and references](docs/AUDIO_ENGINE.md) and [build record](verification/STATUS.txt).
+Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and device measurements](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
 
 Local SDK/dependency installation is still blocked because the managed command sandbox rejects network sockets with `EPERM`. SDK installation into the workspace is supported once scoped network access is available. The successful APK was built on GitHub, not in the managed workspace.
 
@@ -20,7 +20,7 @@ This needs a **development build or standalone APK**, not Expo Go, because the c
 
 ## Build an APK with GitHub Actions
 
-The `Build Expo Android APK` workflow runs on pushes to `main`, or manually from Actions. It installs the compatible Expo dependencies, runs the selector tests and Expo compatibility checks, generates Android with Expo prebuild, and runs Gradle compilation and Android Lint.
+The `Build Expo Android APK` workflow builds manually from Actions or after a push/merge to `main` whose commit message contains `[build apk]`. Other pushes skip packaging. It installs the compatible Expo dependencies, runs the selector tests and Expo compatibility checks, generates Android with Expo prebuild, and runs Gradle compilation and Android Lint.
 
 After a successful run, download the `aiplayedmusic-apk` artifact. The GitHub phone APK includes 32-bit and 64-bit ARM; local development builds can also target x86 Android emulators. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. A failed build is not an installable artifact; inspect the uploaded diagnostics.
 
@@ -60,7 +60,7 @@ No Expo account or EAS project has been linked, and no EAS build has been starte
 
 ## Verification
 
-Run `npm run check` with Node and a JDK. It runs the library selectors (including hierarchical folders) and actual Java signal-processing tests. It does not build an APK.
+Run `npm run check` with Node and a JDK. It runs library, navigation, preview scheduling, scroll restoration and playback-state tests, plus actual Java signal-processing tests. It does not build an APK.
 
 JavaScript, native Java, JSON and Android XML were also checked offline. The successful GitHub build additionally verified native module autolinking, Kotlin/Java compilation, Android Lint, APK signing and removal of internet permission. Physical-device playback, background behaviour, headset controls and UI still require the checks in `verification/DEVICE_CHECKLIST.md`.
 
