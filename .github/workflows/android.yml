@@ -61,6 +61,15 @@ jobs:
           "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk_path"
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump permissions "$apk_path" > apk-permissions.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$apk_path" > apk-metadata.txt
+          app_name=$(node -p "require('./app.config').expo.name")
+          app_version=$(node -p "require('./app.config').expo.version")
+          app_version_code=$(node -p "require('./app.config').expo.android.versionCode")
+          grep -Fx "application-label:'$app_name'" apk-metadata.txt
+          grep -F "versionCode='$app_version_code'" apk-metadata.txt | grep -F "versionName='$app_version'"
+          unzip -Z1 "$apk_path" > apk-resources.txt
+          grep -E '^res/mipmap-anydpi-v[0-9]+/aiplayed_launcher.xml$' apk-resources.txt
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file AndroidManifest.xml > apk-manifest.txt
+          cat apk-metadata.txt
           sha256sum "$apk_path" > apk-sha256.txt
           if grep -q "android.permission.INTERNET" apk-permissions.txt; then
             echo "Standalone offline APK unexpectedly requests internet access" >&2
@@ -84,6 +93,9 @@ jobs:
             package-lock.json
             apk-permissions.txt
             apk-metadata.txt
+            apk-resources.txt
+            apk-manifest.txt
             apk-sha256.txt
           if-no-files-found: ignore
+
 

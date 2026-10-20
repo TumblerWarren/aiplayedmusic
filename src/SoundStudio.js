@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
 import Feather from './Icons';
+import ScrollSurface from './ScrollSurface';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { formatTime } from './music';
@@ -109,10 +110,10 @@ export default function SoundStudio({ state, command, c, onBack, onTimer }) {
   return h(View, { style: s.root },
     h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.icon, onPress: () => setDialog({ kind: 'reset' }), accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
     h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => setTab(value), { style: { flex: 1, alignItems: 'center' } }))),
-    h(ScrollView, { contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
+    h(ScrollSurface, { color: c.bg }, h(ScrollView, { contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
       h(SectionBanner, { title: tab === 'Tone' ? 'Find your colour.' : tab === 'Output' ? 'Make every note yours.' : 'Set your own pace.', detail: tab === 'Tone' ? 'Shape your sound, from the first bass note to the last shimmer.' : tab === 'Output' ? 'Fine-tune volume, dynamics and your stereo balance.' : 'Your speed, your pitch, your listening routine.', icon: tab === 'Tone' ? 'sliders' : tab === 'Output' ? 'volume-2' : 'headphones', tone: tones(c)[tab === 'Tone' ? 0 : tab === 'Output' ? 1 : 2] }),
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
-      sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body),
+      sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body)),
     h(Modal, { visible: !!dialog, transparent: true, animationType: 'fade', onRequestClose: () => setDialog(null) },
       h(View, { style: s.overlay }, h(SafeAreaView, { style: s.dialog },
         txt(dialog?.kind === 'save' ? 'Save sound preset' : dialog?.kind === 'delete' ? 'Remove preset?' : 'Reset sound?', s.heading),
@@ -132,3 +133,5 @@ function styles(c) {
     meters: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16, borderRadius: 22, backgroundColor: c.mint }, meter: { fontSize: 18, fontVariant: ['tabular-nums'], marginTop: 8 }, overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0009' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 28 }, input: { color: c.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: c.track, paddingVertical: 14, marginVertical: 14, minHeight: 48 }, dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 18 }
   });
 }
+
+

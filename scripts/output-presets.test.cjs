@@ -39,7 +39,7 @@ test('Output buttons apply one complete patch and are disabled during bypass', a
   for (const bypass of [false, true]) {
     const calls = [];
     const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial === 'Tone' ? 'Output' : initial, () => {}], useEffect: () => {}, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '', console };
-    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner']) ctx[name] = name;
+    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface']) ctx[name] = name;
     vm.createContext(ctx); vm.runInContext(source + '\nglobalThis.render = SoundStudio;', ctx);
     const tree = ctx.render({ state: { sound: { bypass } }, command: (...args) => calls.push(args), c: {}, onBack() {}, onTimer() {} });
     const buttons = nodes(tree).filter(node => node.type === 'Pressable');
@@ -71,7 +71,7 @@ test('actual Java DSP verifies output preset gain, compression, stereo and limit
     const nodes = tree => typeof tree === 'object' ? [tree, ...tree.children.flatMap(nodes)] : [];
     const { findOutputPreset } = await api;
     const ctx = { React: { createElement: h, Fragment: 'Fragment' }, useState: initial => [initial, () => {}], useEffect: () => {}, StyleSheet: { create: x => x }, outputPresets, findOutputPreset, tones: () => [], formatTime: () => '' };
-    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner']) ctx[name] = name;
+    for (const name of ['Modal', 'Pressable', 'ScrollView', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaView', 'Slider', 'Feather', 'SectionBanner', 'ScrollSurface']) ctx[name] = name;
     vm.createContext(ctx); vm.runInContext(source + '\nglobalThis.render = SoundStudio;', ctx);
     for (const selected of catalog.soundPresets) for (const bypass of [false, true]) {
       const calls = [];
