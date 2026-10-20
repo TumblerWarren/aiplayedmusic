@@ -6,7 +6,7 @@ const h = React.createElement;
 
 // Aiplayed's own rounded, two-tone glyphs. Secondary utility arrows use Feather.
 export default function Icon({ name, size = 24, color = '#7353BB', style, filled = true, ...props }) {
-  if (name === 'heart') return h(Svg, { width: size, height: size, viewBox: '0 0 24 24', style, accessible: false }, h(Path, { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z', fill: filled ? color : 'none', stroke: color, strokeWidth: 1.7, strokeLinejoin: 'round' }));
+  if (name === 'heart') return h(Svg, { width: size, height: size, viewBox: '-2 -2 28 28', style, accessible: false }, h(Path, { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z', fill: filled ? color : 'none', stroke: color, strokeWidth: 1.7, strokeLinejoin: 'round' }));
   const unit = size / 24;
   const shape = (key, box, extra = {}) => h(View, { key, style: { position: 'absolute', ...Object.fromEntries(Object.entries(box).map(([k, v]) => [k, v * unit])), ...extra } });
   const line = (key, box, extra = {}) => shape(key, box, { backgroundColor: color, borderRadius: 2 * unit, ...extra });
@@ -37,3 +37,4 @@ export default function Icon({ name, size = 24, color = '#7353BB', style, filled
   else return h(Feather, { name, size, color, style, ...props });
   return h(View, { ...props, accessible: false, style: [{ width: size, height: size, overflow: 'hidden' }, style] }, content);
 }
+

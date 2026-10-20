@@ -2,6 +2,7 @@ module.exports = {
   expo: {
     name: 'Aiplayed',
     slug: 'aiplayedmusic',
+    icon: './assets/aiplayed-icon.png',
     version: '1.2.2',
     platforms: ['android'],
     orientation: 'default',

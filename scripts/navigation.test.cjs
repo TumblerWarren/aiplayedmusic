@@ -37,3 +37,17 @@ test('picker counts direct and nested audio without mixing sibling prefixes', as
   assert.deepEqual(folderChoices(catalog, '/storage/emulated/0/Music'), [{ path: '/storage/emulated/0/Music/Rock', count: 5 }]);
   assert.deepEqual(folderChoices(catalog), [{ path: '/storage/emulated/0', count: 13 }]);
 });
+
+
+// Track gestures must not consume normal scrolling, taps or cancelled movement.
+test('track swipe direction, intent and distance', async () => {
+  const { isHorizontalSwipe, swipeAction } = await import('../src/swipe.js');
+  assert.equal(swipeAction({ dx: -90, dy: 8 }), 'next');
+  assert.equal(swipeAction({ dx: -90, dy: 8, numberActiveTouches: 0 }), 'next');
+  assert.equal(swipeAction({ dx: 90, dy: 8 }), 'previous');
+  assert.equal(swipeAction({ dx: 12, dy: 0 }), null);
+  assert.equal(swipeAction({ dx: 35, dy: 0 }), null);
+  assert.equal(swipeAction({ dx: 80, dy: 100 }), null);
+  assert.equal(swipeAction({ dx: 90, dy: 0, numberActiveTouches: 2 }), null);
+  assert.equal(isHorizontalSwipe({ dx: 0, dy: 90 }), false);
+});
