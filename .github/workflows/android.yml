@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [design/multicolor-ui]
+    branches: [main, design/multicolor-ui]
 permissions:
   contents: read
 concurrency:
@@ -10,12 +10,12 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch'
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'APK builds are paused. Only manual builds are allowed.'
+      - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
   build:
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
