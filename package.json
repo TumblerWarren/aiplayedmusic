@@ -1,13 +1,13 @@
 {
   "name": "aiplayedmusic",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "main": "index.js",
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "prebuild": "expo prebuild --platform android",
-    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs",
+    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs && node scripts/responsiveness.test.cjs && node scripts/usability.test.cjs",
     "doctor": "expo-doctor"
   },
   "dependencies": {

@@ -14,6 +14,8 @@ class LocalMusicModule : Module() {
   private var playback: PlaybackService? = null
   private var bound = false
   private var registered = false
+  private var sequence = 0L
+  private var previewAllowed = true
   private val handler = Handler(Looper.getMainLooper())
   private val pending = mutableListOf<Promise>()
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
@@ -59,6 +61,24 @@ class LocalMusicModule : Module() {
     }
     AsyncFunction("musicFolders") { library.musicFolders(context).toString() }
     AsyncFunction("snapshot") { snapshot() }.runOnQueue(Queues.MAIN)
+    AsyncFunction("playbackStatus") { includeSound: Boolean ->
+      val s = playback
+      JSONObject().apply {
+        put("sequence", ++sequence)
+        put("currentId", s?.current()?.id ?: JSONObject.NULL)
+        put("position", s?.position() ?: 0)
+        put("duration", s?.duration() ?: 0)
+        put("sleepRemaining", s?.sleepRemaining() ?: 0)
+        if (includeSound) put("soundStatus", s?.soundStatus() ?: JSONObject())
+      }.toString()
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("previewSound") { raw: String ->
+      check(previewAllowed) { "Sound preview requires the foreground app" }
+      requireNotNull(playback) { "Initialize music playback first" }.previewSound(JSONObject(raw))
+    }.runOnQueue(Queues.MAIN)
+    AsyncFunction("cancelSoundPreview") { playback?.cancelSoundPreview(); Unit }.runOnQueue(Queues.MAIN)
+    OnActivityEntersBackground { handler.post { previewAllowed = false; playback?.cancelSoundPreview() } }
+    OnActivityEntersForeground { handler.post { previewAllowed = true } }
     AsyncFunction("command") { action: String, raw: String ->
       val data = JSONObject(raw)
       val service = requireNotNull(playback) { "Initialize music playback first" }
@@ -139,6 +159,7 @@ class LocalMusicModule : Module() {
     OnDestroy {
       val ctx = appContext.reactContext
       handler.post {
+        playback?.cancelSoundPreview()
         if (ctx != null) {
           if (bound) ctx.unbindService(connection)
           if (registered) ctx.unregisterReceiver(receiver)
@@ -161,6 +182,7 @@ class LocalMusicModule : Module() {
     val prefs = lib.prefs()
     val s = playback
     return JSONObject().apply {
+      put("sequence", ++sequence)
       put("current", s?.current()?.json() ?: JSONObject.NULL)
       put("playing", s?.playing() ?: false)
       put("loading", s?.loading() ?: false)
@@ -196,3 +218,5 @@ class LocalMusicModule : Module() {
     }.toString()
   }
 }
+
+
