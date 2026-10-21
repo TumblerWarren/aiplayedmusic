@@ -24,13 +24,19 @@ def shell(*args, **kwargs):
 
 def tree():
     for _ in range(4):
-        shell('uiautomator', 'dump', '--compressed', '/sdcard/aiplayed-ui.xml', check=False)
-        raw = shell('cat', '/sdcard/aiplayed-ui.xml', check=False)
+        raw = shell('am', 'instrument', '-w', '-r', 'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump', check=False)
         try:
-            return ET.fromstring(raw[raw.index('<?xml'):])
+            return ET.fromstring(raw[raw.index('<?xml'):raw.rindex('</hierarchy>')+len('</hierarchy>')])
         except (ValueError, ET.ParseError):
             time.sleep(.3)
     raise AssertionError('Could not read emulator accessibility tree')
+
+def wait_absent(value, timeout=8):
+    end = time.monotonic()+timeout
+    while time.monotonic() < end:
+        if find(value) is None: return True
+        time.sleep(.2)
+    return False
 
 def label(node):
     return node.get('content-desc') or node.get('text', '')
@@ -115,6 +121,7 @@ def start_record(name):
     recording = subprocess.Popen(['adb','shell','screenrecord','--time-limit','180','/sdcard/'+name+'.mp4'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
 try:
     apk = glob.glob('android/app/build/outputs/apk/release/*.apk')[0]
+    adb('install', '-r', '/tmp/aiplayed-ui-helper/ui-helper.apk', timeout=120)
     adb('install', '-r', apk, timeout=120)
     for permission in ['READ_MEDIA_AUDIO', 'POST_NOTIFICATIONS']:
         shell('pm', 'grant', PKG, 'android.permission.'+permission)
@@ -164,20 +171,20 @@ try:
     shot('songs-collapsed')
     tap('Jump to Z'); root = tree()
     check('Z jump lands on displayed song names', any('Z00 Song' in label(n) for n in root.iter('node')))
-    tap('+ Browse'); shell('input','keyevent','4'); check('Android Back dismisses Browse', find('Close') is None)
+    tap('+ Browse'); shell('input','keyevent','4'); check('Android Back dismisses Browse', wait_absent('Close'))
     if find('Close') is not None: tap('Close')
-    tap('+ Browse'); shell('input','tap','540','90'); check('Outside tap dismisses Browse', find('Close') is None)
+    tap('+ Browse'); handle_top=bounds(wait('Drag down to close'))[1]; shell('input','tap','40',max(80,handle_top-25)); check('Outside tap dismisses Browse', wait_absent('Close'))
     if find('Close') is not None: tap('Close')
     tap('+ Browse'); root=tree(); handle=find('Drag down to close',root)
     if handle is not None:
         x1,y1,x2,y2=bounds(handle); swipe((x1+x2)/2,(y1+y2)/2,(x1+x2)/2,(y1+y2)/2+280)
     else:
         x1,y1,x2,y2=bounds(wait('Browse')); swipe(540,y1-25,540,y1+255)
-    check('Handle drag dismisses Browse', find('Close') is None)
+    check('Handle drag dismisses Browse', wait_absent('Close'))
     if find('Close') is not None: tap('Close')
     # Save and cancel playlist dialogs, then verify search restoration.
-    browse('Playlists'); tap('New playlist'); shell('input','text','APlaylist'); tap('Save')
-    tap('New playlist'); shell('input','text','ZPlaylist'); tap('Save')
+    browse('Playlists'); tap('New playlist'); shell('input','text','APlaylist'); shot('playlist-keyboard'); tap('Save'); assert wait_absent('Playlist name'), 'First playlist save did not close the dialog'
+    tap('New playlist'); shell('input','text','ZPlaylist'); tap('Save'); assert wait_absent('Playlist name'), 'Second playlist save did not close the dialog'
     check('Playlist creation returns to the same view', find('+ Browse') is not None)
     tap('New playlist'); shell('input','tap','40','90'); check('Outside tap dismisses playlist dialog', find('Playlist name') is None)
     browse('Songs'); tap('Jump to A'); swipe(400,600,400,1450)

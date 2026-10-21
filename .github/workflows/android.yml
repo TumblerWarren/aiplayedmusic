@@ -74,6 +74,8 @@ jobs:
           assert any(item.get('name') == api33 for item in qualified.iter('item'))
           print('Generated launcher and API-qualified branded splash resources verified.')
           PY
+      - name: Build animation-safe Android UI inspector
+        run: python scripts/build-ui-helper.py
       - name: Compile music engine before native packaging
         working-directory: android
         run: ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
