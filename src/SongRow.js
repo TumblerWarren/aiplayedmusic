@@ -1,5 +1,5 @@
 import React, { memo } from 'react';
-import { Pressable, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 import Artwork from './Artwork';
 import Icon from './Icons';
 import { PlayingBars } from './PlaybackMotion';

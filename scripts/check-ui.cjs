@@ -4,6 +4,16 @@ const { spawnSync } = require('node:child_process');
 const files = ['App.js', ...fs.readdirSync('src').filter(name => name.endsWith('.js')).map(name => `src/${name}`)];
 for (const file of files) {
   const source = fs.readFileSync(file, 'utf8');
+  // Node versions differ in whether --check reports duplicate imported bindings.
+  // Check them explicitly so a local syntax pass cannot hide a Metro/CI failure.
+  const bindings = new Set();
+  for (const [, specifiers] of source.matchAll(/^import\s+(.+?)\s+from\s+['"]/gm)) {
+    for (const specifier of specifiers.split(/[{},]/).map(value => value.trim()).filter(Boolean)) {
+      const local = specifier.split(/\s+as\s+/).at(-1);
+      if (bindings.has(local)) throw new Error(`${file}: duplicate imported binding ${local}`);
+      bindings.add(local);
+    }
+  }
   const result = spawnSync(process.execPath, ['--input-type=module', '--check'], { input: source, encoding: 'utf8' });
   if (result.status !== 0) throw new Error(`${file}: ${result.stderr || result.error}`);
   for (const [, relative] of source.matchAll(/from\s+['"](\.[^'"]+)['"]/g)) {
