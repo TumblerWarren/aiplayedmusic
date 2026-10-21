@@ -27,14 +27,17 @@ export default function Sheet({ visible, title, c, onClose, returnFocus, childre
   const pan = useMemo(() => {
     let cancelled = false;
     return PanResponder.create({
+      // Only the handle owns this responder, so claim its touch before Android
+      // hands a moving pointer to the sheet's scrollable native content.
+      onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: (_, g) => g.numberActiveTouches === 1 && g.dy > 8 && g.dy > Math.abs(g.dx) * 1.5,
-      onPanResponderGrant: () => { cancelled = false; },
+      onPanResponderGrant: (_, g) => { cancelled = g?.numberActiveTouches > 1; },
       onPanResponderMove: (_, g) => { if (g.numberActiveTouches > 1) cancelled = true; if (!cancelled) drag.setValue(Math.max(0, g.dy)); },
       onPanResponderRelease: (_, g) => {
         if (!cancelled && g.dy > 64 && g.dy > Math.abs(g.dx) * 1.5) latest.current.onClose();
         else Animated.spring(drag, { toValue: 0, useNativeDriver: true }).start();
       },
-      onPanResponderTerminate: () => { drag.setValue(0); }, onPanResponderTerminationRequest: () => true,
+      onPanResponderTerminate: () => { cancelled = true; drag.setValue(0); }, onPanResponderTerminationRequest: () => false,
     });
   }, [drag]);
   return h(Modal, { visible, transparent: true, animationType: motion ? 'slide' : 'none', onRequestClose: onClose, onShow: () => restoreFocus(heading) },

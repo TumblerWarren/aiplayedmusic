@@ -13,6 +13,7 @@ OUT = Path('verification/android-v1.2.3')
 OUT.mkdir(parents=True, exist_ok=True)
 PKG = 'app.localmusic.player'
 results = []
+failures = []
 DESTINATIONS = ['Songs','Albums','Artists','Folders','Playlists','Favourites','Recently played']
 
 def adb(*args, check=True, timeout=40):
@@ -75,9 +76,13 @@ def shot(name, dump=True):
         (OUT / (name+'.xml')).write_text(ET.tostring(tree(), encoding='unicode'))
 
 def check(name, condition=True):
-    assert condition, name
-    results.append(name)
-    print('PASS:', name, flush=True)
+    if condition:
+        results.append(name)
+        print('PASS:', name, flush=True)
+    else:
+        failures.append(name)
+        print('FAIL:', name, flush=True)
+        shot('failed-check-'+str(len(failures)))
 
 def browse(destination):
     tap('+ Browse')
@@ -160,13 +165,16 @@ try:
     tap('Jump to Z'); root = tree()
     check('Z jump lands on displayed song names', any('Z00 Song' in label(n) for n in root.iter('node')))
     tap('+ Browse'); shell('input','keyevent','4'); check('Android Back dismisses Browse', find('Close') is None)
+    if find('Close') is not None: tap('Close')
     tap('+ Browse'); shell('input','tap','540','90'); check('Outside tap dismisses Browse', find('Close') is None)
+    if find('Close') is not None: tap('Close')
     tap('+ Browse'); root=tree(); handle=find('Drag down to close',root)
     if handle is not None:
         x1,y1,x2,y2=bounds(handle); swipe((x1+x2)/2,(y1+y2)/2,(x1+x2)/2,(y1+y2)/2+280)
     else:
         x1,y1,x2,y2=bounds(wait('Browse')); swipe(540,y1-25,540,y1+255)
     check('Handle drag dismisses Browse', find('Close') is None)
+    if find('Close') is not None: tap('Close')
     # Save and cancel playlist dialogs, then verify search restoration.
     browse('Playlists'); tap('New playlist'); shell('input','text','APlaylist'); tap('Save')
     tap('New playlist'); shell('input','text','ZPlaylist'); tap('Save')
@@ -211,9 +219,10 @@ try:
     rail_bounds(); tap('Jump to Z'); shot('folder-picker')
     check('Folder picker A-Z gesture lands on the Z folder', any(label(n).startswith('/storage/emulated/0/Music/AiplayedChecks/ZFolder, ') for n in tree().iter('node')))
     tap('Close folder browser')
+    assert not failures, '; '.join(failures)
     (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
 except Exception as error:
-    (OUT/'result.json').write_text(json.dumps({'passed':False,'checks':results,'error':str(error)},indent=2))
+    (OUT/'result.json').write_text(json.dumps({'passed':False,'checks':results,'failures':failures,'error':str(error)},indent=2))
     try: shot('failure')
     except Exception: pass
     raise
