@@ -10,6 +10,8 @@ The native splash uses distinct dark turntable artwork and a charcoal background
 
 Sheets retain a stationary fading scrim and independently sliding panel. Their colours update while open, preserving focus return and dismissal. Dark text is checked at 4.5:1 and essential control edges at 3:1. Patterned controls retain full text opacity during dark-mode presses and use a clipped translucent overlay.
 
+The notification-panel music card requests native MediaStyle colourization with a soft lavender surface in Light and a charcoal-lavender surface in Dark. System follows the phone. Preference and configuration changes refresh the card without changing playback or seeking. Android and the phone manufacturer's notification panel control the final opacity and may adjust the supplied colour; custom transparency is not supported by the native media-card API. Candidate theme checks retain notification-shade screenshots and recordings for all six appearance/phone combinations.
+
 ## Local verification
 
 Run `npm run check` and `python scripts/media-session.test.py`. Coverage includes six preference/phone combinations, defaults, palette propagation without playback calls, loaded-cover preservation, press clipping, contrast, bootstrap order and splash assets. The production Java helper compiles against recording Android fixtures for API26/31/35 preference and system-bar branches. These fixtures do not replace an Android SDK build or emulator run.
