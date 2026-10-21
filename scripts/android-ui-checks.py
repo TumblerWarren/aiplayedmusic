@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 import xml.etree.ElementTree as ET
+from android_media_session import is_playing, session_text
 
 OUT = Path('verification/android-v1.2.3')
 OUT.mkdir(parents=True, exist_ok=True)
@@ -98,7 +99,7 @@ def browse(destination):
 def media_title():
     raw = shell('dumpsys', 'media_session')
     (OUT/'media-session.txt').write_text(raw)
-    match = re.search(r'[A-Z][0-9]{2} Song', raw)
+    match = re.search(r'[A-Z][0-9]{2} Song', session_text(raw))
     assert match, 'No fixture metadata in media session'
     return match[0]
 
@@ -196,7 +197,9 @@ try:
     tap(song); wait('Pause'); initial=media_title()
     for destination in ['Albums','Artists','Folders','Playlists','Favourites','Recently played','Songs']:
         browse(destination)
-        check('Playback continues in '+destination, 'state=3' in shell('dumpsys','media_session'))
+        media = shell('dumpsys','media_session')
+        (OUT/('media-'+destination.lower().replace(' ','-')+'.txt')).write_text(media)
+        check('Playback continues in '+destination, is_playing(media) and initial in session_text(media))
     # Swipe only artwork/title; the transport controls have independent targets.
     start_record('player-and-accessibility')
     node=wait('Open now playing'); x1,y1,x2,y2=bounds(node)
