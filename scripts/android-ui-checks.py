@@ -136,6 +136,8 @@ try:
         time.sleep(delay); shot('startup-'+str(i), dump=False)
     wait('+ Browse', timeout=60); shot('songs-expanded')
     check('Branded cold start reaches the Library')
+    search_bounds = bounds(wait('Search your music'))
+    check('Search retains its full intrinsic height before scrolling', search_bounds[3]-search_bounds[1] >= 100)
     # Real press hold frames preserve the native clipped highlight for review.
     browse_button = wait('+ Browse'); x1,y1,x2,y2 = bounds(browse_button)
     holding = subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000'])
@@ -151,6 +153,7 @@ try:
     start_record('rail-and-dismissal')
     before = rail_bounds(); swipe(400,1400,400,800)
     after = rail_bounds()
+    (OUT/'rail-geometry.json').write_text(json.dumps({'expandedHeader':before,'collapsedHeader':after},indent=2))
     check('A-Z rail expands when search collapses', after[1][3]-after[0][1] > before[1][3]-before[0][1]+20)
     check('+ Browse remains available while search is collapsed', find('+ Browse') is not None)
     shot('songs-collapsed')

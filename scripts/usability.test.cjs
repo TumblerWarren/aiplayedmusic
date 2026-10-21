@@ -93,6 +93,10 @@ test('UI-thread header and rail share partial collapse geometry, restore scroll 
   list.props.onContentSizeChange(300, 10000); list.props.onScrollBeginDrag(); list.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
   assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
+  const measuredHeader = nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID);
+  assert.equal(measuredHeader.props.style[1].transform[0].translateY, -100);
+  assert.equal(measuredHeader.props.style[1].height, undefined, 'intrinsic search measurement must not be constrained by its collapsing height');
+  assert.equal(tree.props.style.overflow, 'hidden', 'the viewport clips the translated header above the list');
   assert.equal(list.props.getItemLayout(null, 2).offset, 392);
   nodes(tree).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();
   assert.equal(calls.at(-1)[1].index, 2); assert.equal(calls.at(-1)[1].viewOffset, 0);
