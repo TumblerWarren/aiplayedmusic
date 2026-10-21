@@ -12,7 +12,7 @@ test('generated splash keeps Android 8 resources compatible and the complete And
     XML: { readXMLAsync: async () => ({ resources: { style: [{ $: { name:'OtherTheme' }, item:[] }] } }), writeXMLAsync: async options => { written=options; } },
   };
   const context={ module:{ exports:{} }, require: name => name==='node:path' ? path : plugins };
-  vm.runInNewContext(fs.readFileSync('plugins/withMusic.js','utf8'),context);
+  vm.runInNewContext(fs.readFileSync('plugins/withSplashCompatibility.js','utf8'),context);
   context.module.exports({});
   const splash={ $:{ name:'Theme.App.SplashScreen',parent:'Theme.SplashScreen' },item:[
     { $:{name:'windowSplashScreenBackground'},_:'@color/splashscreen_background' },
@@ -31,4 +31,10 @@ test('generated splash keeps Android 8 resources compatible and the complete And
   assert.equal(qualified.item.at(-1)._,'icon_preferred');
   assert(written.xml.resources.style.some(x=>x.$.name==='OtherTheme'));
   await transform(mod); assert.equal(written.xml.resources.style.filter(x=>x.$.name==='Theme.App.SplashScreen').length,1);
+});
+
+
+test('splash compatibility runs after Expo splash generation in the reverse mod stack', () => {
+  const plugins=require('../app.config').expo.plugins.map(plugin=>Array.isArray(plugin)?plugin[0]:plugin);
+  assert(plugins.indexOf('./plugins/withSplashCompatibility') < plugins.indexOf('expo-splash-screen'));
 });
