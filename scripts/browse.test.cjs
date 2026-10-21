@@ -88,10 +88,10 @@ test('multitouch and cancellation remain invalid until a new swipe begins; trans
 });
 
 test('Browse sheet exposes Close, outside and Android Back dismissal; its handle ignores cancelled and multitouch drags', () => {
-  class Value { setValue(value) { this.value=value; } }
+  class Value { setValue(value) { this.value=value; } interpolate(config) { return { value: this, config }; } }
   const closed=[];
   const ui=harness('src/Sheet.js',['Sheet'],{
-    Animated:{ Value, View:'AnimatedView', spring:()=>({start(){}}) },
+    Animated:{ Value, View:'AnimatedView', add:(a,b)=>({a,b}), spring:()=>({start(){}}) },
     PanResponder:{ create:handlers=>({panHandlers:handlers}) }, useMotionAllowed:()=>false,
     useWindowDimensions:()=>({height:800}), setTimeout, clearTimeout,
   });

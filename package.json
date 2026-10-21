@@ -7,7 +7,7 @@
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "prebuild": "expo prebuild --platform android",
-    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs && node scripts/responsiveness.test.cjs && node scripts/usability.test.cjs && node scripts/browse.test.cjs && node scripts/branding.test.cjs && node scripts/rotary.test.cjs && node scripts/startup.test.cjs",
+    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs && node scripts/responsiveness.test.cjs && node scripts/usability.test.cjs && node scripts/browse.test.cjs && node scripts/branding.test.cjs && node scripts/rotary.test.cjs && node scripts/startup.test.cjs && node scripts/press-feedback.test.cjs",
     "doctor": "expo-doctor"
   },
   "dependencies": {

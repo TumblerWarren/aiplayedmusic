@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef } from 'react';
-import { AccessibilityInfo, Animated, Modal, PanResponder, Pressable, ScrollView, Text, View, findNodeHandle, useWindowDimensions } from 'react-native';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Modal, PanResponder, ScrollView, Text, View, findNodeHandle, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useMotionAllowed } from './PlaybackMotion';
+import Pressable from './RoundedPressable';
 const h = React.createElement;
 
 export function restoreFocus(target) {
@@ -16,14 +17,35 @@ export function restoreFocus(target) {
 export default function Sheet({ visible, title, c, onClose, returnFocus, children }) {
   const motion = useMotionAllowed(true), { height } = useWindowDimensions();
   const heading = useRef(null), drag = useRef(new Animated.Value(0)).current;
+  const reveal = useRef(new Animated.Value(0)).current;
+  const [presented, setPresented] = useState(visible);
+  const visibleNow = useRef(visible); visibleNow.current = visible;
+  // Keep the last menu intact until its exit animation has finished.
+  const content = useRef({ title, children });
+  if (visible) content.current = { title, children };
   const latest = useRef({ onClose }); latest.current = { onClose };
   const wasOpen = useRef(false), focusTarget = useRef(null);
   if (visible) focusTarget.current = returnFocus;
   useEffect(() => {
-    if (visible) drag.setValue(0);
-    else if (wasOpen.current) { const timer = setTimeout(() => restoreFocus(focusTarget.current), motion ? 320 : 0); wasOpen.current = false; return () => clearTimeout(timer); }
-    wasOpen.current = visible;
-  }, [visible, drag, motion]);
+    let animation;
+    const closed = () => {
+      if (visibleNow.current) return;
+      setPresented(false);
+      if (wasOpen.current) restoreFocus(focusTarget.current);
+      wasOpen.current = false;
+    };
+    if (visible) {
+      setPresented(true); wasOpen.current = true; drag.setValue(0);
+      if (motion) {
+        animation = Animated.timing(reveal, { toValue: 1, duration: 240, useNativeDriver: true, isInteraction: false });
+        animation.start();
+      } else reveal.setValue(1);
+    } else if (motion && wasOpen.current) {
+      animation = Animated.timing(reveal, { toValue: 0, duration: 180, useNativeDriver: true, isInteraction: false });
+      animation.start(({ finished }) => { if (finished) closed(); });
+    } else { reveal.setValue(0); closed(); }
+    return () => animation?.stop();
+  }, [visible, drag, reveal, motion]);
   const pan = useMemo(() => {
     let cancelled = false;
     return PanResponder.create({
@@ -40,14 +62,15 @@ export default function Sheet({ visible, title, c, onClose, returnFocus, childre
       onPanResponderTerminate: () => { cancelled = true; drag.setValue(0); }, onPanResponderTerminationRequest: () => false,
     });
   }, [drag]);
-  return h(Modal, { visible, transparent: true, animationType: motion ? 'slide' : 'none', onRequestClose: onClose, onShow: () => restoreFocus(heading) },
-    h(View, { style: { flex: 1, justifyContent: 'flex-end' } },
-      h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close sheet', style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0007' } }),
-      h(Animated.View, { style: { maxHeight: height * 0.9, backgroundColor: c.bg, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: drag }] } },
+  return h(Modal, { visible: visible || presented, transparent: true, animationType: 'none', onRequestClose: onClose, onShow: () => { if (visibleNow.current) restoreFocus(heading); } },
+    h(View, { pointerEvents: visible ? 'auto' : 'none', style: { flex: 1, justifyContent: 'flex-end' } },
+      h(Animated.View, { testID: 'sheet-backdrop', pointerEvents: 'none', accessible: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0007', opacity: reveal } }),
+      h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close sheet', feedback: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } }),
+      h(Animated.View, { testID: 'sheet-panel', style: { maxHeight: height * 0.9, backgroundColor: c.bg, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: Animated.add(drag, reveal.interpolate({ inputRange: [0, 1], outputRange: [height, 0] })) }] } },
         h(SafeAreaView, { edges: ['bottom'], style: { flexShrink: 1 } },
           h(View, { ...pan.panHandlers, accessibilityLabel: 'Drag down to close', style: { minHeight: 48, justifyContent: 'center', alignItems: 'center' } }, h(View, { style: { width: 40, height: 4, borderRadius: 4, backgroundColor: c.track } })),
           h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 } },
-            h(Text, { ref: heading, accessibilityRole: 'header', style: { flex: 1, color: c.ink, fontSize: 24, fontWeight: '700' } }, title),
-            h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close', android_ripple: { color: '#7353BB18' }, style: { minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 15 } }, 'Close'))),
-          h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, children)))));
+            h(Text, { ref: heading, accessibilityRole: 'header', style: { flex: 1, color: c.ink, fontSize: 24, fontWeight: '700' } }, content.current.title),
+            h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close', style: { minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 15 } }, 'Close'))),
+          h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, content.current.children)))));
 }
