@@ -18,7 +18,7 @@ export default function PlayerProgress({ c, styles: s, landscape, command }) {
   return h(View, null,
     h(View, { style: landscape && { flexDirection: 'row', alignItems: 'center' } },
       landscape && time(draft ?? progress.position),
-      h(Slider, { style: [s.slider, landscape && { flex: 1, width: undefined }], minimumValue: 0, maximumValue: Math.max(1, progress.duration), value: thumb.current, onSlidingStart: setDraft, onValueChange: setDraft, onSlidingComplete: async position => { setDraft(position); await command('seek', { position: Math.round(position) }); setDraft(null); }, minimumTrackTintColor: c.accent, maximumTrackTintColor: c.line, thumbTintColor: c.accent, accessibilityLabel: 'Playback position' }),
+      h(Slider, { style: [s.slider, landscape && { flex: 1, width: undefined }], minimumValue: 0, maximumValue: Math.max(1, progress.duration), value: thumb.current, onSlidingStart: setDraft, onValueChange: setDraft, onSlidingComplete: async position => { setDraft(position); await command('seek', { position: Math.round(position) }); setDraft(null); }, minimumTrackTintColor: c.accent, maximumTrackTintColor: c.dark ? c.track : c.line, thumbTintColor: c.accent, accessibilityLabel: 'Playback position' }),
       landscape && time(progress.duration)),
     !landscape && h(View, { style: s.times }, time(draft ?? progress.position), time(progress.duration)));
 }

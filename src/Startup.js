@@ -27,11 +27,11 @@ export default function Startup({ c, dark: chosenDark, error, onRetry, onLayout 
     h(Text, { style: { color: c.muted, fontSize: 15, lineHeight: 23, maxWidth: 340 } }, error || 'Opening your music library…'),
     error ? h(Pressable, { onPress: onRetry, accessibilityRole: 'button', style: ({ pressed }) => ({ minHeight: 48, paddingVertical: 14, paddingHorizontal: 26, borderRadius: 999, backgroundColor: pressed ? c.purpleInk : c.accent }) }, h(Text, { style: { color: c.onAccent, fontSize: 16, fontWeight: '700' } }, 'Try again'))
       : h(View, { accessibilityRole: 'progressbar', accessibilityLabel: 'Opening your music library', accessibilityState: { busy: true }, style: { flexDirection: 'row', gap: 8, paddingVertical: 6 } },
-        ...[c.accent, '#79B5A3', '#F2B09D'].map((color, i) => h(Animated.View, { key: color, accessible: false, style: { width: 8, height: 8, borderRadius: 4, backgroundColor: color, opacity: motion ? pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: i === 1 ? [0.4, 1, 0.4] : i === 0 ? [1, 0.7, 0.4] : [0.4, 0.7, 1] }) : 1 } }))));
-  const art = h(View, { style: { flex: 1, minHeight: size + 16, alignItems: 'center', justifyContent: 'center' } }, h(StartupArtwork, { size, rotation: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }));
+        ...[c.accent, c.startup.needle, c.startup.peach].map((color, i) => h(Animated.View, { key: color, accessible: false, style: { width: 8, height: 8, borderRadius: 4, backgroundColor: color, opacity: motion ? pulse.interpolate({ inputRange: [0, 0.5, 1], outputRange: i === 1 ? [0.4, 1, 0.4] : i === 0 ? [1, 0.7, 0.4] : [0.4, 0.7, 1] }) : 1 } }))));
+  const art = h(View, { style: { flex: 1, minHeight: size + 16, alignItems: 'center', justifyContent: 'center' } }, h(StartupArtwork, { c, size, rotation: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }));
   return h(View, { onLayout, testID: 'startup-screen', style: { flex: 1, backgroundColor: c.bg } },
     h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }),
-    h(StartupBackdrop, { dark }),
+    h(StartupBackdrop, { dark, c }),
     h(ScrollView, { showsVerticalScrollIndicator: false, contentContainerStyle: { flexGrow: 1, minHeight: height, paddingTop: insets.top + 20, paddingBottom: insets.bottom + 24, paddingHorizontal: 28, gap: compact ? 18 : 12, flexDirection: compact ? 'row' : 'column' } },
       compact ? h(React.Fragment, null, h(View, { style: { flex: 1, justifyContent: 'space-between', gap: 24 } }, brand, status), art) : h(React.Fragment, null, brand, art, status)));
 }

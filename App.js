@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import { PlayingBars, PlayingArtwork, PlaybackRipple, MotionProvider, useAppActive } from './src/PlaybackMotion';
@@ -23,16 +23,16 @@ import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
 import Lyrics from './src/Lyrics';
 import SleepTimer from './src/SleepTimer';
-import { palette, tones } from './src/design';
+import { tones } from './src/design';
 import { Pattern, TabHighlight } from './src/Pastel';
 import { formatTime } from './src/music';
 
 import Pressable from './src/RoundedPressable';
+import ThemeProvider, { useTheme } from './src/ThemeProvider';
 const h = React.createElement;
 const folderName = name => name.split('/').filter(Boolean).pop() || name;
 
 function MusicApp() {
-  const system = useColorScheme();
   const window = useWindowDimensions();
   const landscape = window.width > window.height;
   const compactPlayer = landscape || window.height < 640;
@@ -76,8 +76,7 @@ function MusicApp() {
   const currentBrowse = browseDestination(tab, selection);
   const busy = useRef(false);
   const alive = useRef(true);
-  const dark = state.theme === 'Dark' || (state.theme === 'System' && system === 'dark');
-  const c = useMemo(() => palette(dark), [dark]);
+  const c = useTheme(), dark = c.dark;
   const accent = c.accent;
   const colors = useMemo(() => tones(c), [c]);
   const styles = useMemo(() => makeStyles(c, compactPlayer, window.fontScale), [c, compactPlayer, window.fontScale]);
@@ -155,7 +154,7 @@ function MusicApp() {
 
   const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress: e => { overlayReturn.current = e?.nativeEvent?.target; onPress?.(); }, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color, filled: extra.filled }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
-  const button = (value, onPress, style, disabled = false) => h(Pressable, { onPress, disabled, accessibilityState: { disabled }, accessibilityRole: 'button', style: ({ pressed }) => [styles.button, style, { opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.peach, ink: c.peachInk, detail: c.mintInk, pattern: 'waves' } }), text(value, styles.buttonText));
+  const button = (value, onPress, style, disabled = false) => h(Pressable, { onPress, disabled, accessibilityState: { disabled }, accessibilityRole: 'button', style: ({ pressed }) => [styles.button, style, { opacity: disabled ? 0.45 : pressed && !c.dark ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.peach, ink: c.peachInk, detail: c.mintInk, pattern: 'waves' } }), text(value, styles.buttonText));
   const captureRoute = () => ({ page, tab, selection, query });
   const restoreRoute = route => { setPage(route.page); setTab(route.tab); setSelection(route.selection); setQuery(route.query); };
   const rememberBrowsing = () => { if (['library', 'collection'].includes(page)) { browsing.current[activeDestination(page, tab, selection)] = captureRoute(); browseRoutes.current[currentBrowse] = captureRoute(); } };
@@ -167,7 +166,7 @@ function MusicApp() {
     restoreRoute(browseRoutes.current[title] || browseRoute(title));
   };
   const openBrowse = () => { overlayReturn.current = browseTrigger.current; setSheet({ title: 'Browse', browse: true }); };
-  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' } }), text('+ Browse', { color: c.purpleInk, fontWeight: '700', fontSize: 15 })));
+  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed && !c.dark ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' } }), text('+ Browse', { color: c.purpleInk, fontWeight: '700', fontSize: 15 })));
   const navigateRoot = title => {
     if (activeDestination(page, tab, selection) === title && page !== 'player') return;
     if (title === 'Sound') return openSound();
@@ -206,7 +205,7 @@ function MusicApp() {
     { label: 'Sleep timer', detail: 'Pause your music automatically', icon: 'moon', action: () => timerSheet(), keep: true },
     { label: 'Settings', detail: 'Your library and playback preferences', icon: 'settings', action: () => go('settings') }
   ] });
-  const themeSheet = () => setSheet({ title: 'Theme', items: ['System', 'Light', 'Dark'].map(value => ({ label: value, icon: state.theme === value ? 'check' : 'circle', action: () => command('theme', { value }) })) });
+  const themeSheet = () => setSheet({ title: 'Theme', items: ['System', 'Light', 'Dark'].map(value => ({ label: value, selected: state.theme === value, icon: state.theme === value ? 'check' : 'circle', action: () => command('theme', { value }) })) });
   const sortBrowse = () => setSheet({ title: 'Sort by name', items: [['Name A–Z', 'asc'], ['Name Z–A', 'desc']].map(([label, value]) => ({ label, icon: browseOrder === value ? 'check' : 'align-left', action: () => setBrowseOrders(previous => ({ ...previous, [viewName]: value })) })) });
   const sortControl = () => icon('bar-chart-2', sortBrowse, c.muted, 23, { label: 'Sort by name' });
   const playlistOptions = title => setSheet({ title, items: [
@@ -280,7 +279,7 @@ function MusicApp() {
     content = h(View, { style: styles.flex }, header('Settings'), h(ScrollView, { contentContainerStyle: styles.settingsBody },
       text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
       text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? 'Active' : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
-      h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { true: accent }, accessibilityLabel: 'Pause when disconnected' })),
+      h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { false: c.track, true: accent }, accessibilityLabel: 'Pause when disconnected' })),
       text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.5 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
   } else if (page === 'queue') {
     content = h(View, { style: styles.flex }, header('Playing queue'), text(`${state.queue.length} songs`, styles.count), h(FlatList, { data: state.queue, keyExtractor: (item, index) => `${item.id}-${index}`, renderItem: ({ item, index }) => songRow(item, index, state.queue, true), contentContainerStyle: styles.list, ListEmptyComponent: empty }));
@@ -289,7 +288,7 @@ function MusicApp() {
     const folderHeader = h(View, null,
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }), h(View, { style: styles.listControls }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()));
     const actions = h(View, { style: { paddingVertical: 8 } }, button('Choose folder', chooseFolder), path && h(View, null,
-      h(View, { style: [styles.listControls, { gap: 12, paddingLeft: 8 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
+      h(View, { style: [styles.listControls, { gap: 12, paddingLeft: 8 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
       h(View, { style: { marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))));
     content = h(View, { style: styles.flex },
       browseHeader(path ? folderName(path) : 'Folders', path ? backFolder : null),
@@ -318,14 +317,14 @@ function MusicApp() {
   ].map(([title, glyph, tone]) => {
       const active = activeDestination(page, tab, selection) === title;
       const onPress = () => navigateRoot(title);
-      return h(View, { key: title, style: styles.navSlot }, h(Pressable, { key: title, onPress, style: ({ pressed }) => [styles.navItem, { opacity: pressed ? 0.94 : 1 }], accessibilityRole: 'tab', accessibilityLabel: title, accessibilityState: { selected: active } },
+      return h(View, { key: title, style: styles.navSlot }, h(Pressable, { key: title, onPress, style: ({ pressed }) => [styles.navItem, { opacity: pressed && !c.dark ? 0.94 : 1 }], accessibilityRole: 'tab', accessibilityLabel: title, accessibilityState: { selected: active } },
         ({ pressed }) => h(React.Fragment, null, (active || pressed) && h(TabHighlight, { tone }),
           h(View, { style: styles.navIcon }, h(Feather, { name: glyph, size: 22, color: active || pressed ? tone.ink : c.muted })), text(title, [styles.navLabel, (active || pressed) && { color: tone.ink, fontWeight: '700' }]))));
     })),
     folderPicker && h(FolderPicker, { c, roots: state.musicRoots || [], onClose: () => setFolderPicker(false), onSelect: selectFolder }),
     h(Sheet, { scrollable: !sheet?.lyrics, visible: !!sheet, title: sheet?.title, c, onClose: () => setSheet(null), returnFocus: sheet?.browse ? browseTrigger : overlayReturn.current },
       sheet?.lyrics ? h(Lyrics, { key: state.current?.id ?? 'none', song: state.current, c }) : sheet?.timer ? h(SleepTimer, { c, command, onClose: () => setSheet(null) }) : sheet?.browse ? destinations.map(([title, glyph]) => h(Pressable, { key: title, accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { selected: currentBrowse === title }, onPress: () => selectBrowse(title), style: [styles.sheetItem, { backgroundColor: currentBrowse === title ? c.lavender : c.card }] }, h(Feather, { name: glyph, size: 24, color: accent }), text(title, { flex: 1, color: c.ink, fontSize: 17, fontWeight: '600' }), currentBrowse === title && h(Feather, { name: 'check', size: 24, color: accent })))
-      : (sheet?.items || []).map((item, index) => h(Pressable, { key: index, accessibilityRole: 'button', style: [styles.sheetItem, { backgroundColor: colors[index % colors.length].bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 24, color: accent }), h(View, { style: styles.flex }, text(item.label, styles.sheetItemText), item.detail && text(item.detail, styles.subtitle))))),
+      : (sheet?.items || []).map((item, index) => h(Pressable, { key: index, accessibilityRole: 'button', accessibilityState: item.selected === undefined ? undefined : { selected: item.selected }, style: [styles.sheetItem, { backgroundColor: colors[index % colors.length].bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 24, color: accent }), h(View, { style: styles.flex }, text(item.label, styles.sheetItemText), item.detail && text(item.detail, styles.subtitle))))),
     h(Modal, { visible: !!nameDialog, transparent: true, animationType: 'fade', onRequestClose: closeName }, h(KeyboardAvoidingView, { behavior: 'padding', style: styles.dialogBackdrop }, h(Pressable, { onPress: closeName, disabled: savingName, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', feedback: false, style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(View, { style: styles.dialog }, text(nameDialog?.kind === 'rename' ? 'Rename playlist' : 'New playlist', styles.sheetTitle), h(TextInput, { value: name, onChangeText: setName, autoFocus: true, maxLength: 100, accessibilityLabel: 'Playlist name', placeholder: 'Playlist name', placeholderTextColor: c.muted, style: styles.nameInput, onSubmitEditing: saveName }), h(View, { style: styles.dialogButtons }, h(Pressable, { onPress: closeName, disabled: savingName, style: styles.cancel }, text('Cancel', { color: c.muted })), button(savingName ? 'Saving…' : 'Save', saveName, undefined, savingName))))));
 }
 
@@ -336,7 +335,7 @@ function makeStyles(c, compactPlayer = false, fontScale = 1) {
     button: { overflow: 'hidden', backgroundColor: c.peach, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.peachInk, fontSize: 15, fontWeight: '600' },
     browseButton: { minHeight: 48, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 28, backgroundColor: c.lavender, overflow: 'hidden', justifyContent: 'center' },
     libraryHeader: { gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 4 }, brand: { fontSize: 23, fontWeight: '700', letterSpacing: -1 },
-    search: { marginHorizontal: 20, backgroundColor: `${c.card}D9`, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingVertical: 4, paddingLeft: 24, paddingRight: 12, minHeight: 52 }, shuffleAll: { minHeight: 48, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', padding: 10 },
+    search: { marginHorizontal: 20, backgroundColor: `${c.card}D9`, borderWidth: 1, borderColor: c.dark ? c.controlBorder : c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingVertical: 4, paddingLeft: 24, paddingRight: 12, minHeight: 52 }, shuffleAll: { minHeight: 48, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', padding: 10 },
     list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { borderRadius: 18, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, height: Math.max(72, Math.ceil(36 * fontScale + 24)) }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, lineHeight: 20, fontWeight: '500' }, subtitle: { fontSize: 12, lineHeight: 16, color: c.muted },
     bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navSlot: { flex: 1, minWidth: 0, paddingHorizontal: 4 }, navItem: { borderRadius: 999, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', minHeight: 58, paddingVertical: 4, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
     pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.muted, fontSize: 11, letterSpacing: 2 },
@@ -354,11 +353,11 @@ function makeStyles(c, compactPlayer = false, fontScale = 1) {
     repeatOne: { position: 'absolute', right: 6, bottom: 3, fontSize: 10, color: accent }, timer: { color: accent, fontSize: 12, marginTop: 4, textAlign: 'center' },
     groupRow: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', padding: 12, paddingVertical: 12, backgroundColor: c.card, borderRadius: 22, marginBottom: 8 }, groupIcon: { width: 54, height: 54, borderRadius: 18, overflow: 'hidden', backgroundColor: c.line, alignItems: 'center', justifyContent: 'center' }, settingsBody: { paddingHorizontal: 24, paddingBottom: 28 }, section: { color: accent, fontSize: 11, letterSpacing: 1.8, fontWeight: '600', marginTop: 26, marginBottom: 12 }, count: { color: c.muted, fontSize: 13, paddingHorizontal: 24, marginVertical: 10 },
     empty: { padding: 32, paddingTop: 44, alignItems: 'center', gap: 20 }, emptyTitle: { fontSize: 21, fontWeight: '600', textAlign: 'center' }, emptyDetail: { fontSize: 14, color: c.muted, textAlign: 'center', lineHeight: 22 }, welcome: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 36, gap: 28 }, welcomeTitle: { fontSize: 38, fontWeight: '700', textAlign: 'center', letterSpacing: -1 }, welcomeDetail: { color: c.muted, fontSize: 16, lineHeight: 25, textAlign: 'center' }, settingsLink: { padding: 12 },
-    modalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#0008' }, backdrop: { flex: 1 }, sheet: { backgroundColor: c.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, maxHeight: '80%' }, sheetHandle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', backgroundColor: c.track, marginBottom: 20 }, menuIcon: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }, sheetTitle: { fontSize: 23, fontWeight: '600', marginBottom: 16 }, sheetItem: { flexDirection: 'row', alignItems: 'center', minHeight: 76, paddingVertical: 14, paddingHorizontal: 12, gap: 10, borderRadius: 22, marginBottom: 10, overflow: 'hidden' }, sheetItemText: { fontSize: 15, fontWeight: '600', flexShrink: 1 }, dialogBackdrop: { flex: 1, justifyContent: 'center', padding: 28, backgroundColor: '#0008' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 24 }, nameInput: { color: c.ink, padding: 12, borderBottomWidth: 1, borderColor: c.line, fontSize: 16, marginBottom: 24 }, dialogButtons: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }, cancel: { padding: 12 }
+    modalRoot: { flex: 1, justifyContent: 'flex-end', backgroundColor: c.dialogScrim }, backdrop: { flex: 1 }, sheet: { backgroundColor: c.bg, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 20, maxHeight: '80%' }, sheetHandle: { width: 40, height: 5, borderRadius: 3, alignSelf: 'center', backgroundColor: c.track, marginBottom: 20 }, menuIcon: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' }, sheetTitle: { fontSize: 23, fontWeight: '600', marginBottom: 16 }, sheetItem: { flexDirection: 'row', alignItems: 'center', minHeight: 76, paddingVertical: 14, paddingHorizontal: 12, gap: 10, borderRadius: 22, marginBottom: 10, overflow: 'hidden' }, sheetItemText: { fontSize: 15, fontWeight: '600', flexShrink: 1 }, dialogBackdrop: { flex: 1, justifyContent: 'center', padding: 28, backgroundColor: c.dialogScrim }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 24 }, nameInput: { color: c.ink, padding: 12, borderBottomWidth: 1, borderColor: c.dark ? c.controlBorder : c.line, fontSize: 16, marginBottom: 24 }, dialogButtons: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', gap: 14 }, cancel: { padding: 12 }
   });
 }
 
-export default function App() { return h(GestureHandlerRootView, { style: { flex: 1 } }, h(SafeAreaProvider, null, h(MotionProvider, null, h(MusicApp)))); }
+export default function App() { return h(GestureHandlerRootView, { style: { flex: 1 } }, h(SafeAreaProvider, null, h(ThemeProvider, null, h(MotionProvider, null, h(MusicApp))))); }
 
 
 

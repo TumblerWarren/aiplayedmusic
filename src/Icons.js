@@ -2,10 +2,14 @@ import React from 'react';
 import { View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
+import { useTheme } from './ThemeProvider';
 const h = React.createElement;
 
 // Aiplayed's own rounded, two-tone glyphs. Secondary utility arrows use Feather.
-export default function Icon({ name, size = 24, color = '#7353BB', style, filled = true, ...props }) {
+export default function Icon({ name, size = 24, color, style, filled = true, ...props }) {
+  const c = useTheme();
+  color ??= c.accent;
+  const cutout = c.dark ? c.onAccent : '#FFFFFF';
   if (name === 'heart') return h(Svg, { width: size, height: size, viewBox: '-2 -2 28 28', style, accessible: false }, h(Path, { d: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z', fill: filled ? color : 'none', stroke: color, strokeWidth: 1.7, strokeLinejoin: 'round' }));
   const unit = size / 24;
   const shape = (key, box, extra = {}) => h(View, { key, style: { position: 'absolute', ...Object.fromEntries(Object.entries(box).map(([k, v]) => [k, v * unit])), ...extra } });
@@ -14,8 +18,8 @@ export default function Icon({ name, size = 24, color = '#7353BB', style, filled
   if (name.startsWith('folder')) content = [
     shape('tab', { left: 2, top: 4, width: 10, height: 6 }, { backgroundColor: color, opacity: 0.55, borderRadius: 3 * unit }),
     shape('body', { left: 1, top: 8, width: 22, height: 13 }, { backgroundColor: color, borderRadius: 4 * unit }),
-    line('seam', { left: 5, top: 11, width: 14, height: 1.5 }, { backgroundColor: '#FFFFFF', opacity: 0.6 }),
-    ...(name === 'folder-plus' || name === 'folder-minus' ? [line('minus', { left: 9, top: 16, width: 6, height: 1.5 }, { backgroundColor: '#FFFFFF' }), ...(name === 'folder-plus' ? [line('plus', { left: 11.3, top: 13.8, width: 1.5, height: 6 }, { backgroundColor: '#FFFFFF' })] : [])] : []),
+    line('seam', { left: 5, top: 11, width: 14, height: 1.5 }, { backgroundColor: cutout, opacity: 0.6 }),
+    ...(name === 'folder-plus' || name === 'folder-minus' ? [line('minus', { left: 9, top: 16, width: 6, height: 1.5 }, { backgroundColor: cutout }), ...(name === 'folder-plus' ? [line('plus', { left: 11.3, top: 13.8, width: 1.5, height: 6 }, { backgroundColor: cutout })] : [])] : []),
   ];
   else if (name === 'music' || name === 'headphones') content = name === 'music' ? [
     line('stem1', { left: 8, top: 4, width: 2.5, height: 14 }), line('stem2', { left: 19, top: 2, width: 2.5, height: 14 }),

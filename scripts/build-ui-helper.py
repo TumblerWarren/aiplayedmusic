@@ -22,6 +22,11 @@ with zipfile.ZipFile(apk, 'a') as archive: archive.write(dex/'classes.dex', 'cla
 aligned = out/'aligned.apk'
 run(build/'zipalign', '-f', '4', apk, aligned)
 apk.unlink(); aligned.rename(apk)
-run(build/'apksigner', 'sign', '--ks', 'android/app/debug.keystore', '--ks-pass', 'pass:android', '--key-pass', 'pass:android', apk)
+keystore = Path('android/app/debug.keystore')
+if not keystore.exists():
+    keystore = out/'inspector.keystore'
+    if not keystore.exists():
+        run('keytool', '-genkeypair', '-keystore', keystore, '-storepass', 'android', '-keypass', 'android', '-alias', 'inspector', '-dname', 'CN=Aiplayed UI inspector', '-keyalg', 'RSA', '-validity', '3650')
+run(build/'apksigner', 'sign', '--ks', keystore, '--ks-pass', 'pass:android', '--key-pass', 'pass:android', apk)
 run(build/'apksigner', 'verify', apk)
 print('Built animation-safe CI inspector:', apk)

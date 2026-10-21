@@ -32,7 +32,7 @@ export default function SleepTimer({ c, command, onClose }) {
   };
   return h(View, { style: { gap: 16, paddingBottom: 8 } },
     h(Text, { style: { color: c.muted, fontSize: 16, lineHeight: 24 } }, 'Pause playback after the number of minutes you choose.'),
-    h(TextInput, { value, onChangeText: setValue, keyboardType: 'number-pad', editable: !saving, maxLength: 4, accessibilityLabel: 'Sleep timer minutes', placeholder: 'Minutes (1–1440)', placeholderTextColor: c.muted, onSubmitEditing: save, style: { minHeight: 52, borderRadius: 18, borderWidth: 1, borderColor: c.line, padding: 14, color: c.ink, backgroundColor: c.card, fontSize: 18 } }),
+    h(TextInput, { value, onChangeText: setValue, keyboardType: 'number-pad', editable: !saving, maxLength: 4, accessibilityLabel: 'Sleep timer minutes', placeholder: 'Minutes (1–1440)', placeholderTextColor: c.muted, onSubmitEditing: save, style: { minHeight: 52, borderRadius: 18, borderWidth: 1, borderColor: c.dark ? c.controlBorder : c.line, padding: 14, color: c.ink, backgroundColor: c.card, fontSize: 18 } }),
     error && h(Text, { accessibilityRole: 'alert', style: { color: c.peachInk, fontSize: 15 } }, error),
     h(Pressable, { onPress: save, disabled: saving, accessibilityRole: 'button', accessibilityLabel: 'Set sleep timer', accessibilityState: { disabled: saving }, style: { borderRadius: 28, minHeight: 52, padding: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: c.mint, opacity: saving ? .5 : 1 } }, h(Text, { style: { color: c.mintInk, fontSize: 16, fontWeight: '700' } }, saving ? 'Saving…' : 'Set sleep timer')));
 }

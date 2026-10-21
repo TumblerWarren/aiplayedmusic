@@ -49,12 +49,12 @@ export default function RotaryKnob({ value, minimumValue: min, maximumValue: max
     rounded.value = next; ratio.value = (next - min) / (max - min);
     begin(before); move(next); finish(next);
   };
-  const action = (direction, glyph) => h(Pressable, { onPress: () => adjust(direction), disabled, accessibilityRole: 'button', accessibilityLabel: `${direction > 0 ? 'Increase' : 'Decrease'} ${label}`, style: ({ pressed }) => ({ minWidth: 48, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: c.line, backgroundColor: pressed ? direction > 0 ? c.mint : c.peach : c.card, alignItems: 'center', justifyContent: 'center' }) }, h(Text, { style: { color: c.ink, fontSize: 25, lineHeight: 30 } }, glyph));
+  const action = (direction, glyph) => h(Pressable, { onPress: () => adjust(direction), disabled, accessibilityRole: 'button', accessibilityLabel: `${direction > 0 ? 'Increase' : 'Decrease'} ${label}`, style: ({ pressed }) => ({ minWidth: 48, minHeight: 48, borderRadius: 24, borderWidth: 1, borderColor: c.dark ? c.controlBorder : c.line, backgroundColor: pressed ? direction > 0 ? c.mint : c.peach : c.card, alignItems: 'center', justifyContent: 'center' }) }, h(Text, { style: { color: c.ink, fontSize: 25, lineHeight: 30 } }, glyph));
   return h(View, { style: { alignItems: 'center', gap: 6 } },
     h(GestureDetector, { gesture }, h(Animated.View, { testID: `knob-${label.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`, accessible: true, accessibilityRole: 'adjustable', accessibilityLabel: label, accessibilityValue, accessibilityState: { disabled }, accessibilityHint: 'Rotate clockwise to increase or anticlockwise to decrease.', accessibilityActions: [{ name: 'increment' }, { name: 'decrement' }], onAccessibilityAction: e => adjust(e.nativeEvent.actionName === 'increment' ? 1 : -1), style: { width: SIZE, height: SIZE } },
       h(Svg, { width: SIZE, height: SIZE, viewBox: `0 0 ${SIZE} ${SIZE}`, accessible: false },
         h(Path, { d: arc(-Math.PI * 0.75, Math.PI * 0.75), fill: 'none', stroke: c.line, strokeWidth: 7, strokeLinecap: 'round' }),
-        ...['#BCA5E6', '#8ECDB7', '#F2B09D'].map((color, i) => h(Path, { key: color, d: arc(-Math.PI * 0.75 + i * Math.PI / 2 + 0.04, -Math.PI * 0.75 + (i + 1) * Math.PI / 2 - 0.04), fill: 'none', stroke: color, strokeWidth: 7, strokeLinecap: 'round' })),
+        ...c.knobArcs.map((color, i) => h(Path, { key: color, d: arc(-Math.PI * 0.75 + i * Math.PI / 2 + 0.04, -Math.PI * 0.75 + (i + 1) * Math.PI / 2 - 0.04), fill: 'none', stroke: color, strokeWidth: 7, strokeLinecap: 'round' })),
         ...Array.from({ length: 11 }, (_, i) => { const p = point(-Math.PI * 0.75 + i * SWEEP / 10, 49); return h(Circle, { key: i, cx: p.x, cy: p.y, r: 1.5, fill: c.track }); }),
         h(Circle, { cx: CENTER, cy: CENTER + 2, r: 42, fill: c.track, opacity: 0.25 }),
         h(Circle, { cx: CENTER, cy: CENTER, r: 42, fill: c.card, stroke: c.line, strokeWidth: 1.5 })),

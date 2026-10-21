@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { harness, nodes } = require('./ui-harness.cjs');
+const { harness, nodes, palette } = require('./ui-harness.cjs');
 
 test('rotary geometry crosses the angle seam smoothly and clamps/quantizes supported ranges', async () => {
   const { rotationDelta, steppedKnob } = await import('../src/rotaryGeometry.js');
@@ -20,7 +20,7 @@ test('clockwise/counterclockwise rotation previews and commits once; cancellatio
   const Pan=()=>{const g={};for(const name of ['enabled','minDistance','maxPointers','onTouchesDown','onBegin','onStart','onTouchesMove','onUpdate','onFinalize'])g[name]=v=>{g[name+'Value']=v;return g;};return g;};
   ui=harness('src/RotaryKnob.js',['RotaryKnob'],{...geometry, Svg:'Svg',Circle:'Circle',Path:'Path',Animated:{View:'AnimatedView'},Gesture:{Pan},GestureDetector:'GestureDetector',
     useSharedValue:v=>ui.context.useRef({value:v}).current,useAnimatedStyle:fn=>fn(),runOnJS:fn=>fn});
-  const props={value:0,minimumValue:-12,maximumValue:12,step:.5,c:{},accessibilityLabel:'Bass',accessibilityValue:{now:0,text:'0.0 dB'},onSlidingStart:v=>events.push(['start',v]),onValueChange:v=>events.push(['preview',v]),onSlidingComplete:v=>events.push(['commit',v]),onCancel:()=>events.push(['cancel'])};
+  const props={value:0,minimumValue:-12,maximumValue:12,step:.5,c:palette(false),accessibilityLabel:'Bass',accessibilityValue:{now:0,text:'0.0 dB'},onSlidingStart:v=>events.push(['start',v]),onValueChange:v=>events.push(['preview',v]),onSlidingComplete:v=>events.push(['commit',v]),onCancel:()=>events.push(['cancel'])};
   let tree=ui.render('RotaryKnob',props);ui.effects();
   const g=nodes(tree).find(n=>n.type==='GestureDetector').props.gesture;
   g.onBeginValue({x:64,y:14});g.onStartValue();g.onUpdateValue({x:114,y:64});g.onFinalizeValue({},true);
@@ -39,7 +39,7 @@ test('clockwise/counterclockwise rotation previews and commits once; cancellatio
 
 test('cancelling a sound knob cancels the live DSP preview without a save',()=>{
   let cancels=0,commits=0;const live={start:()=>({active:()=>true,preview(){},cancel:async()=>{cancels++;},commit:async()=>{commits++;}})};
-  const ui=harness('src/SoundStudio.js',['Fader']);const props={label:'Bass',value:0,min:-12,max:12,c:{},live};
+  const ui=harness('src/SoundStudio.js',['Fader']);const props={label:'Bass',value:0,min:-12,max:12,c:palette(false),live};
   let tree=ui.render('Fader',props);ui.effects();let dial=nodes(tree).find(n=>n.type==='RotaryKnob');
   dial.props.onSlidingStart(0);dial.props.onValueChange(8);dial.props.onCancel();ui.frames();tree=ui.render('Fader',props);
   assert.equal(cancels,1);assert.equal(commits,0);assert.equal(nodes(tree).find(n=>n.type==='RotaryKnob').props.accessibilityValue.now,0);

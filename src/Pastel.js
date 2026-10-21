@@ -1,10 +1,12 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Circle, Path, Rect } from 'react-native-svg';
+import Svg, { Circle, G, Path, Rect } from 'react-native-svg';
 import Feather from './Icons';
+import { useTheme } from './ThemeProvider';
 const h = React.createElement;
 
 export function TabHighlight({ tone }) {
+  const c = useTheme();
   const shapes = tone.pattern === 'checks'
     ? Array.from({ length: 24 }, (_, i) => h(Rect, { key: i, x: 48 + (i % 6) * 16, y: Math.floor(i / 6) * 16, width: 16, height: 16, fill: (i + Math.floor(i / 6)) % 2 ? tone.detail : tone.ink, opacity: 0.13 }))
     : tone.pattern === 'dots'
@@ -13,17 +15,18 @@ export function TabHighlight({ tone }) {
         ? [h(Path, { key: 0, d: 'M-10 46Q20 16 56 42T140 32V80H-10Z', fill: tone.detail, opacity: 0.23 }), h(Path, { key: 1, d: 'M-10 58Q22 28 58 54T140 44', fill: 'none', stroke: tone.ink, strokeWidth: 3, opacity: 0.18 })]
         : [28, 43, 58].map(r => h(Circle, { key: r, cx: 112, cy: -3, r, fill: 'none', stroke: tone.detail, strokeWidth: 7, opacity: 0.3 }));
   return h(View, { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants', style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 999, overflow: 'hidden' } },
-    h(Svg, { width: '100%', height: '100%', viewBox: '0 0 132 64', preserveAspectRatio: 'none', accessible: false }, h(Rect, { width: 132, height: 64, fill: tone.bg }), ...shapes));
+    h(Svg, { width: '100%', height: '100%', viewBox: '0 0 132 64', preserveAspectRatio: 'none', accessible: false }, h(Rect, { width: 132, height: 64, fill: tone.bg }), h(G, { opacity: c.patternStrength }, ...shapes)));
 }
 
 // Pure native shapes: no image downloads, extra permissions or rendering dependency.
 export function Pattern({ kind = 'arcs', color, size = 112 }) {
+  const c = useTheme();
   const parts = kind === 'checks'
     ? Array.from({ length: 16 }, (_, i) => h(View, { key: i, style: { position: 'absolute', width: size / 4, height: size / 4, left: (i % 4) * size / 4, top: Math.floor(i / 4) * size / 4, backgroundColor: (i + Math.floor(i / 4)) % 2 ? color : 'transparent' } }))
     : kind === 'stripes'
       ? Array.from({ length: 7 }, (_, i) => h(View, { key: i, style: { position: 'absolute', width: size * 1.6, height: size / 12, left: -size / 3, top: i * size / 4 - size / 3, backgroundColor: color, transform: [{ rotate: '-40deg' }] } }))
       : [1, 0.76, 0.52, 0.28].map(scale => h(View, { key: scale, style: { position: 'absolute', width: size * scale, height: size * scale, borderRadius: size, borderWidth: size / 18, borderColor: color, right: -size * scale / 2, top: -size * scale / 2 } }));
-  return h(View, { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants', style: { position: 'absolute', right: 0, top: 0, width: size, height: size, overflow: 'hidden', opacity: 0.14 } }, ...parts);
+  return h(View, { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants', style: { position: 'absolute', right: 0, top: 0, width: size, height: size, overflow: 'hidden', opacity: 0.14 * c.patternStrength } }, ...parts);
 }
 
 export function SectionBanner({ title, detail, icon = 'sliders', tone }) {
@@ -35,12 +38,12 @@ export function SectionBanner({ title, detail, icon = 'sliders', tone }) {
 }
 
 export function FallbackArt({ size, seed = 0 }) {
-  const palettes = [['#E9DFFC', '#A895D8', '#F5BCAC', '#83BAAA'], ['#DDF2E7', '#74AD9A', '#B6CEF0', '#F2CB83'], ['#FFE1D7', '#D797A8', '#C6B5EB', '#F0C56F']];
+  const c = useTheme(), palettes = c.fallbackPalettes;
   const colors = palettes[Math.abs(Math.trunc(Number(seed) || 0)) % palettes.length];
   return h(Svg, { width: size, height: size, viewBox: '0 0 240 240', accessible: false },
     h(Rect, { width: 240, height: 240, fill: colors[0] }),
     h(Circle, { cx: 168, cy: 70, r: 43, fill: colors[2] }),
     h(Path, { d: 'M-20 170Q40 60 115 144T260 142V260H-20Z', fill: colors[1] }),
     h(Path, { d: 'M-20 220Q58 112 136 195T260 185V260H-20Z', fill: colors[3] }),
-    h(Path, { d: 'M0 182Q67 140 135 182T260 171M0 198Q67 156 135 198T260 187', fill: 'none', stroke: '#FFFFFF', strokeOpacity: 0.45, strokeWidth: 3 }));
+    h(Path, { d: 'M0 182Q67 140 135 182T260 171M0 198Q67 156 135 198T260 187', fill: 'none', stroke: c.dark ? c.spindle : '#FFFFFF', strokeOpacity: 0.45, strokeWidth: 3 }));
 }
