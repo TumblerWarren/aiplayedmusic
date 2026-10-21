@@ -110,7 +110,7 @@ def rail_bounds():
     return bounds(a), bounds(z)
 
 def knob_node(name):
-    return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name)),None)
+    return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name) and bounds(n)[2]>bounds(n)[0] and bounds(n)[3]>bounds(n)[1]),None)
 
 def visible_knob(name):
     for _ in range(10):
@@ -118,13 +118,16 @@ def visible_knob(name):
         if node is not None:
             box=bounds(node)
             if box[1]>=300 and box[3]<=1150: return node
-            if box[1]<300: swipe(400,650,400,1000); continue
-        swipe(400,1300,400,800)
+            if box[1]<300: swipe(70,650,70,1000); continue
+        # Scroll in the page margin, outside every rotary face and precision button.
+        swipe(70,1300,70,800)
     raise AssertionError('Rotary control not visible: '+name)
 
 def knob_value(name):
     node=knob_node(name)
     assert node is not None and node.get('range-current') is not None, 'Knob accessibility range is missing'
+    announced=re.search(r'([+-]?\d+(?:\.\d+)?)\s*dB\b',label(node))
+    if announced: return float(announced[1])
     return float(node.get('range-current'))
 
 def rotate_knob(name,degrees,cancel=False):
