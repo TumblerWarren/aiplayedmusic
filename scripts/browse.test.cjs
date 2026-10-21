@@ -97,3 +97,9 @@ test('Browse sheet exposes Close, outside and Android Back dismissal; its handle
   handle.onPanResponderGrant();handle.onPanResponderRelease(null,{dy:90,dx:0});assert.equal(closed.length,4);
   content.props.onPress();assert.equal(closed.length,4,'row content is not wrapped in a dismiss handler');
 });
+
+test('Android folder picker mounts a gesture root inside its native Modal', () => {
+  const ui=harness('src/FolderPicker.js',['FolderPicker'],{folderChoices:()=>[], storageRoot:()=>null, Icon:'Icon'});
+  const root=ui.render('FolderPicker',{c:{},roots:[],onClose(){},onSelect(){}});
+  assert.equal(root.type,'Modal'); assert.equal(root.children[0].type,'GestureHandlerRootView');
+});
