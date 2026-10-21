@@ -1,13 +1,13 @@
 {
   "name": "aiplayedmusic",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "main": "index.js",
   "scripts": {
     "start": "expo start --dev-client",
     "android": "expo run:android",
     "prebuild": "expo prebuild --platform android",
-    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs && node scripts/responsiveness.test.cjs && node scripts/usability.test.cjs",
+    "check": "node scripts/check-ui.cjs && node scripts/library.test.cjs && node scripts/navigation.test.cjs && node scripts/output-presets.test.cjs && node scripts/responsiveness.test.cjs && node scripts/usability.test.cjs && node scripts/browse.test.cjs",
     "doctor": "expo-doctor"
   },
   "dependencies": {
@@ -22,7 +22,11 @@
     "expo-build-properties": "~56.0.27",
     "expo-font": "~56.0.7",
     "expo-system-ui": "~56.0.5",
-    "react-native-svg": "15.15.4"
+    "react-native-svg": "15.15.4",
+    "react-native-reanimated": "4.3.1",
+    "react-native-worklets": "0.8.3",
+    "react-native-gesture-handler": "~2.31.1",
+    "expo-splash-screen": "~56.0.15"
   },
   "expo": {
     "autolinking": {
@@ -33,4 +37,3 @@
     "node": ">=22.13.0"
   }
 }
-

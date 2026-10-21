@@ -1,5 +1,5 @@
-# Aiplayed icon assets
+# Aiplayed branding
 
-`aiplayed-icon.png` is the generated full-resolution static launcher artwork, configured in `app.config.js`. Expo generates Android launcher resources during prebuild.
+`aiplayed-icon.png` is the generated lavender vinyl/play artwork, prepared at 512px for the standard launcher and Expo native splash. The original generated image remains in the task workspace. The Android module includes matching mask-safe vector foreground, standard launcher, and Android 13 monochrome assets. The central artwork fits inside the 66dp adaptive safe zone.
 
-`aiplayed-animated.svg` is a rotating-vinyl preview for browsers; keep it beside the PNG. It respects Reduce Motion. Android launcher icons are static; this SVG is not used as the Android launcher resource.
+`aiplayed-animated.svg` is the earlier browser-only preview retained from the merged gestures branch. Android launchers use static icons; initialization uses `src/Startup.js` and respects Reduce Motion.

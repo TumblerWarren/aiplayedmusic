@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, design/multicolor-ui]
+    branches: [main, design/multicolor-ui, release/v1.2.3]
 permissions:
   contents: read
 concurrency:
@@ -10,14 +10,16 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.3') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
       - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
   build:
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
+    permissions:
+      contents: write
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.3') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75
     env:
       CI: '1'
       MUSIC_OFFLINE_BUILD: '1'
@@ -58,13 +60,13 @@ jobs:
           PY
       - name: Compile music engine before native packaging
         working-directory: android
-        run: ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+        run: ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Build standalone APK
         working-directory: android
-        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+        run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Run Android Lint
         working-directory: android
-        run: ./gradlew :app:lintRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a --no-daemon
+        run: ./gradlew :app:lintRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Verify APK signature, launcher and offline permissions
         run: |
           apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
@@ -89,20 +91,46 @@ jobs:
           grep -Fx "$launcher_path" apk-resources.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$launcher_path" > apk-launcher.txt
           grep -F 'E: adaptive-icon' apk-launcher.txt
+          monochrome_path=$(grep -E 'mipmap-anydpi-v33.*/aiplayed_launcher.xml$' apk-resources.txt | head -1)
+          test -n "$monochrome_path"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$monochrome_path" > apk-monochrome.txt
+          grep -F 'E: monochrome' apk-monochrome.txt
+          grep -E 'splashscreen_logo|splash_screen' apk-resources.txt
+          grep -E 'aiplayed_launcher_foreground|aiplayed_launcher_monochrome' apk-resources.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file AndroidManifest.xml > apk-manifest.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources "$apk_path" > apk-resource-table.txt
           grep -E '^package:|^application-label:|^application:' apk-metadata.txt
           cat apk-launcher.txt
           sha256sum "$apk_path" > apk-sha256.txt
-          if grep -q "android.permission.INTERNET" apk-permissions.txt; then
-            echo "Standalone offline APK unexpectedly requests internet access" >&2
+          if grep -Eq "android.permission.(INTERNET|ACCESS_NETWORK_STATE|RECORD_AUDIO|READ_MEDIA_IMAGES|READ_MEDIA_VIDEO)" apk-permissions.txt; then
+            echo "Standalone offline APK requests a forbidden network or media permission" >&2
             exit 1
           fi
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Android interaction and startup checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
+          script: python scripts/android-ui-checks.py
+      - name: Upload Android screenshots and recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-interaction-evidence-v1.2.3
+          retention-days: 30
+          path: verification/android-v1.2.3/
+          if-no-files-found: warn
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
           name: aiplayedmusic-apk
-          retention-days: 7
+          retention-days: 30
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
       - name: Upload build diagnostics
@@ -110,7 +138,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: build-diagnostics
-          retention-days: 7
+          retention-days: 30
           path: |
             android/app/build/reports/
             package-lock.json
@@ -119,8 +147,18 @@ jobs:
             apk-resources.txt
             apk-manifest.txt
             apk-launcher.txt
+            apk-monochrome.txt
             apk-resource-table.txt
             apk-sha256.txt
           if-no-files-found: ignore
 
 
+      - name: Publish verified v1.2.3 APK
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
+          cp "$apk_path" Aiplayed-v1.2.3.apk
+          sha256sum Aiplayed-v1.2.3.apk > Aiplayed-v1.2.3.apk.sha256
+          gh release create v1.2.3 Aiplayed-v1.2.3.apk Aiplayed-v1.2.3.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.3" --notes-file verification/RELEASE_NOTES_1.2.3.md

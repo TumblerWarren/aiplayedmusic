@@ -6,12 +6,13 @@ const findText = (tree, text) => nodes(tree).find(n => n.type === 'Pressable' &&
 
 test('Sound retains navbar/mini-player, ignores reselect, and restores searched library and Sound section', async () => {
   const navigation = await import('../src/navigation.js');
+  const browse = await import('../src/browse.js');
   const { createLibraryIndex } = await import('../src/libraryIndex.js');
   const { formatTime } = await import('../src/music.js');
   const { palette, tones } = await import('../src/design.js');
   const state = { theme: 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', current: { id: 1, title: 'Track', artist: 'Infra' }, sound: {} };
   const commands = [];
-  const ui = harness('App.js', ['MusicApp'], { ...navigation, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); } }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
+  const ui = harness('App.js', ['MusicApp'], { ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); } }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
     useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
     useColorScheme: () => 'light', useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 }, PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
   let tree = ui.render('MusicApp');
@@ -66,28 +67,37 @@ test('faders keep the native thumb free, update the label, preview speed/pitch w
   }
 });
 
-test('native sticky headers restore scroll, stay visible on short lists/focus, and keep A-Z offsets correct', async () => {
-  const { alphabet, alphabetTargets, nearestLetter } = await import('../src/alphabet.js');
+test('UI-thread header and rail share partial collapse geometry, restore scroll and align A-Z jumps', async () => {
+  const alphabet = await import('../src/alphabet.js');
+  const geometry = await import('../src/scrollGeometry.js');
   const { scrollMemory, rememberScroll } = await import('../src/navigation.js');
   scrollMemory.clear(); rememberScroll('songs', 900);
-  const ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { alphabet, alphabetTargets, nearestLetter, rememberScroll, scrollMemory, clearTimeout, setTimeout });
-  const data = [{ id: 1, title: 'Alpha' }, { id: 2, title: 'Zebra' }];
-  const calls = [];
-  const props = { data, indexed: true, c: { bg: '#ffffff' }, header: h('TextInput'), prelude: h('Shortcuts'), sessionKey: 'songs', rowHeight: 72, renderItem: ({ item }) => h('SongRow', { item }) };
-  let tree = ui.render('IndexedSongList', props); let list = nodes(tree).find(n => n.type === 'FlatList');
+  let ui;
+  const pan = () => { const g = {}; for (const key of ['minDistance', 'maxPointers', 'onBegin', 'onUpdate', 'onFinalize']) g[key] = value => { g[key + 'Value'] = value; return g; }; return g; };
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry, rememberScroll, scrollMemory, clearTimeout, setTimeout,
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' }, GestureDetector: 'GestureDetector', Gesture: { Pan: pan },
+    useSharedValue: value => ui.context.useRef({ value }).current, useAnimatedRef: () => ui.context.useRef(null),
+    useAnimatedStyle: fn => fn(), useAnimatedScrollHandler: handlers => e => handlers.onScroll(e.nativeEvent), runOnJS: fn => fn,
+    measure: () => ({ pageY: 104, height: 392 }) });
+  const data = [{ id: 1, title: 'Alpha' }, { id: 2, title: 'Zebra' }], calls = [];
+  const props = { data, indexed: true, c: { bg: '#ffffff' }, header: h('TextInput'), prelude: h('Actions'), sessionKey: 'songs', rowHeight: 72, renderItem: ({ item }) => h('SongRow', { item }) };
+  let tree = ui.render('IndexedSongList', props), list = nodes(tree).find(n => n.type === 'FlatList');
   list.props.ref.current = { scrollToOffset: options => calls.push(['offset', options]), scrollToIndex: options => calls.push(['index', options]) };
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } }); assert.equal(scrollMemory.get('songs'), 900, 'mount events must not erase remembered scroll');
+  list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } }); assert.equal(scrollMemory.get('songs'), 900);
   ui.effects(); ui.frames(); ui.frames(); assert.equal(calls[0][1].offset, 900);
   list.props.onLayout({ nativeEvent: { layout: { height: 500 } } }); list.props.onContentSizeChange(300, 400);
-  tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList'); assert.equal(list.props.stickyHeaderHiddenOnScroll, false);
-  list.props.onContentSizeChange(300, 10000); list.props.ListHeaderComponent.props.onLayout({ nativeEvent: { layout: { height: 200 } } });
+  nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout).props.onLayout({ nativeEvent: { layout: { height: 200 } } });
   list.props.renderItem({ item: list.props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(list.props.stickyHeaderHiddenOnScroll, true);
-  const layout = list.props.getItemLayout(null, 2); assert.equal(layout.offset, 392); assert.equal(layout.length, 72);
+  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204, 'short list keeps search visible');
+  list.props.onContentSizeChange(300, 10000); list.props.onScrollBeginDrag(); list.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
+  tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
+  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
+  assert.equal(list.props.getItemLayout(null, 2).offset, 392);
   nodes(tree).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();
-  assert.equal(calls.at(-1)[1].index, 2); assert.equal(calls.at(-1)[1].viewOffset, 200);
-  tree = ui.render('IndexedSongList', { ...props, focused: true }); list = nodes(tree).find(n => n.type === 'FlatList'); assert.equal(list.props.stickyHeaderHiddenOnScroll, false);
+  assert.equal(calls.at(-1)[1].index, 2); assert.equal(calls.at(-1)[1].viewOffset, 0);
+  tree = ui.render('IndexedSongList', { ...props, focused: true });
+  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204);
   list.props.onScroll({ nativeEvent: { contentOffset: { y: 222 } } }); assert.equal(scrollMemory.get('songs'), 222);
 });
 
