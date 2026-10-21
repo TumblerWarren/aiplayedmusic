@@ -1,16 +1,13 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
-import Svg, { Circle, Path } from 'react-native-svg';
+import { Animated, Image, Pressable, ScrollView, Text, View, useColorScheme } from 'react-native';
 import { useMotionAllowed } from './PlaybackMotion';
 const h = React.createElement;
 export function BrandMark({ size = 120 }) {
-  return h(Svg, { width: size, height: size, viewBox: '0 0 108 108', accessible: false },
-    h(Circle, { cx: 54, cy: 54, r: 33, fill: '#7353BB' }),
-    ...[29, 25, 21, 14].map(r => h(Circle, { key: r, cx: 54, cy: 54, r, fill: 'none', stroke: '#C9B4EF', strokeWidth: r === 14 ? 0.9 : 0.5 })),
-    h(Path, { d: 'M50 48Q50 47 51 47.6L61 53.2Q62 54 61 54.8L51 60.4Q50 61 50 60Z', fill: '#FFFFFF' }));
+  return h(Image, { source: require('../assets/aiplayed-icon.png'), style: { width: size, height: size }, resizeMode: 'contain', accessible: false });
 }
 export default function Startup({ c, error, onRetry, onLayout }) {
   const motion = useMotionAllowed(!error), phase = useRef(new Animated.Value(0)).current;
+  const backgroundColor = useColorScheme() === 'dark' ? '#1D1B26' : '#F2ECFF';
   useEffect(() => {
     const loop = Animated.loop(Animated.sequence([
       Animated.timing(phase, { toValue: 1, duration: 1000, useNativeDriver: true, isInteraction: false }),
@@ -19,9 +16,14 @@ export default function Startup({ c, error, onRetry, onLayout }) {
     if (motion) loop.start(); else phase.setValue(0);
     return () => loop.stop();
   }, [motion, phase]);
-  return h(View, { onLayout, style: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 18 } },
-    h(Animated.View, { style: { transform: [{ scale: phase.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }], opacity: phase.interpolate({ inputRange: [0, 1], outputRange: [0.9, 1] }) } }, h(BrandMark, { size: 180 })),
-    h(Text, { accessibilityRole: 'header', style: { color: c.ink, fontWeight: '700', fontSize: 28 } }, 'Aiplayed'),
-    h(Text, { accessibilityLiveRegion: 'polite', style: { color: c.muted, fontSize: 16, textAlign: 'center' } }, error || 'Opening your music…'),
-    error && h(Pressable, { onPress: onRetry, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' }, style: { minHeight: 48, padding: 16, borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 16 } }, 'Try again')));
+  const title = h(Text, { accessibilityRole: 'header', style: { color: c.ink, fontWeight: '700', fontSize: 28 } }, 'Aiplayed');
+  const detail = h(Text, { accessibilityLiveRegion: 'polite', style: { color: c.muted, fontSize: 16, textAlign: 'center' } }, error || 'Opening your music…');
+  return h(View, { onLayout, style: { flex: 1, backgroundColor, alignItems: 'center', justifyContent: 'center' } },
+    error ? h(ScrollView, { style: { alignSelf: 'stretch' }, contentContainerStyle: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 18 } },
+      h(BrandMark, { size: 180 }), title, detail,
+      h(Pressable, { onPress: onRetry, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' }, style: { minHeight: 48, padding: 16, borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 16 } }, 'Try again')))
+      : h(React.Fragment, null,
+        // Match native splash image, size and center; the text cannot shift the logo.
+        h(Animated.View, { style: { transform: [{ scale: phase.interpolate({ inputRange: [0, 1], outputRange: [1, 1.035] }) }], opacity: phase.interpolate({ inputRange: [0, 1], outputRange: [1, 0.94] }) } }, h(BrandMark, { size: 180 })),
+        h(View, { style: { position: 'absolute', top: '50%', marginTop: 110, left: 28, right: 28, alignItems: 'center', gap: 18 } }, title, detail)));
 }
