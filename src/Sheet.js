@@ -64,9 +64,9 @@ export default function Sheet({ visible, title, c, onClose, returnFocus, childre
   }, [drag]);
   return h(Modal, { visible: visible || presented, transparent: true, animationType: 'none', onRequestClose: onClose, onShow: () => { if (visibleNow.current) restoreFocus(heading); } },
     h(KeyboardAvoidingView, { behavior: 'padding', pointerEvents: visible ? 'auto' : 'none', style: { flex: 1, justifyContent: 'flex-end' } },
-      h(Animated.View, { testID: 'sheet-backdrop', pointerEvents: 'none', accessible: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#0007', opacity: reveal } }),
+      h(Animated.View, { testID: 'sheet-backdrop', pointerEvents: 'none', accessible: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.scrim, opacity: reveal } }),
       h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close sheet', feedback: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } }),
-      h(Animated.View, { testID: 'sheet-panel', style: { maxHeight: height * 0.9, backgroundColor: c.bg, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: Animated.add(drag, reveal.interpolate({ inputRange: [0, 1], outputRange: [height, 0] })) }] } },
+      h(Animated.View, { testID: 'sheet-panel', style: { maxHeight: height * 0.9, backgroundColor: c.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: Animated.add(drag, reveal.interpolate({ inputRange: [0, 1], outputRange: [height, 0] })) }] } },
         h(SafeAreaView, { edges: ['bottom'], style: { flexShrink: 1 } },
           h(View, { ...pan.panHandlers, accessibilityLabel: 'Drag down to close', style: { minHeight: 48, justifyContent: 'center', alignItems: 'center' } }, h(View, { style: { width: 40, height: 4, borderRadius: 4, backgroundColor: c.track } })),
           h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 } },

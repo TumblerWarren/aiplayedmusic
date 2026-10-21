@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import Native from './native';
 import { createMusicStore } from './stateStore';
 import { createSoundPreviewController } from './soundPreview';
+import { initialTheme } from './theme';
 
-export const musicStore = createMusicStore({ current: null, playing: false, loading: false, duration: 0, queue: [], favorites: [], recent: [], playlists: {}, shuffle: false, repeat: 0, speed: 1, theme: 'Light', includeSubfolders: true, sort: 'Title', pauseDisconnect: true, sleepRemaining: 0 });
+export const musicStore = createMusicStore({ current: null, playing: false, loading: false, duration: 0, queue: [], favorites: [], recent: [], playlists: {}, shuffle: false, repeat: 0, speed: 1, theme: initialTheme(Native), includeSubfolders: true, sort: 'Title', pauseDisconnect: true, sleepRemaining: 0 });
 export const soundPreview = createSoundPreviewController({
   preview: patch => Native.previewSound(JSON.stringify(patch)),
   cancel: () => Native?.cancelSoundPreview(),

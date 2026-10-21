@@ -42,6 +42,11 @@ class LocalMusicModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
     Events("onChange", "onError")
+    Function("getThemePreference") { ThemePreferences.get(context) }
+    AsyncFunction("setWindowAppearance") { dark: Boolean ->
+      appContext.currentActivity?.let { ThemePreferences.applyWindow(it, dark) }
+      Unit
+    }.runOnQueue(Queues.MAIN)
     AsyncFunction("initialize") { promise: Promise ->
       if (!registered) {
         val filter = IntentFilter(PlaybackService.CHANGED)
@@ -82,7 +87,10 @@ class LocalMusicModule : Module() {
     }.runOnQueue(Queues.MAIN)
     AsyncFunction("cancelSoundPreview") { playback?.cancelSoundPreview(); Unit }.runOnQueue(Queues.MAIN)
     OnActivityEntersBackground { handler.post { previewAllowed = false; playback?.cancelSoundPreview() } }
-    OnActivityEntersForeground { handler.post { previewAllowed = true } }
+    OnActivityEntersForeground { handler.post {
+      previewAllowed = true
+      appContext.currentActivity?.let { ThemePreferences.applyWindow(it) }
+    } }
     AsyncFunction("command") { action: String, raw: String ->
       val data = JSONObject(raw)
       val service = requireNotNull(playback) { "Initialize music playback first" }
@@ -146,7 +154,7 @@ class LocalMusicModule : Module() {
         "renamePlaylist" -> lib.renamePlaylist(data.getString("name"), validName(data.getString("newName")))
         "addToPlaylist" -> lib.addToPlaylist(data.getString("name"), Song.from(data.getJSONObject("song")))
         "removeFromPlaylist" -> lib.removeFromPlaylist(data.getString("name"), Song.from(data.getJSONObject("song")))
-        "theme" -> lib.prefs().edit().putString("theme", data.getString("value")).apply()
+        "theme" -> ThemePreferences.select(context, data.getString("value"))
         "sort" -> lib.prefs().edit().putString("sort", data.getString("value")).apply()
         "clearHistory" -> lib.prefs().edit().remove("recent").apply()
         "pauseDisconnect" -> service.setPauseDisconnect(data.getBoolean("value"))
@@ -276,7 +284,7 @@ class LocalMusicModule : Module() {
       put("favorites", JSONArray(lib.favorites().toList()))
       put("recent", JSONArray(lib.recentIds()))
       put("playlists", lib.playlists())
-      put("theme", prefs.getString("theme", "Light"))
+      put("theme", ThemePreferences.get(context))
       put("sort", prefs.getString("sort", "Title"))
       put("pauseDisconnect", prefs.getBoolean("pauseDisconnect", true))
       put("excludedCount", prefs.getStringSet("excluded", emptySet())?.size ?: 0)

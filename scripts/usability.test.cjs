@@ -11,8 +11,9 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   const { formatTime } = await import('../src/music.js');
   const { palette, tones } = await import('../src/design.js');
   const state = { theme: 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', current: { id: 1, title: 'Track', artist: 'Infra' }, sound: {} };
+  let darkTheme = false;
   const commands = [], shared = [];
-  const ui = harness('App.js', ['MusicApp'], { ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); }, shareSong: async raw => shared.push(JSON.parse(raw)) }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
+  const ui = harness('App.js', ['MusicApp'], { useTheme: () => palette(darkTheme), ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); }, shareSong: async raw => shared.push(JSON.parse(raw)) }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
     useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
     useColorScheme: () => 'light', useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 }, PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
   let tree = ui.render('MusicApp');
@@ -32,6 +33,10 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   assert(navbar('Sound').props.accessibilityState.selected);
   assert(nodes(tree).some(n => n.props.accessibilityLabel === 'Open now playing'));
   studio.props.onTab('Output'); studio.props.offsets.Output = 240;
+  darkTheme = true; tree = ui.render('MusicApp');
+  studio = nodes(tree).find(n => n.type === 'SoundStudio');
+  assert.equal(studio.props.tab, 'Output'); assert.equal(studio.props.offsets.Output, 240);
+  assert.equal(studio.props.c.bg, '#17191E'); assert.equal(commands.length, 0);
   tree = ui.render('MusicApp'); navbar('Sound').props.onPress(); tree = ui.render('MusicApp');
   studio = nodes(tree).find(n => n.type === 'SoundStudio'); studio.props.onBack(); tree = ui.render('MusicApp');
   assert.equal(list().props.sessionKey, before);
@@ -50,6 +55,12 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   assert.equal(nodes(lyricsSheet).find(n => n.type === 'Lyrics').props.song.id, state.current.id);
   assert.equal(nodes(lyricsSheet).find(n => n.type === 'Lyrics').props.key, state.current.id);
   assert.equal(commands.length, beforeLyrics, 'opening lyrics never changes playback');
+  darkTheme = false; tree = ui.render('MusicApp');
+  const recolouredLyrics = nodes(tree).find(n => n.type === 'Sheet');
+  assert.equal(recolouredLyrics.props.visible, true);
+  assert.equal(recolouredLyrics.props.c.bg, '#FFFBF6');
+  assert.equal(nodes(recolouredLyrics).find(n => n.type === 'Lyrics').props.song.id, state.current.id);
+  assert.equal(commands.length, beforeLyrics);
   lyricsSheet.props.onClose(); tree = ui.render('MusicApp');
   assert(nodes(tree).some(n => n.type === 'PlayerProgress'), 'lyrics dismissal preserves the full player');
   nodes(tree).find(n => n.props.accessibilityLabel === 'more-vertical').props.onPress(); tree = ui.render('MusicApp');
