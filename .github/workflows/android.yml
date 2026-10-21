@@ -52,7 +52,7 @@ jobs:
         continue-on-error: true
         uses: actions/cache/restore@v4
         with:
-          key: native-v1-${{ runner.os }}-${{ hashFiles('package.json', 'modules/**/android/build.gradle', 'modules/**/android/src/main/java/**') }}
+          key: native-v2-${{ runner.os }}-${{ hashFiles('package.json', 'modules/**/android/build.gradle', 'modules/**/android/src/main/java/**') }}
           path: |
             node_modules/**/android/.cxx/
             node_modules/**/android/build/intermediates/cxx/
@@ -78,6 +78,7 @@ jobs:
         working-directory: android
         run: ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Build standalone APK
+        id: native_build
         working-directory: android
         run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Retain candidate APK for validation diagnostics
@@ -193,7 +194,7 @@ jobs:
 
       - name: Save native compilation cache
         continue-on-error: true
-        if: always() && steps.native_cache.outputs.cache-hit != 'true'
+        if: always() && steps.native_build.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           key: ${{ steps.native_cache.outputs.cache-primary-key }}
