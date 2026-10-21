@@ -38,3 +38,12 @@ test('splash compatibility runs after Expo splash generation in the reverse mod 
   const plugins=require('../app.config').expo.plugins.map(plugin=>Array.isArray(plugin)?plugin[0]:plugin);
   assert(plugins.indexOf('./plugins/withSplashCompatibility') < plugins.indexOf('expo-splash-screen'));
 });
+
+test('packaged branding follows resource references when APK paths are optimized', () => {
+  const { verifyBranding }=require('./verify-apk-branding.cjs');
+  const launcher=`E: adaptive-icon\n E: background\n A: drawable(0x01010199)=@0x7f05001b\n E: foreground\n A: drawable(0x01010199)=@0x7f070077\n E: monochrome\n A: drawable(0x01010199)=@0x7f070078`;
+  const table=`Package name=app.localmusic.player id=7f\n resource 0x7f070077 drawable/aiplayed_launcher_foreground\n  () (file) res/aB.xml type=XML\n resource 0x7f070078 drawable/aiplayed_launcher_monochrome\n  () (file) res/cD.xml type=XML\n resource 0x7f070079 drawable/splashscreen_logo\n  (xhdpi) (file) res/eF.png type=PNG\n resource 0x7f130001 style/Theme.App.SplashScreen\n  () (style) size=3\n   windowSplashScreenAnimatedIcon(0x7f040001)=@0x7f070079`;
+  assert.equal(verifyBranding(launcher,table).monochrome,'0x7f070078');
+  assert.throws(()=>verifyBranding(launcher.replace('=@0x7f070077','=@0x7f070078'),table),/branded foreground/);
+  assert.throws(()=>verifyBranding(launcher,table.replace('=@0x7f070079','=@0x7f070077')),/Splash theme/);
+});
