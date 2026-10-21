@@ -118,18 +118,9 @@ jobs:
           )
           grep -Fx "$launcher_path" apk-resources.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$launcher_path" > apk-launcher.txt
-          adaptive_path=$(grep -E 'mipmap-anydpi-v26.*/aiplayed_launcher.xml$' apk-resources.txt | head -1)
-          test -n "$adaptive_path"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$adaptive_path" > apk-adaptive.txt
-          grep -F 'E: adaptive-icon' apk-adaptive.txt
-          monochrome_path=$(grep -E 'mipmap-anydpi-v33.*/aiplayed_launcher.xml$' apk-resources.txt | head -1)
-          test -n "$monochrome_path"
-          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$monochrome_path" > apk-monochrome.txt
-          grep -F 'E: monochrome' apk-monochrome.txt
-          grep -E 'splashscreen_logo|splash_screen' apk-resources.txt
-          grep -E 'aiplayed_launcher_foreground|aiplayed_launcher_monochrome' apk-resources.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file AndroidManifest.xml > apk-manifest.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump resources "$apk_path" > apk-resource-table.txt
+          node scripts/verify-apk-branding.cjs > apk-branding.json
           grep -E '^package:|^application-label:|^application:' apk-metadata.txt
           cat apk-launcher.txt
           sha256sum "$apk_path" > apk-sha256.txt
@@ -137,6 +128,11 @@ jobs:
             echo "Standalone offline APK requests a forbidden network or media permission" >&2
             exit 1
           fi
+      - name: Install emulator fixture tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version
       - name: Enable emulator acceleration
         run: sudo chmod 666 /dev/kvm
       - name: Android interaction and startup checks
@@ -185,8 +181,7 @@ jobs:
             apk-resources.txt
             apk-manifest.txt
             apk-launcher.txt
-            apk-adaptive.txt
-            apk-monochrome.txt
+            apk-branding.json
             apk-resource-table.txt
             apk-sha256.txt
           if-no-files-found: ignore
