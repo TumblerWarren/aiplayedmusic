@@ -16,12 +16,12 @@ Run `npm run check` and `python scripts/media-session.test.py`. Coverage include
 
 Regenerate artwork with `node scripts/render-branding.cjs`, then rasterize `assets/startup-turntable-dark.svg` to a 512×512 transparent PNG using Inkscape. Light SVG and launcher resources must remain byte-for-byte unchanged.
 
-## Candidate APK verification — pending
+## Candidate APK verification
 
-This change does not start an APK build or release. Version 1.2.5/code8 remains unchanged. For an authorized release, merge reviewed changes first, update release version/code and workflow references, then run the existing native compilation, Lint, signature, branding, offline-permission and interaction gates.
+The authorized v1.2.6/code9 release is built from merged main. Native compilation, Lint, signature, branding, offline-permission and interaction gates run before publication. The reusable theme workflow then checks API26,31,35; publication depends on every matrix job passing.
 
-The manual **Check candidate APK themes** workflow takes a completed candidate build run ID. Its source SHA must equal the workflow revision. It downloads the candidate and installs it on API26,31,35, without building or publishing the application. The independent CI inspector is compiled separately. Screenshots, accessibility trees, startup recordings, logcat and results are retained for 30 days.
+The reusable/manual **Check candidate APK themes** workflow takes a candidate build run ID. Its source SHA must equal the workflow revision. It downloads the candidate and installs it on API26,31,35, without building or publishing the application. The independent CI inspector is compiled separately. Screenshots, accessibility trees, startup recordings, logcat and results are retained for 30 days.
 
-Prepared checks cover fresh-install System, all six preference/phone combinations, saved-selection cold starts, seven Browse destinations, search retention, Sound tabs, player, lyrics, playlist/reset dialogs, folder picker, font scaling, rotation and continued playback. The script is syntax checked locally; runtime assertions and visual evidence still need a candidate APK run. Run the existing interaction suite too for expanding rails, swipe conflicts, dial rotation/cancellation and clipped press feedback.
+Prepared checks cover fresh-install System, all six preference/phone combinations, saved-selection cold starts, seven Browse destinations, search retention, Sound tabs, player, lyrics, playlist/reset dialogs, folder picker, font scaling, rotation and continued playback. The script is syntax checked locally; runtime assertions and visual evidence are verified by the candidate APK workflow. Run the existing interaction suite too for expanding rails, swipe conflicts, dial rotation/cancellation and clipped press feedback.
 
 Before release, review videos for bright launch frames, scrim translation and press shapes. Check native system bars, notifications and document picker; background/foreground System changes; explicit choices ignoring phone changes; upgrade launches; initialization failure/retry; and Reduce Motion during loading. Confirm a partly scrolled filtered list, queue and custom sound values survive appearance changes.

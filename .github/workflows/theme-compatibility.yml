@@ -1,9 +1,14 @@
 name: Check candidate APK themes
 on:
+  workflow_call:
+    inputs:
+      candidate_run_id:
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       candidate_run_id:
-        description: Completed build run on this exact commit containing unverified-candidate-apk
+        description: Build run on this exact commit containing unverified-candidate-apk
         required: true
         type: string
 permissions:

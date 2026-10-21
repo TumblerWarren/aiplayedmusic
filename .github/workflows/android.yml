@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, design/multicolor-ui, release/v1.2.5]
+    branches: [main, design/multicolor-ui, release/v1.2.6]
 permissions:
   contents: read
 concurrency:
@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.5') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.6') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
       - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
   build:
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.5') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.6') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -104,7 +104,9 @@ jobs:
         run: |
           apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
           test -n "$apk_path"
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk_path"
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs "$apk_path" > apk-signature.txt
+          cat apk-signature.txt
+          grep -Fi "Signer #1 certificate SHA-256 digest: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c" apk-signature.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump permissions "$apk_path" > apk-permissions.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump badging "$apk_path" > apk-metadata.txt
           app_name=$(node -p "require('./app.config').expo.name")
@@ -156,9 +158,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-interaction-evidence-v1.2.5
+          name: android-interaction-evidence-v1.2.6
           retention-days: 30
-          path: verification/android-v1.2.5/
+          path: verification/android-v1.2.6/
           if-no-files-found: warn
       - name: Require every release validation to pass
         run: |
@@ -181,6 +183,7 @@ jobs:
           path: |
             android/app/build/reports/
             package-lock.json
+            apk-signature.txt
             apk-permissions.txt
             apk-metadata.txt
             apk-resources.txt
@@ -203,12 +206,32 @@ jobs:
             node_modules/**/android/build/intermediates/cxx/
             android/app/.cxx/
             android/app/build/intermediates/cxx/
-      - name: Publish verified v1.2.5 APK
-        if: github.ref == 'refs/heads/main'
+  themes:
+    needs: build
+    if: needs.build.result == 'success'
+    permissions:
+      contents: read
+      actions: read
+    uses: ./.github/workflows/theme-compatibility.yml
+    with:
+      candidate_run_id: ${{ format('{0}', github.run_id) }}
+  publish:
+    needs: [build, themes]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: aiplayedmusic-apk
+          path: verified-apk
+      - name: Publish verified v1.2.6 APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
-          cp "$apk_path" Aiplayed-v1.2.5.apk
-          sha256sum Aiplayed-v1.2.5.apk > Aiplayed-v1.2.5.apk.sha256
-          gh release create v1.2.5 Aiplayed-v1.2.5.apk Aiplayed-v1.2.5.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.5" --notes-file verification/RELEASE_NOTES_1.2.5.md
+          cp verified-apk/app-release.apk Aiplayed-v1.2.6.apk
+          sha256sum Aiplayed-v1.2.6.apk > Aiplayed-v1.2.6.apk.sha256
+          gh release create v1.2.6 Aiplayed-v1.2.6.apk Aiplayed-v1.2.6.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.6" --notes-file verification/RELEASE_NOTES_1.2.6.md
