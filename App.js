@@ -22,6 +22,7 @@ import { browseDestination, browseRoute, compareNames, destinations, displayFold
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
 import Lyrics from './src/Lyrics';
+import SleepTimer from './src/SleepTimer';
 import { palette, tones } from './src/design';
 import { Pattern, TabHighlight } from './src/Pastel';
 import { formatTime } from './src/music';
@@ -184,6 +185,7 @@ function MusicApp() {
   const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle }); };
   const openSound = () => { if (!canOpenSound(page)) return; rememberBrowsing(); setSoundBack(captureRoute()); setPage('sound'); };
   const openLyrics = e => { overlayReturn.current = e?.nativeEvent?.target; setSheet({ title: 'Lyrics', lyrics: true }); };
+  const shareSong = async song => { try { await Native.shareSong(JSON.stringify(song)); } catch { report(new Error('Couldn’t share this audio file. Check that it is still on your phone and a sharing app is available.')); } };
   const createPlaylist = song => { setSheet(null); setName(''); setNameDialog({ kind: 'create', song }); };
   const playlistSheet = song => setSheet({ title: 'Add to playlist', items: [{ label: 'New playlist', icon: 'plus', action: () => createPlaylist(song) }, ...Object.keys(state.playlists).sort().map(title => ({ label: title, icon: 'list', action: () => command('addToPlaylist', { name: title, song }) }))] });
   const options = song => setSheet({ title: song.title, items: [
@@ -191,10 +193,11 @@ function MusicApp() {
     { label: 'Add to queue', icon: 'list', action: () => command('enqueue', { song }) },
     { label: state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', icon: 'heart', action: () => command('favorite', { song }) },
     { label: 'Add to playlist', icon: 'plus', action: () => playlistSheet(song), keep: true },
+    { label: 'Share audio file', icon: 'share-2', action: () => shareSong(song) },
     ...(selection?.kind === 'playlist' ? [{ label: 'Remove from playlist', icon: 'minus-circle', action: () => command('removeFromPlaylist', { name: selection.name, song }) }] : []),
     { label: 'Song information', icon: 'info', action: () => Alert.alert(song.title, `${song.artist}\n${song.album}\n${formatTime(song.duration)} · ${(song.size / 1048576).toFixed(2)} MB\n\n${song.path}`) }
   ] });
-  const timerSheet = () => setSheet({ title: 'Sleep timer', items: [0, 15, 30, 45, 60, 90, 120].map(minutes => ({ label: minutes ? `${minutes} minutes` : 'Off', icon: 'clock', action: () => command('sleep', { minutes }) })) });
+  const timerSheet = () => setSheet({ title: 'Sleep timer', items: [...[0, 15, 30, 45, 60, 90, 120].map(minutes => ({ label: minutes ? `${minutes} minutes` : 'Off', icon: 'clock', action: () => command('sleep', { minutes }) })), { label: 'Custom minutes', icon: 'edit-2', action: () => setSheet({ title: 'Custom sleep timer', timer: true }), keep: true }] });
   const speedSheet = () => setSheet({ title: 'Playback speed', items: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(value => ({ label: `${value}×`, icon: value === state.speed ? 'check' : 'play', action: () => command('speed', { value }) })) });
   const mainMenu = () => setSheet({ title: 'Make it yours', items: [
     { label: 'Sound studio', detail: 'Fine-tune your listening', icon: 'sliders', action: openSound },
@@ -321,7 +324,7 @@ function MusicApp() {
     })),
     folderPicker && h(FolderPicker, { c, roots: state.musicRoots || [], onClose: () => setFolderPicker(false), onSelect: selectFolder }),
     h(Sheet, { scrollable: !sheet?.lyrics, visible: !!sheet, title: sheet?.title, c, onClose: () => setSheet(null), returnFocus: sheet?.browse ? browseTrigger : overlayReturn.current },
-      sheet?.lyrics ? h(Lyrics, { key: state.current?.id ?? 'none', song: state.current, c }) : sheet?.browse ? destinations.map(([title, glyph]) => h(Pressable, { key: title, accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { selected: currentBrowse === title }, onPress: () => selectBrowse(title), style: [styles.sheetItem, { backgroundColor: currentBrowse === title ? c.lavender : c.card }] }, h(Feather, { name: glyph, size: 24, color: accent }), text(title, { flex: 1, color: c.ink, fontSize: 17, fontWeight: '600' }), currentBrowse === title && h(Feather, { name: 'check', size: 24, color: accent })))
+      sheet?.lyrics ? h(Lyrics, { key: state.current?.id ?? 'none', song: state.current, c }) : sheet?.timer ? h(SleepTimer, { c, command, onClose: () => setSheet(null) }) : sheet?.browse ? destinations.map(([title, glyph]) => h(Pressable, { key: title, accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { selected: currentBrowse === title }, onPress: () => selectBrowse(title), style: [styles.sheetItem, { backgroundColor: currentBrowse === title ? c.lavender : c.card }] }, h(Feather, { name: glyph, size: 24, color: accent }), text(title, { flex: 1, color: c.ink, fontSize: 17, fontWeight: '600' }), currentBrowse === title && h(Feather, { name: 'check', size: 24, color: accent })))
       : (sheet?.items || []).map((item, index) => h(Pressable, { key: index, accessibilityRole: 'button', style: [styles.sheetItem, { backgroundColor: colors[index % colors.length].bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 24, color: accent }), h(View, { style: styles.flex }, text(item.label, styles.sheetItemText), item.detail && text(item.detail, styles.subtitle))))),
     h(Modal, { visible: !!nameDialog, transparent: true, animationType: 'fade', onRequestClose: closeName }, h(KeyboardAvoidingView, { behavior: 'padding', style: styles.dialogBackdrop }, h(Pressable, { onPress: closeName, disabled: savingName, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', feedback: false, style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(View, { style: styles.dialog }, text(nameDialog?.kind === 'rename' ? 'Rename playlist' : 'New playlist', styles.sheetTitle), h(TextInput, { value: name, onChangeText: setName, autoFocus: true, maxLength: 100, accessibilityLabel: 'Playlist name', placeholder: 'Playlist name', placeholderTextColor: c.muted, style: styles.nameInput, onSubmitEditing: saveName }), h(View, { style: styles.dialogButtons }, h(Pressable, { onPress: closeName, disabled: savingName, style: styles.cancel }, text('Cancel', { color: c.muted })), button(savingName ? 'Saving…' : 'Save', saveName, undefined, savingName))))));
 }

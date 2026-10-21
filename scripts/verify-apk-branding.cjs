@@ -25,5 +25,13 @@ function verifyBranding(launcher, table) {
   assert(splash.body.includes('splashscreen_logo') || splash.body.toLowerCase().includes(logo.id),'Splash theme must reference the packaged logo');
   return {foreground:foreground.id,monochrome:monochrome.id,splashLogo:logo.id,splashTheme:splash.id};
 }
-module.exports={verifyBranding};
-if(require.main===module) console.log(JSON.stringify(verifyBranding(fs.readFileSync(process.argv[2]||'apk-launcher.txt','utf8'),fs.readFileSync(process.argv[3]||'apk-resource-table.txt','utf8')),null,2));
+function verifyCurrentUi(manifest, table) {
+  assert(!/NativeMusicActivity|MusicNative(?:Dark)?Theme/.test(manifest + '\n' + table), 'APK contains the retired native interface');
+  return true;
+}
+module.exports={verifyBranding,verifyCurrentUi};
+if(require.main===module) {
+  const table=fs.readFileSync(process.argv[3]||'apk-resource-table.txt','utf8');
+  verifyCurrentUi(fs.readFileSync(process.argv[4]||'apk-manifest.txt','utf8'),table);
+  console.log(JSON.stringify(verifyBranding(fs.readFileSync(process.argv[2]||'apk-launcher.txt','utf8'),table),null,2));
+}

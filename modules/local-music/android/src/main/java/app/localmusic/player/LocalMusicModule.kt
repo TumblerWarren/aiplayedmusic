@@ -202,9 +202,16 @@ class LocalMusicModule : Module() {
       }
     }
 
-    AsyncFunction("openNative") { screen: String ->
-      val activity = requireNotNull(appContext.currentActivity) { "Open the app before adjusting settings" }
-      activity.startActivity(Intent(activity, NativeMusicActivity::class.java).putExtra("screen", if (screen == "player") "player" else "settings"))
+    AsyncFunction("shareSong") { raw: String ->
+      val activity = requireNotNull(appContext.currentActivity) { "Open the app before sharing music" }
+      val data = JSONObject(raw)
+      require(data.has("id") && data.getLong("id") >= 0) { "Choose a song first" }
+      val song = Song.from(data)
+      val share = Intent(Intent.ACTION_SEND).setType("audio/*")
+        .putExtra(Intent.EXTRA_STREAM, song.uri())
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+      share.clipData = ClipData.newRawUri(song.title, song.uri())
+      activity.startActivity(Intent.createChooser(share, "Share audio file"))
     }.runOnQueue(Queues.MAIN)
 
     OnDestroy {

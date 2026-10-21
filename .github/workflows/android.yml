@@ -69,6 +69,7 @@ jobs:
           for attribute in ('icon', 'roundIcon'):
               assert application.get(android + attribute) == '@mipmap/aiplayed_launcher', attribute
           assert application.get(android + 'label') == '@string/app_name'
+          assert not any('NativeMusicActivity' in item.get(android + 'name', '') for item in application.findall('activity'))
           base = ET.parse('android/app/src/main/res/values/styles.xml').getroot()
           qualified = ET.parse('android/app/src/main/res/values-v33/styles.xml').getroot()
           api33 = 'android:windowSplashScreenBehavior'
