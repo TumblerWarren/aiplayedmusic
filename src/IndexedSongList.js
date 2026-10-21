@@ -42,9 +42,10 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const scrollHandler = useAnimatedScrollHandler({ onScroll: event => { y.value = Math.max(0, event.contentOffset.y); runOnJS(saveScroll)(y.value); } });
   const headerStyle = useAnimatedStyle(() => {
     const remaining = headerRemaining(y.value, headerSize.value, focused, scrollable.value);
-    return { height: remaining, opacity: headerSize.value ? remaining / headerSize.value : 1 };
+    // Measure intrinsic content before moving it. Giving this measuring container
+    // an animated height (initially zero) constrains Yoga and hides the search.
+    return { transform: [{ translateY: remaining - headerSize.value }], opacity: headerSize.value ? remaining / headerSize.value : 1 };
   }, [focused]);
-  const headerContentStyle = useAnimatedStyle(() => ({ transform: [{ translateY: headerRemaining(y.value, headerSize.value, focused, scrollable.value) - headerSize.value }] }), [focused]);
   const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerSize.value, focused, scrollable.value) + 4 }), [focused]);
   const jump = next => {
     if (!next || targets[next] === undefined) return;
@@ -71,7 +72,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const getItemLayout = useCallback((items, index) => ({ index, length: prefix && index === 0 ? preludeHeight : rowHeight, offset: headerHeight + (prefix && index > 0 ? preludeHeight || 0 : 0) + Math.max(0, index - prefix) * rowHeight }), [rowHeight, headerHeight, preludeHeight, prefix]);
   const updateScrollability = () => { scrollable.value = dimensions.current.content > dimensions.current.viewport + 1; };
   const empty = typeof ListEmptyComponent === 'function' ? h(ListEmptyComponent) : ListEmptyComponent;
-  return h(View, { style: { flex: 1, minHeight: 0 } },
+  return h(View, { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
     h(Animated.FlatList, { ...props, ref: list, data: rows, keyExtractor: (item, index) => item === PRELUDE ? 'library-prelude' : keyExtractor(item, index - prefix),
       renderItem: info => info.item === PRELUDE ? h(View, { onLayout: e => setPreludeHeight(e.nativeEvent.layout.height) }, prelude, !data.length && empty) : renderItem({ ...info, index: info.index - prefix }),
       ListEmptyComponent: prefix ? null : ListEmptyComponent, ListHeaderComponent: header ? h(View, { style: { height: headerHeight } }) : null,
@@ -81,8 +82,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
       onScrollBeginDrag: () => { cancelAnimationFrame(restoreFrame.current); restoring.current.pending = false; lastLetter.current = null; pending.current = null; clearTimeout(retryTimer.current); },
       initialNumToRender: 12, maxToRenderPerBatch: 8, windowSize: 9, showsVerticalScrollIndicator: false, keyboardDismissMode: 'on-drag', keyboardShouldPersistTaps: 'handled',
       contentContainerStyle: [contentContainerStyle, showIndex && { paddingRight: 48 }] }),
-    header && h(Animated.View, { style: [{ position: 'absolute', top: 0, left: 0, right: 0, overflow: 'hidden', backgroundColor: c.bg }, headerStyle] },
-      h(Animated.View, { onLayout: e => { headerSize.value = e.nativeEvent.layout.height; setHeaderHeight(e.nativeEvent.layout.height); }, style: [headerContentStyle, { paddingBottom: 8 }] }, header)),
+    header && h(Animated.View, { onLayout: e => { headerSize.value = e.nativeEvent.layout.height; setHeaderHeight(e.nativeEvent.layout.height); }, style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 8, backgroundColor: c.bg }, headerStyle] }, header),
     showIndex && h(GestureDetector, { gesture: pan }, h(Animated.View, { ref: rail, collapsable: false, onLayout: e => setHeight(e.nativeEvent.layout.height), testID: 'alphabet-rail', style: [{ position: 'absolute', bottom: 4, right: 2, width: 40, minHeight: 40, borderRadius: 20, backgroundColor: c.lavender, paddingVertical: 4 }, railStyle] },
       ...alphabet.map(value => h(Pressable, { key: value, onPress: () => { lastLetter.current = null; jump(value); }, accessibilityRole: 'button', accessibilityLabel: `Jump to ${value === '#' ? 'numbers and other titles' : value}`, accessibilityState: { disabled: targets[value] === undefined }, disabled: targets[value] === undefined, style: { flex: 1, alignItems: 'center', justifyContent: 'center' } }, h(Text, { allowFontScaling: false, style: { color: letter === value ? c.onAccent : c.purpleInk, backgroundColor: letter === value ? c.accent : 'transparent', borderRadius: 8, minWidth: 16, textAlign: 'center', fontSize: Math.min(12, Math.max(7, (height - 8) / 34)), fontWeight: '700', opacity: targets[value] === undefined ? 0.32 : 1 } }, value))))),
     showIndex && letter && h(View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', right: 50, top: '40%', width: 64, height: 64, borderRadius: 24, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' } }, h(Text, { style: { fontSize: 32, fontWeight: '700', color: c.onAccent } }, letter)));
