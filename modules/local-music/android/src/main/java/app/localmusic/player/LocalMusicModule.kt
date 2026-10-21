@@ -1,6 +1,7 @@
 package app.localmusic.player
 
 import android.content.*
+import android.app.Activity
 import android.os.*
 import expo.modules.kotlin.Promise
 import expo.modules.kotlin.functions.Queues
@@ -18,6 +19,9 @@ class LocalMusicModule : Module() {
   private var previewAllowed = true
   private val handler = Handler(Looper.getMainLooper())
   private val pending = mutableListOf<Promise>()
+  private data class LyricsRequest(val songId: String, val promise: Promise)
+  @Volatile private var lyricsRequest: LyricsRequest? = null
+  private val lyricsWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
   private val library: Library get() = Library(context)
   private val connection = object : ServiceConnection {
@@ -151,6 +155,53 @@ class LocalMusicModule : Module() {
       snapshot()
     }.runOnQueue(Queues.MAIN)
 
+    AsyncFunction("getLyrics") { songId: String -> library.prefs().getString(lyricsKey(songId), "") ?: "" }
+    AsyncFunction("removeLyrics") { songId: String ->
+      check(library.prefs().edit().remove(lyricsKey(songId)).commit()) { "Couldn't remove lyrics. Please try again." }
+      ""
+    }
+    AsyncFunction("chooseLyrics") { songId: String, promise: Promise ->
+      lyricsKey(songId)
+      check(lyricsRequest == null) { "A lyrics file picker is already open" }
+      val activity = requireNotNull(appContext.currentActivity) { "Open the app before choosing lyrics" }
+      lyricsRequest = LyricsRequest(songId, promise)
+      try {
+        activity.startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*")
+          .addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE, "Choose a .lrc or .txt lyrics file"), 4412)
+      } catch (error: Exception) {
+        lyricsRequest = null
+        promise.reject("E_LYRICS_PICKER", "Couldn't open the file picker. Please try again.", error)
+      }
+    }.runOnQueue(Queues.MAIN)
+    OnActivityResult { activity, result ->
+      if (result.requestCode == 4412) {
+        val request = lyricsRequest
+        if (request != null) {
+          val uri = result.data?.data
+          if (result.resultCode != Activity.RESULT_OK || uri == null) {
+            lyricsRequest = null; request.promise.resolve(null)
+          } else {
+            val resolver = activity.contentResolver
+            val prefs = library.prefs()
+            lyricsWorker.execute {
+              try {
+                val text = resolver.openInputStream(uri).use { LyricsFile.read(it) }
+                if (lyricsRequest === request) {
+                  check(prefs.edit().putString(lyricsKey(request.songId), text).commit()) { "Couldn't save lyrics" }
+                  handler.post { if (lyricsRequest === request) { lyricsRequest = null; request.promise.resolve(text) } }
+                }
+              } catch (error: Exception) {
+                handler.post { if (lyricsRequest === request) {
+                  lyricsRequest = null
+                  request.promise.reject("E_LYRICS_FILE", "Couldn't read lyrics. Choose a UTF-8 .lrc or .txt file under 512 KB.", error)
+                } }
+              }
+            }
+          }
+        }
+      }
+    }
+
     AsyncFunction("openNative") { screen: String ->
       val activity = requireNotNull(appContext.currentActivity) { "Open the app before adjusting settings" }
       activity.startActivity(Intent(activity, NativeMusicActivity::class.java).putExtra("screen", if (screen == "player") "player" else "settings"))
@@ -159,6 +210,8 @@ class LocalMusicModule : Module() {
     OnDestroy {
       val ctx = appContext.reactContext
       handler.post {
+        lyricsRequest?.promise?.reject("E_DESTROYED", "Lyrics picker closed. Please try again.", null)
+        lyricsRequest = null; lyricsWorker.shutdownNow()
         playback?.cancelSoundPreview()
         if (ctx != null) {
           if (bound) ctx.unbindService(connection)
@@ -169,6 +222,11 @@ class LocalMusicModule : Module() {
         handler.removeCallbacksAndMessages(null)
       }
     }
+  }
+
+  private fun lyricsKey(songId: String): String {
+    require(songId.matches(Regex("[0-9]+"))) { "Choose a song first" }
+    return "lyrics$songId"
   }
 
   private fun validName(value: String): String {

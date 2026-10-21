@@ -42,6 +42,16 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   assert(nodes(ui.render('MusicApp')).some(n => n.type === 'SoundStudio'), 'transport press must not open the player');
   nodes(tree).find(n => n.props.accessibilityLabel === 'Open now playing').props.onPress(); tree = ui.render('MusicApp');
   assert(!nodes(tree).some(n => n.props.accessibilityRole === 'tab'), 'full player stays immersive');
+  const beforeLyrics = commands.length;
+  nodes(tree).find(n => n.props.accessibilityLabel === 'Lyrics').props.onPress(); tree = ui.render('MusicApp');
+  const lyricsSheet = nodes(tree).find(n => n.type === 'Sheet');
+  assert(lyricsSheet.props.visible); assert.equal(lyricsSheet.props.title, 'Lyrics');
+  assert.equal(lyricsSheet.props.scrollable, false, 'lyrics own a virtualized list instead of nested scrolling');
+  assert.equal(nodes(lyricsSheet).find(n => n.type === 'Lyrics').props.song.id, state.current.id);
+  assert.equal(nodes(lyricsSheet).find(n => n.type === 'Lyrics').props.key, state.current.id);
+  assert.equal(commands.length, beforeLyrics, 'opening lyrics never changes playback');
+  lyricsSheet.props.onClose(); tree = ui.render('MusicApp');
+  assert(nodes(tree).some(n => n.type === 'PlayerProgress'), 'lyrics dismissal preserves the full player');
   findText(tree, 'Sound').props.onPress(); tree = ui.render('MusicApp');
   nodes(tree).find(n => n.type === 'SoundStudio').props.onBack(); tree = ui.render('MusicApp');
   assert(nodes(tree).some(n => n.type === 'PlayerProgress'), 'Sound Back restores the originating full player');

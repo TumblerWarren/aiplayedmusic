@@ -14,15 +14,15 @@ export function restoreFocus(target) {
     target?.current?.focus?.();
   });
 }
-export default function Sheet({ visible, title, c, onClose, returnFocus, children }) {
+export default function Sheet({ visible, title, c, onClose, returnFocus, children, scrollable = true }) {
   const motion = useMotionAllowed(true), { height } = useWindowDimensions();
   const heading = useRef(null), drag = useRef(new Animated.Value(0)).current;
   const reveal = useRef(new Animated.Value(0)).current;
   const [presented, setPresented] = useState(visible);
   const visibleNow = useRef(visible); visibleNow.current = visible;
   // Keep the last menu intact until its exit animation has finished.
-  const content = useRef({ title, children });
-  if (visible) content.current = { title, children };
+  const content = useRef({ title, children, scrollable });
+  if (visible) content.current = { title, children, scrollable };
   const latest = useRef({ onClose }); latest.current = { onClose };
   const wasOpen = useRef(false), focusTarget = useRef(null);
   if (visible) focusTarget.current = returnFocus;
@@ -72,5 +72,7 @@ export default function Sheet({ visible, title, c, onClose, returnFocus, childre
           h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 } },
             h(Text, { ref: heading, accessibilityRole: 'header', style: { flex: 1, color: c.ink, fontSize: 24, fontWeight: '700' } }, content.current.title),
             h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close', style: { minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 15 } }, 'Close'))),
-          h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, content.current.children)))));
+          content.current.scrollable
+            ? h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, content.current.children)
+            : h(View, { style: { flexShrink: 1, minHeight: 0, paddingHorizontal: 20, paddingBottom: 16 } }, content.current.children)))));
 }
