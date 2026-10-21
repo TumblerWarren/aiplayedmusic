@@ -99,6 +99,9 @@ test('UI-thread header and rail share partial collapse geometry, restore scroll 
   tree = ui.render('IndexedSongList', { ...props, focused: true });
   assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204);
   list.props.onScroll({ nativeEvent: { contentOffset: { y: 222 } } }); assert.equal(scrollMemory.get('songs'), 222);
+  tree = ui.render('IndexedSongList', { ...props, prelude: null, sessionKey: 'filtered-songs' });
+  list = nodes(tree).find(n => n.type === 'FlatList');
+  assert.equal(list.props.getItemLayout(null, 0).offset, 200, 'removing a folder prelude must remove its measured height from song offsets');
 });
 
 test('polling is screen-scoped, stops in background and never overlaps bridge requests', async () => {

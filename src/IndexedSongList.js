@@ -64,11 +64,11 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   }).onFinalize(() => { runOnJS(endTouch)(); });
   const recover = info => {
     if (pending.current !== info.index) return;
-    list.current?.scrollToOffset({ offset: headerHeight + (preludeHeight || 0) + Math.max(1, info.averageItemLength) * Math.max(0, info.index - prefix), animated: false });
+    list.current?.scrollToOffset({ offset: headerHeight + (prefix ? preludeHeight || 0 : 0) + Math.max(1, info.averageItemLength) * Math.max(0, info.index - prefix), animated: false });
     if (retries.current++ < 4) retryTimer.current = setTimeout(() => { if (pending.current === info.index) list.current?.scrollToIndex({ index: info.index, animated: false, viewOffset: focused ? headerHeight : 0 }); }, 100);
   };
   const layoutKnown = rowHeight > 0 && (!header || headerHeight > 0) && (!prefix || preludeHeight !== null);
-  const getItemLayout = useCallback((items, index) => ({ index, length: prefix && index === 0 ? preludeHeight : rowHeight, offset: headerHeight + (prefix && index === 0 ? 0 : (preludeHeight || 0) + (index - prefix) * rowHeight) }), [rowHeight, headerHeight, preludeHeight, prefix]);
+  const getItemLayout = useCallback((items, index) => ({ index, length: prefix && index === 0 ? preludeHeight : rowHeight, offset: headerHeight + (prefix && index > 0 ? preludeHeight || 0 : 0) + Math.max(0, index - prefix) * rowHeight }), [rowHeight, headerHeight, preludeHeight, prefix]);
   const updateScrollability = () => { scrollable.value = dimensions.current.content > dimensions.current.viewport + 1; };
   const empty = typeof ListEmptyComponent === 'function' ? h(ListEmptyComponent) : ListEmptyComponent;
   return h(View, { style: { flex: 1, minHeight: 0 } },
