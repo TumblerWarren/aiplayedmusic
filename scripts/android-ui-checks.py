@@ -10,7 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
 
-OUT = Path('verification/android-v1.2.3')
+OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 OUT.mkdir(parents=True, exist_ok=True)
 PKG = 'app.localmusic.player'
 results = []
@@ -109,6 +109,30 @@ def rail_bounds():
     assert a is not None and z is not None, 'Alphabet rail is missing'
     return bounds(a), bounds(z)
 
+def knob_node(name):
+    return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name)),None)
+
+def visible_knob(name):
+    for _ in range(10):
+        node=knob_node(name)
+        if node is not None:
+            box=bounds(node)
+            if box[1]>=300 and box[3]<=1150: return node
+            if box[1]<300: swipe(400,650,400,1000); continue
+        swipe(400,1300,400,800)
+    raise AssertionError('Rotary control not visible: '+name)
+
+def knob_value(name):
+    node=knob_node(name)
+    assert node is not None and node.get('range-current') is not None, 'Knob accessibility range is missing'
+    return float(node.get('range-current'))
+
+def rotate_knob(name,degrees,cancel=False):
+    x1,y1,x2,y2=bounds(visible_knob(name))
+    raw=shell('am','instrument','-w','-r','-e','action','rotate','-e','cx',str((x1+x2)/2),'-e','cy',str((y1+y2)/2),'-e','radius',str((x2-x1)*.36),'-e','degrees',str(degrees),'-e','cancel',str(cancel).lower(),'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')
+    assert 'rotated' in raw, raw
+    time.sleep(.6)
+
 recording = None
 recordings = []
 def start_record(name):
@@ -184,9 +208,17 @@ try:
     check('Handle drag dismisses Browse', wait_absent('Close'))
     if find('Close') is not None: tap('Close')
     # Save and cancel playlist dialogs, then verify search restoration.
-    browse('Playlists'); tap('New playlist'); shell('input','text','APlaylist'); shot('playlist-keyboard'); tap('Save'); assert wait_absent('Playlist name'), 'First playlist save did not close the dialog'
+    browse('Playlists')
+    playlist_root=tree(); actions=[n for n in playlist_root.iter('node') if label(n)=='New playlist' and n.get('clickable')=='true']
+    check('Empty Playlists has exactly one centered create action', len(actions)==1 and abs((bounds(actions[0])[0]+bounds(actions[0])[2])/2-540)<35)
+    search=bounds(wait('Search your music')); count=bounds(wait('0 playlists'))
+    check('Playlist controls have clear spacing below search',count[1]-search[3]>=12)
+    shot('playlists-empty')
+    tap('New playlist'); shell('input','text','APlaylist'); shot('playlist-keyboard'); tap('Save'); assert wait_absent('Playlist name'), 'First playlist save did not close the dialog'
     tap('New playlist'); shell('input','text','ZPlaylist'); tap('Save'); assert wait_absent('Playlist name'), 'Second playlist save did not close the dialog'
     check('Playlist creation returns to the same view', find('+ Browse') is not None)
+    check('Populated Playlists keeps one create action',sum(label(n)=='New playlist' and n.get('clickable')=='true' for n in tree().iter('node'))==1)
+    shot('playlists-populated')
     tap('New playlist'); shell('input','tap','40','90'); check('Outside tap dismisses playlist dialog', find('Playlist name') is None)
     browse('Songs'); tap('Jump to A'); swipe(400,600,400,1450)
     tap('Search your music'); shell('input','text','A00'); shell('input','keyevent','4')
@@ -229,6 +261,27 @@ try:
     rail_bounds(); tap('Jump to Z'); shot('folder-picker')
     check('Folder picker A-Z gesture lands on the Z folder', any(label(n).startswith('/storage/emulated/0/Music/AiplayedChecks/ZFolder, ') for n in tree().iter('node')))
     tap('Close folder browser')
+    start_record('patterns-and-rotary-controls')
+    for destination in ['Library','Playlists','Sound','Settings']:
+        tap(destination)
+        node=wait(destination); x1,y1,x2,y2=bounds(node)
+        holding=subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000'])
+        time.sleep(.2); shot('navbar-'+destination.lower()+'-pressed',dump=False); holding.wait()
+    tap('Sound'); wait('Sound studio')
+    if find('Play') is not None: tap('Play')
+    visible_knob('bass'); before=knob_value('bass'); shot('sound-rotary-controls')
+    rotate_knob('bass',90); raised=knob_value('bass')
+    check('Clockwise dial rotation increases Bass',raised>before)
+    rotate_knob('bass',-60); lowered=knob_value('bass')
+    check('Anticlockwise dial rotation decreases Bass',lowered<raised)
+    rotate_knob('bass',60,cancel=True)
+    check('Cancelled knob rotation restores the committed value',abs(knob_value('bass')-lowered)<.05)
+    tap('Increase Bass'); time.sleep(.5); precise=knob_value('bass')
+    check('Round precision button advances one exact step',abs(precise-lowered-.5)<.05)
+    check('Playback continues while rotating sound controls',is_playing(shell('dumpsys','media_session')))
+    tap('Library'); tap('Sound'); visible_knob('bass')
+    check('Rotary setting persists after leaving Sound',abs(knob_value('bass')-precise)<.05)
+    shot('sound-rotary-saved')
     assert not failures, '; '.join(failures)
     (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
 except Exception as error:

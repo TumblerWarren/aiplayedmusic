@@ -47,7 +47,7 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   assert(nodes(tree).some(n => n.type === 'PlayerProgress'), 'Sound Back restores the originating full player');
 });
 
-test('faders keep the native thumb free, update the label, preview speed/pitch with correct keys and commit once', async () => {
+test('rotary controls keep their UI-thread position free, update the label, preview speed/pitch with correct keys and commit once', async () => {
   const { createSoundPreviewController } = await import('../src/soundPreview.js');
   const events = [];
   const soundPreview = createSoundPreviewController({ cancel: async () => {}, preview: async value => events.push(['preview', value]), commit: async (...args) => events.push(['commit', ...args]) });
@@ -56,10 +56,10 @@ test('faders keep the native thumb free, update the label, preview speed/pitch w
     events.length = 0;
     const props = { label: key, value: 1, min: 0, max: 2, c: {}, live: ui.context.exports.liveControl(key, key) };
     let tree = ui.render('Fader', props); ui.effects();
-    let slider = nodes(tree).find(n => n.type === 'Slider');
+    let slider = nodes(tree).find(n => n.type === 'RotaryKnob');
     slider.props.onSlidingStart(1); slider.props.onValueChange(1.5); await flush(); ui.frames();
-    tree = ui.render('Fader', props); slider = nodes(tree).find(n => n.type === 'Slider');
-    assert.equal(slider.props.value, 1, 'React must not reposition the native thumb during drag');
+    tree = ui.render('Fader', props); slider = nodes(tree).find(n => n.type === 'RotaryKnob');
+    assert.equal(slider.props.value, 1, 'React must not reposition the native knob during rotation');
     assert.equal(slider.props.accessibilityValue.now, 1.5);
     assert.deepEqual(JSON.parse(JSON.stringify(events)), [['preview', { [key]: 1.5 }]]);
     await slider.props.onSlidingComplete(1.7);
@@ -134,9 +134,9 @@ test('finishing an older slider commit cannot clear a newly started gesture labe
   let resolve;
   const live = { start: () => ({ active: () => true, preview() {}, cancel: async () => {}, commit: () => new Promise(done => { resolve = done; }) }) };
   const ui = harness('src/SoundStudio.js', ['Fader']); const props = { label: 'Bass', value: 0, min: -12, max: 12, c: {}, live };
-  let slider = nodes(ui.render('Fader', props)).find(n => n.type === 'Slider'); ui.effects();
+  let slider = nodes(ui.render('Fader', props)).find(n => n.type === 'RotaryKnob'); ui.effects();
   slider.props.onSlidingStart(0); const committing = slider.props.onSlidingComplete(1);
   slider.props.onSlidingStart(1); slider.props.onValueChange(2); ui.frames(); resolve(); await committing;
-  slider = nodes(ui.render('Fader', props)).find(n => n.type === 'Slider');
+  slider = nodes(ui.render('Fader', props)).find(n => n.type === 'RotaryKnob');
   assert.equal(slider.props.accessibilityValue.now, 2);
 });
