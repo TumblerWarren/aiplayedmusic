@@ -19,4 +19,4 @@ Alphabetical Browse ordering follows the Library redesign; queue, history and ma
 
 Regression checks reject the retired activity, bridge and themes in source, generated manifests and packaged resources. Timer validation/save races and current sharing/navigation are covered locally. Native Android and emulator validation await an authorized APK build.
 
-Source changes are pending in PR #23. The published v1.2.4 APK has not been rebuilt or replaced.
+This migration is included in v1.2.5 (code 8), from PR #23. The v1.2.4 first stable release remains available.

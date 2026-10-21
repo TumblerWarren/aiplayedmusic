@@ -2,7 +2,7 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Stable APK:** Download [Aiplayed v1.2.4](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.4/Aiplayed-v1.2.4.apk), Android version code **7**, from the first stable release. Pending UI fixes are tracked in PR #23; the stable APK remains unchanged until a new build is authorized.
+**Stable APK:** Download [Aiplayed v1.2.4](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.4/Aiplayed-v1.2.4.apk), Android version code **7**, from the first stable release. Source version 1.2.5 (code 8) includes the UI fixes and migration in PR #23. Its release is published only after all Android validation passes.
 
 Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and device measurements](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
 
