@@ -36,11 +36,17 @@ public final class ThemePreferences {
             : "Light".equals(value) ? AppCompatDelegate.MODE_NIGHT_NO : AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM;
         AppCompatDelegate.setDefaultNightMode(mode);
     }
+    public static boolean isDark(Context context) {
+        String preference = get(context);
+        return "Dark".equals(preference) || ("System".equals(preference)
+            && (context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES);
+    }
+    /** Android owns translucency and foreground contrast; supply a soft themed surface. */
+    public static int notificationColor(Context context) {
+        return Color.parseColor(isDark(context) ? "#302C40" : "#EDE5FC");
+    }
     public static void applyWindow(Activity activity) {
-        String preference = get(activity.getApplicationContext());
-        boolean dark = "Dark".equals(preference) || ("System".equals(preference)
-            && (activity.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES);
-        applyWindow(activity, dark);
+        applyWindow(activity, isDark(activity));
     }
     @SuppressWarnings("deprecation")
     public static void applyWindow(Activity activity, boolean dark) {

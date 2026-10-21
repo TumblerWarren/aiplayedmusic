@@ -55,6 +55,8 @@ public class ThemePreferencesTest {
     boolean dark=preference.equals("Dark")||(preference.equals("System")&&phoneDark);
     int background=Color.parseColor(dark?"#17191E":"#FFFBF6");
     expect(activity.window.decor.background==background,"window matches chosen palette");
+    expect(ThemePreferences.isDark(activity)==dark,"shared native appearance resolution");
+    expect(ThemePreferences.notificationColor(activity)==Color.parseColor(dark?"#302C40":"#EDE5FC"),"media card uses soft themed surface");
     if(sdk<35)expect(activity.window.status==background&&activity.window.navigation==background,"system bar underlay");
     else expect(activity.window.statusCalls==0,"API35 uses edge-to-edge underlay");
     if(sdk<30){int flags=activity.window.decor.flags;expect((flags&256)!=0,"preserve unrelated UI flags");expect((flags&(8192|16))==(dark?0:(8192|16)),"API26 icons");}

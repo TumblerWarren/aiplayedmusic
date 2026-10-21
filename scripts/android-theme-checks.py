@@ -134,6 +134,11 @@ try:
             time.sleep(.3); shell('am', 'start', '-n', activity)
             wait('+ Browse')
             appearance(name, dark)
+            tap('Shuffle all'); time.sleep(.8)
+            check(name + ' notification playback is active', is_playing(shell('dumpsys', 'media_session')))
+            shell('cmd', 'statusbar', 'expand-notifications'); time.sleep(.6)
+            shot(name + '-notification-card')
+            shell('cmd', 'statusbar', 'collapse'); time.sleep(.3)
             shell('pkill', '-INT', 'screenrecord', check=False)
             recording.wait(timeout=20); recording = None
             adb('pull', remote, str(out / (name + '.mp4')))

@@ -3,6 +3,7 @@ package app.localmusic.player;
 import app.localmusic.engine.R;
 import android.app.*;
 import android.content.*;
+import android.content.res.Configuration;
 import android.media.MediaMetadata;
 import android.media.session.MediaSession;
 import android.media.session.PlaybackState;
@@ -35,6 +36,9 @@ public class PlaybackService extends Service {
     private int failures=0;
     private String error="";
     private final Handler handler=new Handler(Looper.getMainLooper());
+    private final SharedPreferences.OnSharedPreferenceChangeListener notificationPreferences=(preferences,key)->{
+        if("theme".equals(key))handler.post(this::refreshNotificationAppearance);
+    };
     private final Runnable tick=new Runnable(){public void run(){
         if(sleepAt>0){long remaining=sleepRemaining();if(remaining==0){sleepAt=0;pause();}else player.setVolume(library.prefs().getBoolean("sleepFade",true)?Math.min(1,remaining/15000f):1);}
         if(playing()&&SystemClock.elapsedRealtime()-lastSave>5000){save();lastSave=SystemClock.elapsedRealtime();}
@@ -42,6 +46,7 @@ public class PlaybackService extends Service {
     }};
     @Override public void onCreate(){
         super.onCreate();library=new Library(this);
+        library.prefs().registerOnSharedPreferenceChangeListener(notificationPreferences);
         try{sound=new SoundSettings(new JSONObject(library.prefs().getString("soundV2","{}")));}catch(JSONException e){sound=new SoundSettings();}
         processor.update(sound.parameters());
         DefaultRenderersFactory renderers=new DefaultRenderersFactory(this){
@@ -154,14 +159,20 @@ public class PlaybackService extends Service {
     private PendingIntent action(String a){return PendingIntent.getService(this,a.hashCode(),new Intent(this,PlaybackService.class).setAction(a),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     private Notification notification(){Song s=current();Intent open=getPackageManager().getLaunchIntentForPackage(getPackageName());PendingIntent pi=PendingIntent.getActivity(this,0,open,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this,"playback").setSmallIcon(R.drawable.ic_note).setContentTitle(s==null?"Aiplayed":s.title).setContentText(s==null?"Your music, offline":s.artist).setContentIntent(pi).setVisibility(Notification.VISIBILITY_PUBLIC).setOnlyAlertOnce(true).setOngoing(playing()).setCategory(Notification.CATEGORY_TRANSPORT)
+            .setColor(ThemePreferences.notificationColor(this)).setColorized(true)
             .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_previous,"Previous",action("previous")).build())
             .addAction(new Notification.Action.Builder(playing()?android.R.drawable.ic_media_pause:android.R.drawable.ic_media_play,playing()?"Pause":"Play",action(playing()?"pause":"play")).build())
             .addAction(new Notification.Action.Builder(android.R.drawable.ic_media_next,"Next",action("next")).build()).setStyle(new Notification.MediaStyle().setMediaSession(session.getSessionToken()).setShowActionsInCompactView(0,1,2)).build();}
     private void ensureForeground(){if(!foreground){startForeground(7,notification());foreground=true;}}
+    private void refreshNotificationAppearance(){
+        if(!closing&&session!=null&&current()!=null&&(foreground||player.getPlaybackState()!=Player.STATE_IDLE))
+            getSystemService(NotificationManager.class).notify(7,notification());
+    }
+    @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);refreshNotificationAppearance();}
     private void publish(){if(closing||session==null)return;Song s=current();if(s!=null)session.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,s.title).putString(MediaMetadata.METADATA_KEY_ARTIST,s.artist).putString(MediaMetadata.METADATA_KEY_ALBUM,s.album).putLong(MediaMetadata.METADATA_KEY_DURATION,duration()).build());
         int state=loading()?PlaybackState.STATE_BUFFERING:playing()?PlaybackState.STATE_PLAYING:PlaybackState.STATE_PAUSED;
         session.setPlaybackState(new PlaybackState.Builder().setActions(PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE|PlaybackState.ACTION_SKIP_TO_NEXT|PlaybackState.ACTION_SKIP_TO_PREVIOUS|PlaybackState.ACTION_SEEK_TO|PlaybackState.ACTION_STOP).setState(state,position(),playing()?speed:0).build());
         if(s!=null&&(foreground||player.getPlaybackState()!=Player.STATE_IDLE))getSystemService(NotificationManager.class).notify(7,notification());sendBroadcast(new Intent(CHANGED).setPackage(getPackageName()));}
-    @Override public void onDestroy(){closing=true;cancelSoundPreview();save();handler.removeCallbacksAndMessages(null);player.release();session.release();getSystemService(NotificationManager.class).cancel(7);super.onDestroy();}
+    @Override public void onDestroy(){closing=true;library.prefs().unregisterOnSharedPreferenceChangeListener(notificationPreferences);cancelSoundPreview();save();handler.removeCallbacksAndMessages(null);player.release();session.release();getSystemService(NotificationManager.class).cancel(7);super.onDestroy();}
 }
 
