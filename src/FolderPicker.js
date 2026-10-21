@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Native from './native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Icon from './Icons';
 import { Pattern } from './Pastel';
 import IndexedSongList from './IndexedSongList';
@@ -38,7 +39,7 @@ export default function FolderPicker({ c, roots, onClose, onSelect }) {
     finally { if (mounted.current) setSaving(false); }
   };
   return h(Modal, { visible: true, animationType: 'slide', onRequestClose: onClose },
-    h(SafeAreaView, { style: { flex: 1, backgroundColor: c.bg } },
+    h(GestureHandlerRootView, { style: { flex: 1 } }, h(SafeAreaView, { style: { flex: 1, backgroundColor: c.bg } },
       h(View, { style: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, minHeight: 60 } }, control('arrow-left', back, path ? 'Parent folder' : 'Back'), label('Choose music folder', { fontSize: 22, fontWeight: '700', flex: 1 }), control('x', onClose, 'Close folder browser')),
       h(View, { style: { marginHorizontal: 20, padding: 16, backgroundColor: c.mint, borderRadius: 22, overflow: 'hidden' } }, h(Pattern, { kind: 'checks', color: c.mintInk, size: 80 }), label(path || 'On this device', { color: c.mintInk, fontWeight: '600', lineHeight: 21 }), label('Folders containing local audio. Subfolders are included when you choose a folder.', { color: c.mintInk, fontSize: 12, lineHeight: 18, marginTop: 6 })),
       loading ? h(ActivityIndicator, { style: { margin: 40 }, size: 'large', color: c.accent }) : error ? h(View, { style: { padding: 24, gap: 16 } }, label(error), h(Pressable, { onPress: load, accessibilityRole: 'button', style: { padding: 16, borderRadius: 20, backgroundColor: c.lavender } }, label('Try again', { color: c.accent }))) : h(IndexedSongList, { c, indexed: true, field: 'displayName', sessionKey: `picker:${path || ''}`,
@@ -50,5 +51,5 @@ export default function FolderPicker({ c, roots, onClose, onSelect }) {
       }),
       h(View, { style: { padding: 20, gap: 10, borderTopWidth: 1, borderColor: c.line } },
         limit && label('You can select up to ten music folders. Remove one in library settings first.', { color: c.muted, fontSize: 12 }),
-        h(Pressable, { onPress: choose, disabled: !path || saving || loading || !!error || limit, accessibilityRole: 'button', accessibilityState: { disabled: !path || saving || loading || !!error || limit }, style: { borderRadius: 28, minHeight: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, opacity: !path || saving || loading || !!error || limit ? 0.45 : 1 } }, label(saving ? 'Saving…' : selected ? 'Folder already selected' : 'Use this folder', { color: c.onAccent, fontWeight: '700' })))));
+        h(Pressable, { onPress: choose, disabled: !path || saving || loading || !!error || limit, accessibilityRole: 'button', accessibilityState: { disabled: !path || saving || loading || !!error || limit }, style: { borderRadius: 28, minHeight: 54, alignItems: 'center', justifyContent: 'center', backgroundColor: c.accent, opacity: !path || saving || loading || !!error || limit ? 0.45 : 1 } }, label(saving ? 'Saving…' : selected ? 'Folder already selected' : 'Use this folder', { color: c.onAccent, fontWeight: '700' }))))));
 }

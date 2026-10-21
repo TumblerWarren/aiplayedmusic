@@ -192,8 +192,14 @@ try:
         shell('settings','put','system','font_scale',scale); shell('settings','put','system','user_rotation',rotation);time.sleep(1)
         wait('+ Browse'); tap('+ Browse'); shot('browse-font-'+scale+'-rotation-'+rotation);tap('Close')
         check('Browse works with font '+scale+' rotation '+rotation, find('+ Browse') is not None)
-    browse('Folders'); tap('Choose folder'); wait('Close folder browser'); rail_bounds(); shot('folder-picker'); tap('Close folder browser')
-    check('Folder picker exposes A-Z navigation')
+    browse('Folders'); tap('Choose folder'); wait('Close folder browser')
+    for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
+        root=tree(); row=next((n for n in root.iter('node') if label(n).startswith(path+', ')),None)
+        assert row is not None, 'Folder picker path missing: '+path
+        tap(row)
+    rail_bounds(); tap('Jump to Z'); shot('folder-picker')
+    check('Folder picker A-Z gesture lands on the Z folder', any(label(n).startswith('/storage/emulated/0/Music/AiplayedChecks/ZFolder, ') for n in tree().iter('node')))
+    tap('Close folder browser')
     (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
 except Exception as error:
     (OUT/'result.json').write_text(json.dumps({'passed':False,'checks':results,'error':str(error)},indent=2))
