@@ -50,6 +50,22 @@ test('all seven Browse destinations select, dismiss and independently restore se
     assert(tab.props.style({pressed:true})[0].borderRadius>=28);
   }
   assert.equal(new Set(patterns).size,4);assert.equal(new Set(colours).size,4);
+  choose('Folders'); input().props.onChangeText(''); render();
+  const hasChooseFolder = content => nodes(content).some(n => n.children.includes('Choose folder'));
+  assert.equal(list().props.prelude, null, 'folder roots have no selection shortcut');
+  assert(!hasChooseFolder(list().props.ListEmptyComponent), 'empty folders direct users to Settings');
+  state.musicRoots = ['/storage/emulated/0/Music']; render();
+  const folderRow = list().props.renderItem({ item: list().props.data[0] });
+  folderRow.props.onPress(); render();
+  assert(!hasChooseFolder(list().props.prelude), 'nested folders keep playback controls without a picker shortcut');
+  assert(nodes(list().props.prelude).some(n => n.props.accessibilityLabel === 'Include subfolders when playing'));
+  nodes(tree).find(n => n.props.accessibilityRole === 'tab' && n.props.key === 'Settings').props.onPress(); render();
+  button('Choose folder').props.onPress(); render();
+  const picker = nodes(tree).find(n => n.type === 'FolderPicker');
+  assert(picker, 'Settings retains folder selection');
+  picker.props.onClose(); render();
+  assert(button('Choose folder'), 'closing the picker returns to Settings');
+  assert.deepEqual(commands, [], 'opening or dismissing folder selection leaves playback unchanged');
 });
 
 test('displayed names and normalized A-Z sections use the same order, including folders', async () => {

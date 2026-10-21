@@ -241,9 +241,9 @@ function MusicApp() {
     ...(index < state.queue.length - 1 ? [{ label: 'Move down', icon: 'arrow-down', action: () => command('moveQueue', { from: index, to: index + 1 }) }] : []),
     { label: 'Remove from queue', icon: 'minus-circle', action: () => command('removeQueue', { index }) }
   ] });
-  const groupRow = (title, detail, glyph, onPress, onLongPress) => {
+  const groupRow = (title, detail, glyph, onPress, onLongPress, accessibilityLabel) => {
     const tone = colors[({ sliders: 0, folder: 1, sun: 2, clock: 3, music: 4, list: 1, user: 5, disc: 0, filter: 4, shield: 1 })[glyph] ?? 0];
-    return h(Pressable, { style: styles.groupRow, onPress, onLongPress, accessibilityRole: 'button' },
+    return h(Pressable, { style: styles.groupRow, onPress, onLongPress, accessibilityRole: 'button', accessibilityLabel },
       h(View, { style: [styles.groupIcon, { backgroundColor: tone.bg }] }, h(Pattern, { kind: tone.pattern, color: tone.ink, size: 54 }), h(Feather, { name: glyph, size: 24, color: tone.ink })),
       h(View, { style: styles.songLabels }, text(title, styles.songTitle, { numberOfLines: 1 }), text(detail, styles.subtitle, { numberOfLines: 2 })), h(Feather, { name: 'chevron-right', color: c.muted, size: 20 }));
   };
@@ -277,7 +277,7 @@ function MusicApp() {
     content = h(LibrarySettings, { state, command, c, scan, chooseFolder, onBack: () => go('settings') });
   } else if (page === 'settings') {
     content = h(View, { style: styles.flex }, header('Settings'), h(ScrollView, { contentContainerStyle: styles.settingsBody },
-      text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
+      text('LIBRARY', styles.section), groupRow('Choose folder', 'Select music folders on your phone', 'folder', chooseFolder, undefined, 'Choose folder'), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
       text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? 'Active' : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
       h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { false: c.track, true: accent }, accessibilityLabel: 'Pause when disconnected' })),
       text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.5 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
@@ -287,14 +287,14 @@ function MusicApp() {
     const path = folderPath;
     const folderHeader = h(View, null,
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }), h(View, { style: styles.listControls }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()));
-    const actions = h(View, { style: { paddingVertical: 8 } }, button('Choose folder', chooseFolder), path && h(View, null,
+    const actions = path ? h(View, { style: { paddingVertical: 8 } },
       h(View, { style: [styles.listControls, { gap: 12, paddingLeft: 8 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
-      h(View, { style: { marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))));
+      h(View, { style: { marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))) : null;
     content = h(View, { style: styles.flex },
       browseHeader(path ? folderName(path) : 'Folders', path ? backFolder : null),
       h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,
         renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name)) : songRow(item, selectedIndices.get(item.id), selected),
-        ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose a music folder or adjust library filters.', styles.emptyDetail), button('Choose folder', chooseFolder)) })));
+        ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose music folders or adjust library filters in Settings.', styles.emptyDetail)) })));
   } else {
     const collection = page === 'collection';
     const listHeader = h(View, null,
