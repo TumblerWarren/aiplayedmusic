@@ -2,18 +2,18 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**APK downloads:** Open [Android builds](https://github.com/TumblerWarren/aiplayedmusic/actions/workflows/android.yml), select the latest successful build, and download its `aiplayedmusic-apk` artifact. Extract `app-release.apk` and install it on an ARM Android 8.0+ phone. Artifacts expire after seven days. The current source is version **1.2.2** (Android version code **5**), shown in Settings → About after installation.
+**Stable APK:** Download [Aiplayed v1.2.4](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.4/Aiplayed-v1.2.4.apk), Android version code **7**, from the first stable release. Source version 1.2.5 (code 8) includes the UI fixes and migration in PR #23. Its release is published only after all Android validation passes.
 
 Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and device measurements](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
 
-Local SDK/dependency installation is still blocked because the managed command sandbox rejects network sockets with `EPERM`. SDK installation into the workspace is supported once scoped network access is available. The successful APK was built on GitHub, not in the managed workspace.
+Release builds run in GitHub Actions. Local behavior and DSP checks can run without generating an Android project.
 
 ## Architecture and features
 
 - `App.js`: Expo / React Native library, search, albums/artists/folders, favourites, playlists, queue, now-playing screen, themes and common settings.
 - `modules/local-music/`: an autolinked local Expo module, using Kotlin to bridge the Android playback service and MediaStore library scanner.
 - Version 1.2 uses Media3 playlists and native PCM processing, with 10-band EQ, automatic EQ headroom, preamp, bass/treble, 100–300% gain, a stereo-linked sample-peak limiter, optional dynamics, balance/width/mono, saved sound profiles, independent speed/pitch, silence skipping and sleep fade. These controls have custom Expo screens. See [implementation details and limits](docs/AUDIO_ENGINE.md).
-- Library filters and selected music roots have custom Expo controls. The Android system directory picker chooses roots; the browser keeps descendant folders under their parents. It scans audio indexed by MediaStore, not arbitrary unindexed or cloud-provider files. Local text/LRC lyrics still use the retained native screen.
+- Library filters and selected music roots have custom Expo controls. The in-app folder browser chooses roots and keeps descendant folders under their parents. It scans audio indexed by MediaStore, not arbitrary unindexed or cloud-provider files. Local text/LRC lyrics use the current rounded sheet. The retired native application UI has been removed; see the [UI migration audit](docs/UI_MIGRATION.md).
 - No advertising, streaming, accounts, analytics SDK or microphone access. Offline release builds remove internet/network-state permissions; development builds retain network access for Metro.
 
 This needs a **development build or standalone APK**, not Expo Go, because the custom playback module must be compiled into the app. It is Android-only; no iOS or web player is included.

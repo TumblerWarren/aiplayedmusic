@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { restoreFocus } from './Sheet';
-import { KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { KeyboardAvoidingView, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import RotaryKnob from './RotaryKnob';
 import Feather from './Icons';
@@ -12,6 +12,7 @@ import { useAppActive } from './PlaybackMotion';
 import { SleepRemaining } from './PlayerProgress';
 import { findOutputPreset, outputPresets } from './outputPresets';
 
+import Pressable from './RoundedPressable';
 const h = React.createElement;
 const frequencies = ['31 Hz', '63 Hz', '125 Hz', '250 Hz', '500 Hz', '1 kHz', '2 kHz', '4 kHz', '8 kHz', '16 kHz'];
 const defaults = { eqEnabled: false, bands: Array(10).fill(0), volume: 100, preamp: 0, bass: 0, treble: 0, balance: 0, width: 100, mono: false, limiter: true, autoHeadroom: true, bypass: false, dynamics: 0 };
@@ -96,7 +97,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
   const sound = { ...defaults, ...state.sound };
   const s = useMemo(() => styles(c), [c]);
   const txt = (value, style, props = {}) => h(Text, { style: [s.text, style], ...props }, value);
-  const action = (label, glyph, run) => h(Pressable, { onPress: run, style: s.icon, android_ripple: { color: '#7353BB18' }, accessibilityRole: 'button', accessibilityLabel: label }, h(Feather, { name: glyph, size: 23, color: c.ink }));
+  const action = (label, glyph, run) => h(Pressable, { onPress: run, style: s.icon, accessibilityRole: 'button', accessibilityLabel: label }, h(Feather, { name: glyph, size: 23, color: c.ink }));
   const update = patch => command('sound', patch);
   const toggle = (title, detail, value, run, disabled = false) => h(View, { style: s.toggle },
     h(View, { style: s.flex }, txt(title, s.label), detail && txt(detail, s.detail)),
@@ -140,7 +141,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     }))),
     title('Saved sound presets', 'Includes EQ, gain, dynamics and stereo settings. Hold a preset to remove it.'),
     profiles.length ? h(View, { style: s.saved }, ...profiles.map(value => pill(value, false, () => command('profileApply', { name: value }), { onLongPress: () => setDialog({ kind: 'delete', name: value }) }))) : txt('Your saved presets will appear here.', s.detail),
-    h(Pressable, { style: s.primary, android_ripple: { color: '#7353BB18' }, accessibilityRole: 'button', onPress: e => { dialogTrigger.current = e?.nativeEvent?.target; setName(''); setDialog({ kind: 'save' }); } }, h(TabHighlight, { tone: { bg: c.mint, ink: c.mintInk, detail: c.blueInk, pattern: 'checks' } }), txt('Save sound preset', s.primaryText)));
+    h(Pressable, { style: s.primary, accessibilityRole: 'button', onPress: e => { dialogTrigger.current = e?.nativeEvent?.target; setName(''); setDialog({ kind: 'save' }); } }, h(TabHighlight, { tone: { bg: c.mint, ink: c.mintInk, detail: c.blueInk, pattern: 'checks' } }), txt('Save sound preset', s.primaryText)));
   else if (tab === 'Output') body = h(React.Fragment, null,
     title('Output presets', 'Choose a starting point, then fine-tune below. EQ and balance stay as set.'),
     h(View, { style: [s.pills, sound.bypass && { opacity: 0.45 }] }, ...outputPresets.map(preset => pill(preset.label, selectedOutput?.id === preset.id, () => update({ ...preset.settings }), { disabled: sound.bypass }))),
@@ -176,7 +177,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
       sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body)),
     h(Modal, { visible: !!dialog, transparent: true, animationType: 'fade', onRequestClose: closeDialog },
-      h(KeyboardAvoidingView, { behavior: 'padding', style: s.overlay }, h(Pressable, { onPress: closeDialog, disabled: saving, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(SafeAreaView, { style: s.dialog },
+      h(KeyboardAvoidingView, { behavior: 'padding', style: s.overlay }, h(Pressable, { onPress: closeDialog, disabled: saving, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', feedback: false, style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(SafeAreaView, { style: s.dialog },
         txt(dialog?.kind === 'save' ? 'Save sound preset' : dialog?.kind === 'delete' ? 'Remove preset?' : 'Reset sound?', s.heading),
         dialog?.kind === 'save' ? h(TextInput, { value: name, onChangeText: setName, placeholder: 'Preset name', placeholderTextColor: c.muted, autoFocus: true, maxLength: 40, style: s.input, accessibilityLabel: 'Preset name', onSubmitEditing: save }) : txt(dialog?.kind === 'delete' ? `Remove “${dialog?.name}”?` : 'Return EQ, tone, gain, stereo and dynamics to their defaults. Saved presets stay available.', s.detail),
         h(View, { style: s.dialogActions }, h(Pressable, { style: s.secondary, onPress: closeDialog, disabled: saving, accessibilityRole: 'button' }, txt('Cancel', { color: c.muted })),

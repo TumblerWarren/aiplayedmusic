@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, design/multicolor-ui, release/v1.2.4]
+    branches: [main, design/multicolor-ui, release/v1.2.5]
 permissions:
   contents: read
 concurrency:
@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.4') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.5') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
       - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
   build:
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.4') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.5') && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -69,6 +69,7 @@ jobs:
           for attribute in ('icon', 'roundIcon'):
               assert application.get(android + attribute) == '@mipmap/aiplayed_launcher', attribute
           assert application.get(android + 'label') == '@string/app_name'
+          assert not any('NativeMusicActivity' in item.get(android + 'name', '') for item in application.findall('activity'))
           base = ET.parse('android/app/src/main/res/values/styles.xml').getroot()
           qualified = ET.parse('android/app/src/main/res/values-v33/styles.xml').getroot()
           api33 = 'android:windowSplashScreenBehavior'
@@ -155,9 +156,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-interaction-evidence-v1.2.4
+          name: android-interaction-evidence-v1.2.5
           retention-days: 30
-          path: verification/android-v1.2.4/
+          path: verification/android-v1.2.5/
           if-no-files-found: warn
       - name: Require every release validation to pass
         run: |
@@ -202,12 +203,12 @@ jobs:
             node_modules/**/android/build/intermediates/cxx/
             android/app/.cxx/
             android/app/build/intermediates/cxx/
-      - name: Publish verified v1.2.4 APK
+      - name: Publish verified v1.2.5 APK
         if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
-          cp "$apk_path" Aiplayed-v1.2.4.apk
-          sha256sum Aiplayed-v1.2.4.apk > Aiplayed-v1.2.4.apk.sha256
-          gh release create v1.2.4 Aiplayed-v1.2.4.apk Aiplayed-v1.2.4.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.4" --notes-file verification/RELEASE_NOTES_1.2.4.md
+          cp "$apk_path" Aiplayed-v1.2.5.apk
+          sha256sum Aiplayed-v1.2.5.apk > Aiplayed-v1.2.5.apk.sha256
+          gh release create v1.2.5 Aiplayed-v1.2.5.apk Aiplayed-v1.2.5.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.5" --notes-file verification/RELEASE_NOTES_1.2.5.md

@@ -1,9 +1,10 @@
 import React from 'react';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import Feather from './Icons';
 import { SectionBanner } from './Pastel';
 import { tones } from './design';
 import { Fader } from './SoundStudio';
+import Pressable from './RoundedPressable';
 const h = React.createElement;
 
 export default function LibrarySettings({ state, command, c, scan, onBack, chooseFolder }) {

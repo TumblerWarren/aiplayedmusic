@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, Pressable, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useColorScheme, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import { PlayingBars, PlayingArtwork, PlaybackRipple, MotionProvider, useAppActive } from './src/PlaybackMotion';
@@ -21,10 +21,13 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { browseDestination, browseRoute, compareNames, destinations, displayFolder } from './src/browse';
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
+import Lyrics from './src/Lyrics';
+import SleepTimer from './src/SleepTimer';
 import { palette, tones } from './src/design';
 import { Pattern, TabHighlight } from './src/Pastel';
 import { formatTime } from './src/music';
 
+import Pressable from './src/RoundedPressable';
 const h = React.createElement;
 const folderName = name => name.split('/').filter(Boolean).pop() || name;
 
@@ -150,7 +153,7 @@ function MusicApp() {
 
   useStatusPolling({ ready, active, page, soundTab, timerActive: !!state.sleepRemaining });
 
-  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress: e => { overlayReturn.current = e?.nativeEvent?.target; onPress?.(); }, android_ripple: { color: '#7353BB18', borderless: false }, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color, filled: extra.filled }));
+  const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress: e => { overlayReturn.current = e?.nativeEvent?.target; onPress?.(); }, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color, filled: extra.filled }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
   const button = (value, onPress, style, disabled = false) => h(Pressable, { onPress, disabled, accessibilityState: { disabled }, accessibilityRole: 'button', style: ({ pressed }) => [styles.button, style, { opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.peach, ink: c.peachInk, detail: c.mintInk, pattern: 'waves' } }), text(value, styles.buttonText));
   const captureRoute = () => ({ page, tab, selection, query });
@@ -181,7 +184,8 @@ function MusicApp() {
   const folderOptions = path => setSheet({ title: folderName(path), items: [{ label: 'Exclude folder and subfolders', icon: 'folder-minus', action: async () => { await command('excludeFolder', { path, value: true }); await scan(); setTab('Folders'); go('library'); } }] });
   const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle }); };
   const openSound = () => { if (!canOpenSound(page)) return; rememberBrowsing(); setSoundBack(captureRoute()); setPage('sound'); };
-  const openNative = async screen => { try { await Native.openNative(screen); } catch (error) { report(error); } };
+  const openLyrics = e => { overlayReturn.current = e?.nativeEvent?.target; setSheet({ title: 'Lyrics', lyrics: true }); };
+  const shareSong = async song => { try { await Native.shareSong(JSON.stringify(song)); } catch { report(new Error('Couldn’t share this audio file. Check that it is still on your phone and a sharing app is available.')); } };
   const createPlaylist = song => { setSheet(null); setName(''); setNameDialog({ kind: 'create', song }); };
   const playlistSheet = song => setSheet({ title: 'Add to playlist', items: [{ label: 'New playlist', icon: 'plus', action: () => createPlaylist(song) }, ...Object.keys(state.playlists).sort().map(title => ({ label: title, icon: 'list', action: () => command('addToPlaylist', { name: title, song }) }))] });
   const options = song => setSheet({ title: song.title, items: [
@@ -189,10 +193,11 @@ function MusicApp() {
     { label: 'Add to queue', icon: 'list', action: () => command('enqueue', { song }) },
     { label: state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', icon: 'heart', action: () => command('favorite', { song }) },
     { label: 'Add to playlist', icon: 'plus', action: () => playlistSheet(song), keep: true },
+    { label: 'Share audio file', icon: 'share-2', action: () => shareSong(song) },
     ...(selection?.kind === 'playlist' ? [{ label: 'Remove from playlist', icon: 'minus-circle', action: () => command('removeFromPlaylist', { name: selection.name, song }) }] : []),
     { label: 'Song information', icon: 'info', action: () => Alert.alert(song.title, `${song.artist}\n${song.album}\n${formatTime(song.duration)} · ${(song.size / 1048576).toFixed(2)} MB\n\n${song.path}`) }
   ] });
-  const timerSheet = () => setSheet({ title: 'Sleep timer', items: [0, 15, 30, 45, 60, 90, 120].map(minutes => ({ label: minutes ? `${minutes} minutes` : 'Off', icon: 'clock', action: () => command('sleep', { minutes }) })) });
+  const timerSheet = () => setSheet({ title: 'Sleep timer', items: [...[0, 15, 30, 45, 60, 90, 120].map(minutes => ({ label: minutes ? `${minutes} minutes` : 'Off', icon: 'clock', action: () => command('sleep', { minutes }) })), { label: 'Custom minutes', icon: 'edit-2', action: () => setSheet({ title: 'Custom sleep timer', timer: true }), keep: true }] });
   const speedSheet = () => setSheet({ title: 'Playback speed', items: [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map(value => ({ label: `${value}×`, icon: value === state.speed ? 'check' : 'play', action: () => command('speed', { value }) })) });
   const mainMenu = () => setSheet({ title: 'Make it yours', items: [
     { label: 'Sound studio', detail: 'Fine-tune your listening', icon: 'sliders', action: openSound },
@@ -239,14 +244,14 @@ function MusicApp() {
   ] });
   const groupRow = (title, detail, glyph, onPress, onLongPress) => {
     const tone = colors[({ sliders: 0, folder: 1, sun: 2, clock: 3, music: 4, list: 1, user: 5, disc: 0, filter: 4, shield: 1 })[glyph] ?? 0];
-    return h(Pressable, { style: styles.groupRow, android_ripple: { color: '#7353BB18' }, onPress, onLongPress, accessibilityRole: 'button' },
+    return h(Pressable, { style: styles.groupRow, onPress, onLongPress, accessibilityRole: 'button' },
       h(View, { style: [styles.groupIcon, { backgroundColor: tone.bg }] }, h(Pattern, { kind: tone.pattern, color: tone.ink, size: 54 }), h(Feather, { name: glyph, size: 24, color: tone.ink })),
       h(View, { style: styles.songLabels }, text(title, styles.songTitle, { numberOfLines: 1 }), text(detail, styles.subtitle, { numberOfLines: 2 })), h(Feather, { name: 'chevron-right', color: c.muted, size: 20 }));
   };
   const empty = () => h(View, { style: styles.empty }, h(Feather, { name: 'music', size: 42, color: c.muted }), text('Your library is quiet', styles.emptyTitle), text('Add music to your phone, then scan for songs.', styles.emptyDetail), button(scanning ? 'Scanning…' : 'Scan for songs', scan));
   const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
   const mini = h(View, { style: styles.mini },
-    h(SwipeSurface, { enabled: !!state.current && !sheet && !nameDialog, onAction: command, style: { flex: 1 } }, h(Pressable, { onPress: () => go('player'), style: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: 24, overflow: 'hidden' }, android_ripple: { color: '#7353BB18' }, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
+    h(SwipeSurface, { enabled: !!state.current && !sheet && !nameDialog, onAction: command, style: { flex: 1 } }, h(Pressable, { onPress: () => go('player'), style: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: 24, overflow: 'hidden' }, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
       h(Artwork, { song: state.current, size: 46 }), h(View, { style: styles.songLabels }, text(state.current?.title || 'Choose a song', styles.miniTitle, { numberOfLines: 1 }), text(state.current?.artist || 'Your music, offline', styles.subtitle, { numberOfLines: 1 })))),
     state.playing && h(View, { style: { marginRight: 12 } }, h(PlayingBars, { playing: true, color: accent, size: 20 })),
     h(PlaybackRipple, { playing: state.playing, color: accent, maxScale: 1.25 }, icon(state.playing ? 'pause' : 'play', () => state.current ? command('toggle') : play(songs), accent, 23, { label: state.playing ? 'Pause' : 'Play', style: { backgroundColor: c.card, borderRadius: 24 } })), icon('skip-forward', () => command('next'), c.ink, 22, { label: 'Next song' }));
@@ -268,7 +273,7 @@ function MusicApp() {
         h(PlayerProgress, { key: song?.id, c, styles, landscape, command }),
         h(View, { style: [styles.transport, landscape && { marginTop: 4 }] }, icon('shuffle', () => command('shuffle'), state.shuffle ? accent : c.muted), icon('skip-back', () => command('previous'), c.ink, 30, { label: 'Previous song' }), h(PlaybackRipple, { playing: state.playing, color: accent }, icon(state.playing ? 'pause' : 'play', () => song ? command('toggle') : play(songs), c.onAccent, 34, { label: state.playing ? 'Pause' : 'Play', style: [styles.bigPlay, landscape && { width: 48, height: 48 }] })), icon('skip-forward', () => command('next'), c.ink, 30, { label: 'Next song' }), h(View, null, icon('repeat', () => command('repeat'), state.repeat ? accent : c.muted), state.repeat === 2 && text('1', styles.repeatOne))),
         !landscape && h(View, { style: styles.playerActions }, h(Pressable, { onPress: openSound, accessibilityRole: 'button', style: [styles.playerPill, { backgroundColor: c.lavender }] }, h(Feather, { name: 'sliders', size: 20, color: accent }), text('Sound', { color: accent, fontWeight: '600' }, { numberOfLines: 1, maxFontSizeMultiplier: 1.3 })), h(Pressable, { onPress: () => go('queue'), accessibilityRole: 'button', style: styles.playerPill }, h(Feather, { name: 'list', size: 20, color: c.ink }), text('Queue', { fontWeight: '600' }, { numberOfLines: 1, maxFontSizeMultiplier: 1.3 }))),
-        h(View, { style: [styles.transport, styles.playerFooter] }, landscape && icon('sliders', openSound, accent, 23, { label: 'Sound' }), landscape && icon('list', () => go('queue'), c.ink, 23, { label: 'Queue' }), icon('clock', timerSheet, state.sleepRemaining ? accent : c.muted, 23, { label: state.sleepRemaining ? 'Sleep timer active' : 'Sleep timer' }), h(Pressable, { onPress: () => openNative('player'), style: styles.iconButton, accessibilityRole: 'button', accessibilityLabel: 'Lyrics' }, text('Lyrics', { color: c.muted, fontSize: 13 }, { maxFontSizeMultiplier: 1.2 })), icon('more-horizontal', mainMenu, c.muted, 23, { label: 'More music options' })), !landscape && state.sleepRemaining > 0 && h(SleepRemaining, { style: styles.timer, prefix: 'Sleep timer · ' }))));
+        h(View, { style: [styles.transport, styles.playerFooter] }, landscape && icon('sliders', openSound, accent, 23, { label: 'Sound' }), landscape && icon('list', () => go('queue'), c.ink, 23, { label: 'Queue' }), icon('clock', timerSheet, state.sleepRemaining ? accent : c.muted, 23, { label: state.sleepRemaining ? 'Sleep timer active' : 'Sleep timer' }), h(Pressable, { onPress: openLyrics, style: styles.iconButton, accessibilityRole: 'button', accessibilityLabel: 'Lyrics' }, text('Lyrics', { color: c.muted, fontSize: 13 }, { maxFontSizeMultiplier: 1.2 })), icon('more-horizontal', mainMenu, c.muted, 23, { label: 'More music options' })), !landscape && state.sleepRemaining > 0 && h(SleepRemaining, { style: styles.timer, prefix: 'Sleep timer · ' }))));
   } else if (page === 'filters') {
     content = h(LibrarySettings, { state, command, c, scan, chooseFolder, onBack: () => go('settings') });
   } else if (page === 'settings') {
@@ -276,7 +281,7 @@ function MusicApp() {
       text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
       text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? 'Active' : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
       h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { true: accent }, accessibilityLabel: 'Pause when disconnected' })),
-      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.4 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
+      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.5 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
   } else if (page === 'queue') {
     content = h(View, { style: styles.flex }, header('Playing queue'), text(`${state.queue.length} songs`, styles.count), h(FlatList, { data: state.queue, keyExtractor: (item, index) => `${item.id}-${index}`, renderItem: ({ item, index }) => songRow(item, index, state.queue, true), contentContainerStyle: styles.list, ListEmptyComponent: empty }));
   } else if ((page === 'library' && tab === 'Folders') || (page === 'collection' && selection?.kind === 'Folders')) {
@@ -296,7 +301,7 @@ function MusicApp() {
     const listHeader = h(View, null,
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
       h(View, { style: styles.listControls }, text(scanning ? 'Scanning…' : `${collection || tab === 'Songs' ? selected.length : groupData.length} ${!collection && tab !== 'Songs' ? tab.toLowerCase() : 'songs'}`, styles.subtitle), h(View, { style: styles.flex }),
-        (collection || tab === 'Songs') && h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' } }, text('Shuffle all', { color: accent, fontWeight: '600' })),
+        (collection || tab === 'Songs') && h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll, accessibilityRole: 'button' }, text('Shuffle all', { color: accent, fontWeight: '600' })),
         !['playlist', 'recent'].includes(selection?.kind) && sortControl()));
     content = h(View, { style: styles.flex },
       browseHeader(collection ? selection?.name : tab, collection ? () => { setSelection(null); setPage('library'); setQuery(''); } : null, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null),
@@ -318,10 +323,10 @@ function MusicApp() {
           h(View, { style: styles.navIcon }, h(Feather, { name: glyph, size: 22, color: active || pressed ? tone.ink : c.muted })), text(title, [styles.navLabel, (active || pressed) && { color: tone.ink, fontWeight: '700' }]))));
     })),
     folderPicker && h(FolderPicker, { c, roots: state.musicRoots || [], onClose: () => setFolderPicker(false), onSelect: selectFolder }),
-    h(Sheet, { visible: !!sheet, title: sheet?.title, c, onClose: () => setSheet(null), returnFocus: sheet?.browse ? browseTrigger : overlayReturn.current },
-      sheet?.browse ? destinations.map(([title, glyph]) => h(Pressable, { key: title, accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { selected: currentBrowse === title }, onPress: () => selectBrowse(title), android_ripple: { color: '#7353BB18' }, style: [styles.sheetItem, { backgroundColor: currentBrowse === title ? c.lavender : c.card }] }, h(Feather, { name: glyph, size: 24, color: accent }), text(title, { flex: 1, color: c.ink, fontSize: 17, fontWeight: '600' }), currentBrowse === title && h(Feather, { name: 'check', size: 24, color: accent })))
-      : (sheet?.items || []).map((item, index) => h(Pressable, { key: index, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' }, style: [styles.sheetItem, { backgroundColor: colors[index % colors.length].bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 24, color: accent }), h(View, { style: styles.flex }, text(item.label, styles.sheetItemText), item.detail && text(item.detail, styles.subtitle))))),
-    h(Modal, { visible: !!nameDialog, transparent: true, animationType: 'fade', onRequestClose: closeName }, h(KeyboardAvoidingView, { behavior: 'padding', style: styles.dialogBackdrop }, h(Pressable, { onPress: closeName, disabled: savingName, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(View, { style: styles.dialog }, text(nameDialog?.kind === 'rename' ? 'Rename playlist' : 'New playlist', styles.sheetTitle), h(TextInput, { value: name, onChangeText: setName, autoFocus: true, maxLength: 100, accessibilityLabel: 'Playlist name', placeholder: 'Playlist name', placeholderTextColor: c.muted, style: styles.nameInput, onSubmitEditing: saveName }), h(View, { style: styles.dialogButtons }, h(Pressable, { onPress: closeName, disabled: savingName, style: styles.cancel }, text('Cancel', { color: c.muted })), button(savingName ? 'Saving…' : 'Save', saveName, undefined, savingName))))));
+    h(Sheet, { scrollable: !sheet?.lyrics, visible: !!sheet, title: sheet?.title, c, onClose: () => setSheet(null), returnFocus: sheet?.browse ? browseTrigger : overlayReturn.current },
+      sheet?.lyrics ? h(Lyrics, { key: state.current?.id ?? 'none', song: state.current, c }) : sheet?.timer ? h(SleepTimer, { c, command, onClose: () => setSheet(null) }) : sheet?.browse ? destinations.map(([title, glyph]) => h(Pressable, { key: title, accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { selected: currentBrowse === title }, onPress: () => selectBrowse(title), style: [styles.sheetItem, { backgroundColor: currentBrowse === title ? c.lavender : c.card }] }, h(Feather, { name: glyph, size: 24, color: accent }), text(title, { flex: 1, color: c.ink, fontSize: 17, fontWeight: '600' }), currentBrowse === title && h(Feather, { name: 'check', size: 24, color: accent })))
+      : (sheet?.items || []).map((item, index) => h(Pressable, { key: index, accessibilityRole: 'button', style: [styles.sheetItem, { backgroundColor: colors[index % colors.length].bg }], onPress: () => { if (!item.keep) setSheet(null); item.action(); } }, h(Feather, { name: item.icon || 'music', size: 24, color: accent }), h(View, { style: styles.flex }, text(item.label, styles.sheetItemText), item.detail && text(item.detail, styles.subtitle))))),
+    h(Modal, { visible: !!nameDialog, transparent: true, animationType: 'fade', onRequestClose: closeName }, h(KeyboardAvoidingView, { behavior: 'padding', style: styles.dialogBackdrop }, h(Pressable, { onPress: closeName, disabled: savingName, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', feedback: false, style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(View, { style: styles.dialog }, text(nameDialog?.kind === 'rename' ? 'Rename playlist' : 'New playlist', styles.sheetTitle), h(TextInput, { value: name, onChangeText: setName, autoFocus: true, maxLength: 100, accessibilityLabel: 'Playlist name', placeholder: 'Playlist name', placeholderTextColor: c.muted, style: styles.nameInput, onSubmitEditing: saveName }), h(View, { style: styles.dialogButtons }, h(Pressable, { onPress: closeName, disabled: savingName, style: styles.cancel }, text('Cancel', { color: c.muted })), button(savingName ? 'Saving…' : 'Save', saveName, undefined, savingName))))));
 }
 
 function makeStyles(c, compactPlayer = false, fontScale = 1) {
