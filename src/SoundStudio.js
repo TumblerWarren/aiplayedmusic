@@ -1,4 +1,5 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { restoreFocus } from './Sheet';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Slider from '@react-native-community/slider';
@@ -89,22 +90,25 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
   const [dialog, setDialog] = useState(null);
   const [name, setName] = useState('');
   const [saving, setSaving] = useState(false);
+  const saveLock = useRef(false), dialogTrigger = useRef(null);
+  const closeDialog = () => { if (!saveLock.current) { setDialog(null); restoreFocus(dialogTrigger.current); } };
   const sound = { ...defaults, ...state.sound };
   const s = useMemo(() => styles(c), [c]);
   const txt = (value, style, props = {}) => h(Text, { style: [s.text, style], ...props }, value);
-  const action = (label, glyph, run) => h(Pressable, { onPress: run, style: s.icon, accessibilityRole: 'button', accessibilityLabel: label }, h(Feather, { name: glyph, size: 23, color: c.ink }));
+  const action = (label, glyph, run) => h(Pressable, { onPress: run, style: s.icon, android_ripple: { color: '#7353BB18' }, accessibilityRole: 'button', accessibilityLabel: label }, h(Feather, { name: glyph, size: 23, color: c.ink }));
   const update = patch => command('sound', patch);
   const toggle = (title, detail, value, run, disabled = false) => h(View, { style: s.toggle },
     h(View, { style: s.flex }, txt(title, s.label), detail && txt(detail, s.detail)),
     h(Switch, { value: !!value, onValueChange: run, disabled, trackColor: { false: c.track, true: c.accent }, thumbColor: value ? c.onAccent : c.muted, accessibilityLabel: title }));
   const title = (value, detail) => h(View, { style: s.sectionHead }, txt(value, s.heading), detail && txt(detail, s.detail));
   const fader = (key, label, min, max, options = {}) => h(MemoFader, { key, label, min, max, c, live: control(key), onError: report, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
-  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', hitSlop: 2, android_ripple: { color: c.line }, accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
+  const pill = (label, selected, run, props = {}) => h(Pressable, { key: label, onPress: run, accessibilityRole: 'button', hitSlop: 2, android_ripple: { color: '#7353BB18' }, accessibilityState: { selected, disabled: !!props.disabled }, ...props, style: [s.pill, selected && s.selected, props.style] }, txt(label, { color: selected ? c.onAccent : c.ink, fontSize: 13, fontWeight: '600' }));
   const save = async () => {
-    if (!name.trim() || saving) return;
+    if (!name.trim() || saveLock.current) return;
+    saveLock.current = true;
     setSaving(true);
-    try { const result = await command('profileSave', { name: name.trim() }); if (result) setDialog(null); }
-    finally { setSaving(false); }
+    try { const result = await command('profileSave', { name: name.trim() }); if (result) { setDialog(null); restoreFocus(dialogTrigger.current); } }
+    finally { saveLock.current = false; setSaving(false); }
   };
   const builtins = state.soundPresets || ['Flat', 'Warm', 'Bass', 'Vocal', 'Acoustic', 'Bright', 'Rock', 'Jazz', 'Classical', 'Speech'];
   const profiles = Object.keys(state.soundProfiles || {}).sort();
@@ -128,7 +132,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     title('Tone'), fader('bass', 'Bass', -12, 12, { step: 0.5 }), fader('treble', 'Treble', -12, 12, { step: 0.5 }),
     title('Saved sound presets', 'Includes EQ, gain, dynamics and stereo settings. Hold a preset to remove it.'),
     profiles.length ? h(View, { style: s.saved }, ...profiles.map(value => pill(value, false, () => command('profileApply', { name: value }), { onLongPress: () => setDialog({ kind: 'delete', name: value }) }))) : txt('Your saved presets will appear here.', s.detail),
-    h(Pressable, { style: s.primary, accessibilityRole: 'button', onPress: () => { setName(''); setDialog({ kind: 'save' }); } }, txt('Save sound preset', s.primaryText)));
+    h(Pressable, { style: s.primary, android_ripple: { color: '#7353BB18' }, accessibilityRole: 'button', onPress: e => { dialogTrigger.current = e?.nativeEvent?.target; setName(''); setDialog({ kind: 'save' }); } }, txt('Save sound preset', s.primaryText)));
   else if (tab === 'Output') body = h(React.Fragment, null,
     title('Output presets', 'Choose a starting point, then fine-tune below. EQ and balance stay as set.'),
     h(View, { style: [s.pills, sound.bypass && { opacity: 0.45 }] }, ...outputPresets.map(preset => pill(preset.label, selectedOutput?.id === preset.id, () => update({ ...preset.settings }), { disabled: sound.bypass }))),
@@ -158,28 +162,29 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     title('Playback engine'), txt('Gapless queue playback with Android media controls. File format and output-device support depend on your phone.', s.detail));
 
   return h(View, { style: s.root },
-    h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.icon, onPress: () => setDialog({ kind: 'reset' }), accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
+    h(View, { style: s.header }, action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.icon, onPress: e => { dialogTrigger.current = e?.nativeEvent?.target; setDialog({ kind: 'reset' }); }, accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
     h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => { if (value !== tab) { soundPreview.cancel().catch(report); setTab(value); } }, { style: { flex: 1, alignItems: 'center' } }))),
     h(ScrollSurface, { color: c.bg }, h(ScrollView, { ref: scroll, onScroll: event => { offsetMap[tab] = Math.max(0, event.nativeEvent.contentOffset.y); }, scrollEventThrottle: 32, contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
       h(SectionBanner, { title: tab === 'Tone' ? 'Find your colour.' : tab === 'Output' ? 'Make every note yours.' : 'Set your own pace.', detail: tab === 'Tone' ? 'Shape your sound, from the first bass note to the last shimmer.' : tab === 'Output' ? 'Fine-tune volume, dynamics and your stereo balance.' : 'Your speed, your pitch, your listening routine.', icon: tab === 'Tone' ? 'sliders' : tab === 'Output' ? 'volume-2' : 'headphones', tone: tones(c)[tab === 'Tone' ? 0 : tab === 'Output' ? 1 : 2] }),
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
       sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body)),
-    h(Modal, { visible: !!dialog, transparent: true, animationType: 'fade', onRequestClose: () => setDialog(null) },
-      h(View, { style: s.overlay }, h(SafeAreaView, { style: s.dialog },
+    h(Modal, { visible: !!dialog, transparent: true, animationType: 'fade', onRequestClose: closeDialog },
+      h(View, { style: s.overlay }, h(Pressable, { onPress: closeDialog, disabled: saving, accessibilityRole: 'button', accessibilityLabel: 'Close dialog', style: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 } }), h(SafeAreaView, { style: s.dialog },
         txt(dialog?.kind === 'save' ? 'Save sound preset' : dialog?.kind === 'delete' ? 'Remove preset?' : 'Reset sound?', s.heading),
         dialog?.kind === 'save' ? h(TextInput, { value: name, onChangeText: setName, placeholder: 'Preset name', placeholderTextColor: c.muted, autoFocus: true, maxLength: 40, style: s.input, accessibilityLabel: 'Preset name', onSubmitEditing: save }) : txt(dialog?.kind === 'delete' ? `Remove “${dialog?.name}”?` : 'Return EQ, tone, gain, stereo and dynamics to their defaults. Saved presets stay available.', s.detail),
-        h(View, { style: s.dialogActions }, h(Pressable, { style: s.secondary, onPress: () => setDialog(null), accessibilityRole: 'button' }, txt('Cancel', { color: c.muted })),
+        h(View, { style: s.dialogActions }, h(Pressable, { style: s.secondary, onPress: closeDialog, disabled: saving, accessibilityRole: 'button' }, txt('Cancel', { color: c.muted })),
           h(Pressable, { style: [s.primary, { marginTop: 0, opacity: dialog?.kind === 'save' && (!name.trim() || saving) ? 0.5 : 1 }], disabled: saving || (dialog?.kind === 'save' && !name.trim()), accessibilityRole: 'button', onPress: async () => {
             if (dialog.kind === 'save') return save();
-            await command(dialog.kind === 'delete' ? 'profileDelete' : 'soundReset', dialog.kind === 'delete' ? { name: dialog.name } : {}); setDialog(null);
+            if (saveLock.current) return; saveLock.current = true; setSaving(true);
+            try { const result = await command(dialog.kind === 'delete' ? 'profileDelete' : 'soundReset', dialog.kind === 'delete' ? { name: dialog.name } : {}); if (result) { setDialog(null); restoreFocus(dialogTrigger.current); } } finally { saveLock.current = false; setSaving(false); }
           } }, txt(dialog?.kind === 'save' ? (saving ? 'Saving…' : 'Save') : dialog?.kind === 'delete' ? 'Remove' : 'Reset', s.primaryText)))))));
 }
 
 function styles(c) {
-  return StyleSheet.create({ root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, header: { flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 10 }, icon: { minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, screenTitle: { fontSize: 25, fontWeight: '700', flex: 1, paddingLeft: 8 },
-    tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 22, paddingBottom: 10 }, body: { paddingHorizontal: 24, paddingBottom: 40 }, heading: { fontSize: 21, fontWeight: '600' }, label: { fontSize: 15, fontWeight: '500' }, detail: { color: c.muted, fontSize: 12, lineHeight: 19, marginTop: 5 }, sectionHead: { marginTop: 25, marginBottom: 15 }, toggle: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, marginBottom: 12 },
-    pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 }, pill: { paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', backgroundColor: c.lavender, borderRadius: 24 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: c.line, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
-    rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18, marginBottom: 15 }, notice: { color: c.accent, lineHeight: 20, fontSize: 13, marginVertical: 10 }, saved: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, primary: { minHeight: 50, paddingHorizontal: 22, paddingVertical: 13, backgroundColor: c.accent, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginTop: 22 }, primaryText: { color: c.onAccent, fontWeight: '700', fontSize: 15 }, secondary: { minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
+  return StyleSheet.create({ root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, header: { flexDirection: 'row', alignItems: 'center', minHeight: 66, paddingHorizontal: 10 }, icon: { overflow: 'hidden', borderRadius: 28, minWidth: 56, minHeight: 48, alignItems: 'center', justifyContent: 'center' }, screenTitle: { fontSize: 25, fontWeight: '700', flex: 1, paddingLeft: 8 },
+    tabs: { flexDirection: 'row', gap: 6, paddingHorizontal: 22, paddingBottom: 10 }, body: { paddingHorizontal: 24, paddingBottom: 40 }, heading: { fontSize: 21, fontWeight: '600' }, label: { fontSize: 15, fontWeight: '500' }, detail: { color: c.muted, fontSize: 12, lineHeight: 19, marginTop: 5 }, sectionHead: { marginTop: 25, marginBottom: 15 }, toggle: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 16, paddingVertical: 15, paddingHorizontal: 14, borderRadius: 20, backgroundColor: c.card, marginBottom: 12 },
+    pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingVertical: 8 }, pill: { overflow: 'hidden', paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', backgroundColor: c.lavender, borderRadius: 24 }, selected: { backgroundColor: c.accent }, panel: { backgroundColor: c.card, borderRadius: 24, padding: 18, borderWidth: 1, borderColor: c.line, marginTop: 12 }, heroValue: { color: c.accent, fontSize: 44, fontWeight: '700', fontVariant: ['tabular-nums'], marginVertical: 8 },
+    rangeLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: -18, marginBottom: 15 }, notice: { color: c.accent, lineHeight: 20, fontSize: 13, marginVertical: 10 }, saved: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 }, primary: { overflow: 'hidden', minHeight: 50, paddingHorizontal: 22, paddingVertical: 13, backgroundColor: c.accent, borderRadius: 26, alignItems: 'center', justifyContent: 'center', marginTop: 22 }, primaryText: { color: c.onAccent, fontWeight: '700', fontSize: 15 }, secondary: { overflow: 'hidden', borderRadius: 28, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
     meters: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, padding: 16, borderRadius: 22, backgroundColor: c.mint }, meter: { fontSize: 18, fontVariant: ['tabular-nums'], marginTop: 8 }, overlay: { flex: 1, justifyContent: 'center', padding: 24, backgroundColor: '#0009' }, dialog: { padding: 24, backgroundColor: c.card, borderRadius: 28 }, input: { color: c.ink, fontSize: 16, borderBottomWidth: 1, borderBottomColor: c.track, paddingVertical: 14, marginVertical: 14, minHeight: 48 }, dialogActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 18 }
   });
 }
