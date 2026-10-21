@@ -267,7 +267,7 @@ try:
         shell('settings','put','system','font_scale',scale); shell('settings','put','system','user_rotation',rotation);time.sleep(1)
         wait('+ Browse'); tap('+ Browse'); shot('browse-font-'+scale+'-rotation-'+rotation);tap('Close')
         check('Browse works with font '+scale+' rotation '+rotation, find('+ Browse') is not None)
-    browse('Folders'); tap('Choose folder'); wait('Close folder browser')
+    tap('Settings'); tap('Choose folder'); wait('Close folder browser')
     for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
         root=tree(); row=next((n for n in root.iter('node') if label(n).startswith(path+', ')),None)
         assert row is not None, 'Folder picker path missing: '+path

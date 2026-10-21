@@ -157,7 +157,7 @@ try:
         tap(tab); appearance('dark-sound-' + tab.lower(), True)
     tap('Reset'); shot('dark-sound-reset-dialog'); tap('Cancel')
     tap('Library'); browse('Playlists'); tap('New playlist'); shot('dark-new-playlist-dialog'); tap('Close dialog')
-    browse('Folders'); tap('Choose folder'); shot('dark-folder-picker'); tap('Close folder browser')
+    tap('Settings'); tap('Choose folder'); shot('dark-folder-picker'); tap('Close folder browser')
     tap('Library'); tap('Open now playing'); appearance('dark-player', True)
     tap('Lyrics'); shot('dark-lyrics'); phone(True); shot('dark-open-lyrics-phone-change'); tap('Close')
     check('open lyrics and phone changes preserve playback', is_playing(shell('dumpsys', 'media_session')))
