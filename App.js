@@ -22,7 +22,7 @@ import { browseDestination, browseRoute, compareNames, destinations, displayFold
 import SoundStudio from './src/SoundStudio';
 import LibrarySettings from './src/LibrarySettings';
 import { palette, tones } from './src/design';
-import { Pattern } from './src/Pastel';
+import { Pattern, TabHighlight } from './src/Pastel';
 import { formatTime } from './src/music';
 
 const h = React.createElement;
@@ -116,7 +116,7 @@ function MusicApp() {
       change = Native.addListener('onChange', event => accept(event.json));
       error = Native.addListener('onError', event => report(new Error(event.message)));
       const has = await checkPermission();
-      if (!cancelled && alive.current) { setReady(true); if (has) scan(); }
+      if (!cancelled && alive.current) { if (has) await scan(); if (!cancelled && alive.current) setReady(true); }
     }).catch(error => { if (!cancelled && alive.current) setInitError(error?.message || 'Your music could not open. Try again.'); });
     return () => { cancelled = true; alive.current = false; change?.remove(); error?.remove(); };
   }, [accept, checkPermission, report, scan, initAttempt]);
@@ -152,7 +152,7 @@ function MusicApp() {
 
   const icon = (glyph, onPress, color = c.ink, size = 23, extra = {}) => h(Pressable, { onPress: e => { overlayReturn.current = e?.nativeEvent?.target; onPress?.(); }, android_ripple: { color: '#7353BB18', borderless: false }, accessibilityRole: 'button', accessibilityLabel: extra.label || glyph, hitSlop: 6, ...extra, style: [styles.iconButton, extra.style] }, h(Feather, { name: glyph, size, color, filled: extra.filled }));
   const text = (value, style, props = {}) => h(Text, { style: [styles.text, style], ...props }, value);
-  const button = (value, onPress, style, disabled = false) => h(Pressable, { onPress, disabled, accessibilityState: { disabled }, android_ripple: { color: '#FFFFFF24' }, accessibilityRole: 'button', style: [styles.button, style] }, text(value, styles.buttonText));
+  const button = (value, onPress, style, disabled = false) => h(Pressable, { onPress, disabled, accessibilityState: { disabled }, accessibilityRole: 'button', style: ({ pressed }) => [styles.button, style, { opacity: disabled ? 0.45 : pressed ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.peach, ink: c.peachInk, detail: c.mintInk, pattern: 'waves' } }), text(value, styles.buttonText));
   const captureRoute = () => ({ page, tab, selection, query });
   const restoreRoute = route => { setPage(route.page); setTab(route.tab); setSelection(route.selection); setQuery(route.query); };
   const rememberBrowsing = () => { if (['library', 'collection'].includes(page)) { browsing.current[activeDestination(page, tab, selection)] = captureRoute(); browseRoutes.current[currentBrowse] = captureRoute(); } };
@@ -164,7 +164,7 @@ function MusicApp() {
     restoreRoute(browseRoutes.current[title] || browseRoute(title));
   };
   const openBrowse = () => { overlayReturn.current = browseTrigger.current; setSheet({ title: 'Browse', browse: true }); };
-  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, android_ripple: { color: '#7353BB18' }, style: styles.browseButton }, text('+ Browse', { color: accent, fontWeight: '700', fontSize: 15 })));
+  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' } }), text('+ Browse', { color: c.purpleInk, fontWeight: '700', fontSize: 15 })));
   const navigateRoot = title => {
     if (activeDestination(page, tab, selection) === title && page !== 'player') return;
     if (title === 'Sound') return openSound();
@@ -252,7 +252,7 @@ function MusicApp() {
     h(PlaybackRipple, { playing: state.playing, color: accent, maxScale: 1.25 }, icon(state.playing ? 'pause' : 'play', () => state.current ? command('toggle') : play(songs), accent, 23, { label: state.playing ? 'Pause' : 'Play', style: { backgroundColor: c.card, borderRadius: 24 } })), icon('skip-forward', () => command('next'), c.ink, 22, { label: 'Next song' }));
 
   if (!Native || Platform.OS !== 'android') return h(SafeAreaView, { style: styles.root, onLayout: hideNativeSplash }, h(View, { style: styles.welcome }, h(Feather, { name: 'music', size: 64, color: accent }), text('Your music.\nYour moment.', styles.welcomeTitle), text('Install the full Android app to play music stored on your phone.', styles.welcomeDetail)));
-  if (!ready) return h(Startup, { c, error: initError, onRetry: () => setInitAttempt(value => value + 1), onLayout: hideNativeSplash });
+  if (!ready) return h(Startup, { c, dark, error: initError, onRetry: () => setInitAttempt(value => value + 1), onLayout: hideNativeSplash });
   if (!permission) return h(SafeAreaView, { style: styles.root, onLayout: hideNativeSplash }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content' }), h(View, { style: styles.welcome }, h(Feather, { name: 'music', size: 64, color: accent }), text('Your music.\nYour moment.', styles.welcomeTitle), text('All the songs on your phone, together in one place. Offline, uninterrupted.', styles.welcomeDetail), button('Find my music', grant), h(Pressable, { onPress: () => Linking.openSettings(), style: styles.settingsLink }, text('Open app permissions', { color: accent }))));
 
   let content;
@@ -276,7 +276,7 @@ function MusicApp() {
       text('LIBRARY', styles.section), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
       text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? 'Active' : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
       h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { true: accent }, accessibilityLabel: 'Pause when disconnected' })),
-      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.3 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
+      text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.4 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
   } else if (page === 'queue') {
     content = h(View, { style: styles.flex }, header('Playing queue'), text(`${state.queue.length} songs`, styles.count), h(FlatList, { data: state.queue, keyExtractor: (item, index) => `${item.id}-${index}`, renderItem: ({ item, index }) => songRow(item, index, state.queue, true), contentContainerStyle: styles.list, ListEmptyComponent: empty }));
   } else if ((page === 'library' && tab === 'Folders') || (page === 'collection' && selection?.kind === 'Folders')) {
@@ -296,21 +296,26 @@ function MusicApp() {
     const listHeader = h(View, null,
       h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search your music', placeholderTextColor: c.muted, accessibilityLabel: 'Search your music', returnKeyType: 'search', autoCorrect: false }),
       h(View, { style: styles.listControls }, text(scanning ? 'Scanning…' : `${collection || tab === 'Songs' ? selected.length : groupData.length} ${!collection && tab !== 'Songs' ? tab.toLowerCase() : 'songs'}`, styles.subtitle), h(View, { style: styles.flex }),
-        !collection && tab === 'Playlists' && h(Pressable, { onPress: () => createPlaylist(), style: styles.browseButton, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' } }, text('New playlist', { color: accent, fontWeight: '600' })),
         (collection || tab === 'Songs') && h(Pressable, { onPress: () => play(selected, Math.floor(Math.random() * selected.length), true), style: styles.shuffleAll, accessibilityRole: 'button', android_ripple: { color: '#7353BB18' } }, text('Shuffle all', { color: accent, fontWeight: '600' })),
         !['playlist', 'recent'].includes(selection?.kind) && sortControl()));
     content = h(View, { style: styles.flex },
       browseHeader(collection ? selection?.name : tab, collection ? () => { setSelection(null); setPage('library'); setQuery(''); } : null, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null),
       h(ScrollSurface, { color: c.bg }, collection || tab === 'Songs'
         ? h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: listHeader, rowHeight: styles.songRow.height, indexed: !['playlist', 'recent'].includes(selection?.kind), field: 'title',  data: selected, renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty })
-        : h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: listHeader, indexed: true, field: 'name', data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, renderItem: ({ item }) => groupRow(item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty })));
+        : h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: listHeader, prelude: tab === 'Playlists' && groupData.length > 0 ? h(View, { style: { alignItems: 'center', paddingVertical: 16 } }, button('New playlist', () => createPlaylist())) : null, indexed: true, field: 'name', data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, renderItem: ({ item }) => groupRow(item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty })));
   }
 
-  return h(SafeAreaView, { style: styles.root, onLayout: hideNativeSplash }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, page !== 'player' && mini, page !== 'player' && h(View, { style: styles.bottomNav }, ...[['Library', 'music'], ['Playlists', 'list'], ['Sound', 'sliders'], ['Settings', 'settings']].map(([title, glyph]) => {
+  return h(SafeAreaView, { style: styles.root, onLayout: hideNativeSplash }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, page !== 'player' && mini, page !== 'player' && h(View, { style: styles.bottomNav }, ...[
+    ['Library', 'music', { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' }],
+    ['Playlists', 'list', { bg: c.mint, ink: c.mintInk, detail: c.blueInk, pattern: 'checks' }],
+    ['Sound', 'sliders', { bg: c.peach, ink: c.peachInk, detail: c.purpleInk, pattern: 'waves' }],
+    ['Settings', 'settings', { bg: c.blue, ink: c.blueInk, detail: c.roseInk, pattern: 'dots' }],
+  ].map(([title, glyph, tone]) => {
       const active = activeDestination(page, tab, selection) === title;
       const onPress = () => navigateRoot(title);
-      return h(Pressable, { key: title, onPress, android_ripple: { color: '#7353BB18' }, style: styles.navItem, accessibilityRole: 'tab', accessibilityState: { selected: active } },
-        h(View, { style: [styles.navIcon, active && { backgroundColor: c.lavender }] }, h(Feather, { name: glyph, size: 22, color: active ? accent : c.muted })), text(title, [styles.navLabel, active && { color: accent, fontWeight: '700' }]));
+      return h(View, { key: title, style: styles.navSlot }, h(Pressable, { key: title, onPress, style: ({ pressed }) => [styles.navItem, { opacity: pressed ? 0.94 : 1 }], accessibilityRole: 'tab', accessibilityLabel: title, accessibilityState: { selected: active } },
+        ({ pressed }) => h(React.Fragment, null, (active || pressed) && h(TabHighlight, { tone }),
+          h(View, { style: styles.navIcon }, h(Feather, { name: glyph, size: 22, color: active || pressed ? tone.ink : c.muted })), text(title, [styles.navLabel, (active || pressed) && { color: tone.ink, fontWeight: '700' }]))));
     })),
     folderPicker && h(FolderPicker, { c, roots: state.musicRoots || [], onClose: () => setFolderPicker(false), onSelect: selectFolder }),
     h(Sheet, { visible: !!sheet, title: sheet?.title, c, onClose: () => setSheet(null), returnFocus: sheet?.browse ? browseTrigger : overlayReturn.current },
@@ -323,12 +328,12 @@ function makeStyles(c, compactPlayer = false, fontScale = 1) {
   const accent = c.accent;
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { borderRadius: 24, overflow: 'hidden', width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
-    button: { overflow: 'hidden', backgroundColor: accent, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.onAccent, fontSize: 15, fontWeight: '600' },
+    button: { overflow: 'hidden', backgroundColor: c.peach, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.peachInk, fontSize: 15, fontWeight: '600' },
     browseButton: { minHeight: 48, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 28, backgroundColor: c.lavender, overflow: 'hidden', justifyContent: 'center' },
     libraryHeader: { gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 4 }, brand: { fontSize: 23, fontWeight: '700', letterSpacing: -1 },
-    search: { marginHorizontal: 20, backgroundColor: `${c.card}D9`, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', paddingLeft: 24, paddingRight: 12, minHeight: 44 }, shuffleAll: { minHeight: 48, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', padding: 10 },
+    search: { marginHorizontal: 20, backgroundColor: `${c.card}D9`, borderWidth: 1, borderColor: c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingVertical: 4, paddingLeft: 24, paddingRight: 12, minHeight: 52 }, shuffleAll: { minHeight: 48, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', padding: 10 },
     list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { borderRadius: 18, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, height: Math.max(72, Math.ceil(36 * fontScale + 24)) }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, lineHeight: 20, fontWeight: '500' }, subtitle: { fontSize: 12, lineHeight: 16, color: c.muted },
-    bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navItem: { borderRadius: 28, overflow: 'hidden', flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 54, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
+    bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navSlot: { flex: 1, minWidth: 0, paddingHorizontal: 4 }, navItem: { borderRadius: 999, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', minHeight: 58, paddingVertical: 4, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
     pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.muted, fontSize: 11, letterSpacing: 2 },
     playerHeader: { minHeight: compactPlayer ? 48 : 60, flexShrink: 0 },
     playerBody: { flex: 1, minHeight: 0, paddingHorizontal: 24, paddingTop: 4, paddingBottom: 10 },

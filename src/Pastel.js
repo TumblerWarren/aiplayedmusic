@@ -4,6 +4,18 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Feather from './Icons';
 const h = React.createElement;
 
+export function TabHighlight({ tone }) {
+  const shapes = tone.pattern === 'checks'
+    ? Array.from({ length: 24 }, (_, i) => h(Rect, { key: i, x: 48 + (i % 6) * 16, y: Math.floor(i / 6) * 16, width: 16, height: 16, fill: (i + Math.floor(i / 6)) % 2 ? tone.detail : tone.ink, opacity: 0.13 }))
+    : tone.pattern === 'dots'
+      ? Array.from({ length: 24 }, (_, i) => h(Circle, { key: i, cx: 12 + (i % 6) * 23, cy: 9 + Math.floor(i / 6) * 17, r: 3.6, fill: i % 2 ? tone.detail : tone.ink, opacity: 0.23 }))
+      : tone.pattern === 'waves'
+        ? [h(Path, { key: 0, d: 'M-10 46Q20 16 56 42T140 32V80H-10Z', fill: tone.detail, opacity: 0.23 }), h(Path, { key: 1, d: 'M-10 58Q22 28 58 54T140 44', fill: 'none', stroke: tone.ink, strokeWidth: 3, opacity: 0.18 })]
+        : [28, 43, 58].map(r => h(Circle, { key: r, cx: 112, cy: -3, r, fill: 'none', stroke: tone.detail, strokeWidth: 7, opacity: 0.3 }));
+  return h(View, { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants', style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: 999, overflow: 'hidden' } },
+    h(Svg, { width: '100%', height: '100%', viewBox: '0 0 132 64', preserveAspectRatio: 'none', accessible: false }, h(Rect, { width: 132, height: 64, fill: tone.bg }), ...shapes));
+}
+
 // Pure native shapes: no image downloads, extra permissions or rendering dependency.
 export function Pattern({ kind = 'arcs', color, size = 112 }) {
   const parts = kind === 'checks'

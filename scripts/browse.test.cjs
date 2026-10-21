@@ -38,6 +38,18 @@ test('all seven Browse destinations select, dismiss and independently restore se
     assert.equal(navigation.scrollMemory.get(sessions[title]), 200 + i * 72);
   }
   assert.deepEqual(commands, []);
+  choose('Playlists'); input().props.onChangeText(''); render();
+  const creates = () => [list().props.header, list().props.data.length ? list().props.prelude : list().props.ListEmptyComponent].flatMap(nodes).filter(n => n.type==='Pressable' && nodes(n).some(x=>x.type==='Text' && x.children.includes('New playlist')));
+  assert.equal(creates().length,1,'empty playlists expose one central create action');
+  state.playlists={Example:[]};render();assert.equal(list().props.data.length,1);assert.equal(creates().length,1,'populated playlists still expose exactly one create action');
+  const tabs=nodes(tree).filter(n=>n.props.accessibilityRole==='tab'),patterns=[],colours=[];
+  for(const tab of tabs){
+    assert.equal(tab.props.android_ripple,undefined,'device-specific ripple masks cannot create rectangular navbar feedback');
+    const pressed=tab.children[0]({pressed:true}),highlight=nodes(pressed).find(n=>n.type==='TabHighlight');
+    patterns.push(highlight.props.tone.pattern);colours.push(highlight.props.tone.bg);
+    assert(tab.props.style({pressed:true})[0].borderRadius>=28);
+  }
+  assert.equal(new Set(patterns).size,4);assert.equal(new Set(colours).size,4);
 });
 
 test('displayed names and normalized A-Z sections use the same order, including folders', async () => {
