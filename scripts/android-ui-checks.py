@@ -267,6 +267,18 @@ try:
         shell('settings','put','system','font_scale',scale); shell('settings','put','system','user_rotation',rotation);time.sleep(1)
         wait('+ Browse'); tap('+ Browse'); shot('browse-font-'+scale+'-rotation-'+rotation);tap('Close')
         check('Browse works with font '+scale+' rotation '+rotation, find('+ Browse') is not None)
+    browse('Folders')
+    for title in ['Internal storage', 'Music', 'AiplayedChecks']:
+        tap(title)
+    controls = bounds(wait('Folders and songs'))
+    subfolders = bounds(wait('Include subfolders'))
+    check('Nested folder controls have no leftover search-sized gap', 0 <= subfolders[1] - controls[3] < 108)
+    shot('folders-expanded-compact-controls')
+    expanded, _ = rail_bounds()
+    swipe(70, 1300, 70, 800)
+    collapsed, _ = rail_bounds()
+    check('Folder search collapse expands the same alphabet rail', collapsed[1] < expanded[1])
+    shot('folders-collapsed-no-gap')
     tap('Settings'); tap('Choose folder'); wait('Close folder browser')
     for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
         root=tree(); row=next((n for n in root.iter('node') if label(n).startswith(path+', ')),None)
