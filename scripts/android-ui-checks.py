@@ -13,6 +13,7 @@ OUT = Path('verification/android-v1.2.3')
 OUT.mkdir(parents=True, exist_ok=True)
 PKG = 'app.localmusic.player'
 results = []
+DESTINATIONS = ['Songs','Albums','Artists','Folders','Playlists','Favourites','Recently played']
 
 def adb(*args, check=True, timeout=40):
     return subprocess.run(['adb', *map(str, args)], check=check, capture_output=True, timeout=timeout)
@@ -40,14 +41,21 @@ def bounds(node):
 
 def find(value, root=None):
     root = root if root is not None else tree()
-    return next((n for n in root.iter('node') if label(n) == value), None)
+    return next((n for n in root.iter('node') if label(n) == value and len(re.findall(r'\d+', n.get('bounds',''))) == 4 and bounds(n)[2] > bounds(n)[0] and bounds(n)[3] > bounds(n)[1]), None)
 
 def wait(value, timeout=40):
     end = time.monotonic() + timeout
+    sheet_scrolls = 0
     while time.monotonic() < end:
-        node = find(value)
+        root = tree()
+        node = find(value, root)
         if node is not None:
             return node
+        if value in DESTINATIONS and find('Close', root) is not None:
+            # The seven rows deliberately scroll on compact screens and large text.
+            if sheet_scrolls == 0: swipe(540, 1000, 540, 1600)
+            else: swipe(540, 1650, 540, 850)
+            sheet_scrolls += 1
         time.sleep(.3)
     raise AssertionError('Missing UI control: ' + value)
 
@@ -116,7 +124,7 @@ try:
         shell('mkdir', '-p', remote)
         for i in range(2):
             local = fixtures / f'{letter}{i:02}.mp3'
-            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=90', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
+            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=300', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
             adb('push', local, remote+'/'+local.name)
             shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+remote+'/'+local.name)
     time.sleep(2)

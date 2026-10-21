@@ -47,6 +47,17 @@ jobs:
         run: npx expo install --check
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
+      - name: Restore native compilation cache
+        id: native_cache
+        continue-on-error: true
+        uses: actions/cache/restore@v4
+        with:
+          key: native-v1-${{ runner.os }}-${{ hashFiles('package.json', 'modules/**/android/build.gradle', 'modules/**/android/src/main/java/**') }}
+          path: |
+            node_modules/**/android/.cxx/
+            node_modules/**/android/build/intermediates/cxx/
+            android/app/.cxx/
+            android/app/build/intermediates/cxx/
       - name: Verify generated launcher manifest
         run: |
           python - <<'PY'
@@ -56,7 +67,12 @@ jobs:
           for attribute in ('icon', 'roundIcon'):
               assert application.get(android + attribute) == '@mipmap/aiplayed_launcher', attribute
           assert application.get(android + 'label') == '@string/app_name'
-          print('Generated Android manifest uses the Aiplayed launcher and app name.')
+          base = ET.parse('android/app/src/main/res/values/styles.xml').getroot()
+          qualified = ET.parse('android/app/src/main/res/values-v33/styles.xml').getroot()
+          api33 = 'android:windowSplashScreenBehavior'
+          assert not any(item.get('name') == api33 for item in base.iter('item'))
+          assert any(item.get('name') == api33 for item in qualified.iter('item'))
+          print('Generated launcher and API-qualified branded splash resources verified.')
           PY
       - name: Compile music engine before native packaging
         working-directory: android
@@ -64,10 +80,21 @@ jobs:
       - name: Build standalone APK
         working-directory: android
         run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
+      - name: Retain candidate APK for validation diagnostics
+        uses: actions/upload-artifact@v4
+        with:
+          name: unverified-candidate-apk
+          retention-days: 7
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
       - name: Run Android Lint
+        id: android_lint
+        continue-on-error: true
         working-directory: android
         run: ./gradlew :app:lintRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
       - name: Verify APK signature, launcher and offline permissions
+        id: package_checks
+        continue-on-error: true
         run: |
           apk_path=$(find android/app/build/outputs/apk/release -name "*.apk" -print -quit)
           test -n "$apk_path"
@@ -90,7 +117,10 @@ jobs:
           )
           grep -Fx "$launcher_path" apk-resources.txt
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$launcher_path" > apk-launcher.txt
-          grep -F 'E: adaptive-icon' apk-launcher.txt
+          adaptive_path=$(grep -E 'mipmap-anydpi-v26.*/aiplayed_launcher.xml$' apk-resources.txt | head -1)
+          test -n "$adaptive_path"
+          "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$adaptive_path" > apk-adaptive.txt
+          grep -F 'E: adaptive-icon' apk-adaptive.txt
           monochrome_path=$(grep -E 'mipmap-anydpi-v33.*/aiplayed_launcher.xml$' apk-resources.txt | head -1)
           test -n "$monochrome_path"
           "$ANDROID_HOME/build-tools/36.0.0/aapt2" dump xmltree "$apk_path" --file "$monochrome_path" > apk-monochrome.txt
@@ -109,6 +139,8 @@ jobs:
       - name: Enable emulator acceleration
         run: sudo chmod 666 /dev/kvm
       - name: Android interaction and startup checks
+        id: android_ui
+        continue-on-error: true
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 35
@@ -126,6 +158,11 @@ jobs:
           retention-days: 30
           path: verification/android-v1.2.3/
           if-no-files-found: warn
+      - name: Require every release validation to pass
+        run: |
+          test '${{ steps.android_lint.outcome }}' = success
+          test '${{ steps.package_checks.outcome }}' = success
+          test '${{ steps.android_ui.outcome }}' = success
       - name: Upload installable APK
         uses: actions/upload-artifact@v4
         with:
@@ -147,12 +184,24 @@ jobs:
             apk-resources.txt
             apk-manifest.txt
             apk-launcher.txt
+            apk-adaptive.txt
             apk-monochrome.txt
             apk-resource-table.txt
             apk-sha256.txt
           if-no-files-found: ignore
 
 
+      - name: Save native compilation cache
+        continue-on-error: true
+        if: always() && steps.native_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ steps.native_cache.outputs.cache-primary-key }}
+          path: |
+            node_modules/**/android/.cxx/
+            node_modules/**/android/build/intermediates/cxx/
+            android/app/.cxx/
+            android/app/build/intermediates/cxx/
       - name: Publish verified v1.2.3 APK
         if: github.ref == 'refs/heads/main'
         env:
