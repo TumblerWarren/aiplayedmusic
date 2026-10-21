@@ -89,11 +89,13 @@ test('Browse sheet exposes Close, outside and Android Back dismissal; its handle
   nodes(tree).find(n=>n.props.accessibilityLabel==='Close').props.onPress();
   nodes(tree).find(n=>n.props.accessibilityLabel==='Close sheet').props.onPress();
   const handle=nodes(tree).find(n=>n.props.accessibilityLabel==='Drag down to close').props;
+  assert.equal(handle.onStartShouldSetPanResponder(null,{numberActiveTouches:1}),true);
+  handle.onPanResponderGrant(null,{numberActiveTouches:2});handle.onPanResponderRelease(null,{dy:90,dx:0});assert.equal(closed.length,3);
   assert.equal(handle.onMoveShouldSetPanResponder(null,{dy:20,dx:0,numberActiveTouches:1}),true);
   assert.equal(handle.onMoveShouldSetPanResponder(null,{dy:20,dx:40,numberActiveTouches:1}),false);
   handle.onPanResponderGrant();handle.onPanResponderMove(null,{dy:80,numberActiveTouches:2});handle.onPanResponderRelease(null,{dy:90,dx:0});
   assert.equal(closed.length,3);
-  handle.onPanResponderGrant();handle.onPanResponderTerminate();assert.equal(closed.length,3);
+  handle.onPanResponderGrant();handle.onPanResponderTerminate();handle.onPanResponderRelease(null,{dy:90,dx:0});assert.equal(closed.length,3);
   handle.onPanResponderGrant();handle.onPanResponderRelease(null,{dy:90,dx:0});assert.equal(closed.length,4);
   content.props.onPress();assert.equal(closed.length,4,'row content is not wrapped in a dismiss handler');
 });
