@@ -12,6 +12,7 @@ import time
 import xml.etree.ElementTree as ET
 from PIL import Image
 from android_media_session import is_playing
+from android_ui_geometry import find_node, scroll_gesture, system_night, fixture_indexed
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--apk', required=True)
@@ -31,29 +32,30 @@ out.mkdir(parents=True, exist_ok=True)
 checks = []
 
 def tree():
-    raw = shell('am', 'instrument', '-w', '-r', 'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')
-    return ET.fromstring(raw[raw.index('<?xml'):raw.rindex('</hierarchy>') + len('</hierarchy>')])
+    for _ in range(4):
+        raw = shell('am', 'instrument', '-w', '-r', 'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')
+        try:
+            return ET.fromstring(raw[raw.index('<?xml'):raw.rindex('</hierarchy>') + len('</hierarchy>')])
+        except (ValueError, ET.ParseError):
+            time.sleep(.3)
+    raise AssertionError('Could not read the emulator accessibility tree')
 
 def label(n):
     return n.get('content-desc') or n.get('text', '')
 
 def find(value, root=None):
     root = root if root is not None else tree()
-    def visible(n):
-        box = list(map(int, re.findall(r'\d+', n.get('bounds', ''))))
-        return len(box) == 4 and box[2] > box[0] and box[3] > box[1]
-    candidates = [n for n in root.iter('node') if visible(n)]
-    exact = next((n for n in candidates if label(n) == value), None)
-    return exact if exact is not None else next((n for n in candidates if re.match(re.escape(value) + r'(?:[ ,\n]|$)', label(n))), None)
+    return find_node(root, value)
 
 def wait(value):
     end = time.monotonic() + 45
     while time.monotonic() < end:
-        node = find(value)
+        root = tree()
+        node = find(value, root)
         if node is not None:
             return node
         if value == 'Theme':
-            shell('input', 'swipe', 160, 1450, 160, 650, 350)
+            shell('input', 'swipe', *scroll_gesture(root), 350)
         time.sleep(.3)
     raise AssertionError('Missing control: ' + value)
 
@@ -76,14 +78,62 @@ def shot(name):
     return file
 
 def appearance(name, dark):
-    file = shot(name)
-    image = Image.open(file).convert('RGB')
-    count = sum(1 for pixel in image.getdata() if pixel == ((23, 25, 30) if dark else (255, 251, 246)))
-    check(name + ' uses chosen screen background', count > image.width * image.height * .08)
+    end = time.monotonic() + 10
+    while True:
+        file = out / (name + '.png')
+        file.write_bytes(adb('exec-out', 'screencap', '-p').stdout)
+        with Image.open(file) as image:
+            image = image.convert('RGB')
+            expected = (23, 25, 30) if dark else (255, 251, 246)
+            count = next((count for count, color in image.getcolors(image.width * image.height) if color == expected), 0)
+            matched = count > image.width * image.height * .08
+        if matched or time.monotonic() >= end:
+            break
+        time.sleep(.3)
+    (out / (name + '.xml')).write_text(ET.tostring(tree(), encoding='unicode'))
+    check(name + ' uses chosen screen background', matched)
 
 def phone(dark):
     shell('cmd', 'uimode', 'night', 'yes' if dark else 'no')
-    time.sleep(1)
+    end = time.monotonic() + 5
+    while True:
+        raw = shell('dumpsys', 'uimode')
+        applied = system_night(raw)
+        if applied == dark or time.monotonic() >= end:
+            break
+        time.sleep(.25)
+    (out / ('phone-request-' + str(dark) + '.txt')).write_text(raw)
+    if api >= 29:
+        assert applied == dark, 'Phone night-mode request was not applied'
+    return applied
+
+def wait_for_fixture():
+    end = time.monotonic() + 90
+    while True:
+        raw = shell('content', 'query', '--uri', 'content://media/external/audio/media', '--projection', '_id:title:duration', check=False)
+        (out / 'media-index.txt').write_text(raw)
+        if fixture_indexed(raw):
+            return
+        assert time.monotonic() < end, 'Test song was not indexed by Android MediaStore'
+        time.sleep(.5)
+
+def start_fixture():
+    # A visible navigation header does not imply that the library scan is done.
+    end = time.monotonic() + 30
+    while find('Theme Song') is None:
+        if find('Scan for songs') is not None:
+            tap('Scan for songs')
+        assert time.monotonic() < end, 'Indexed fixture did not appear in the library'
+        time.sleep(.5)
+    tap('Shuffle all')
+    end = time.monotonic() + 15
+    while True:
+        raw = shell('dumpsys', 'media_session')
+        (out / 'media-session.txt').write_text(raw)
+        if is_playing(raw):
+            return
+        assert time.monotonic() < end, 'Fixture playback did not become active'
+        time.sleep(.3)
 
 def preference(value):
     tap('Settings'); tap('Theme'); tap(value)
@@ -105,6 +155,7 @@ try:
     adb('install', '-r', args.helper)
     adb('install', '-r', args.apk)
     shell('pm', 'grant', PKG, 'android.permission.' + ('READ_MEDIA_AUDIO' if api >= 33 else 'READ_EXTERNAL_STORAGE'))
+    shell('pm', 'grant', 'app.aiplayed.uicheck', 'android.permission.' + ('READ_MEDIA_AUDIO' if api >= 33 else 'READ_EXTERNAL_STORAGE'))
     if api >= 33:
         shell('pm', 'grant', PKG, 'android.permission.POST_NOTIFICATIONS')
     shell('wm', 'size', '1080x1920'); shell('wm', 'density', '420')
@@ -114,17 +165,20 @@ try:
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=300', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-metadata', 'title=Theme Song', '-metadata', 'artist=Theme Artist', '-metadata', 'album=Theme Album', str(fixture)], check=True)
     shell('mkdir', '-p', '/sdcard/Music/ThemeChecks/Nested')
     adb('push', fixture, '/sdcard/Music/ThemeChecks/Nested/theme.mp3')
-    shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file:///sdcard/Music/ThemeChecks/Nested/theme.mp3')
-    phone(True)
+    scanned = shell('am', 'instrument', '-w', '-r', '-e', 'action', 'scan', '-e', 'path', '/sdcard/Music/ThemeChecks/Nested/theme.mp3', 'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')
+    (out / 'fixture-scan.txt').write_text(scanned)
+    assert 'scanned=content://media/' in scanned, 'Fixture scan callback did not return an indexed song'
+    wait_for_fixture()
+    applied_dark = phone(True)
     activity = shell('cmd', 'package', 'resolve-activity', '--brief', PKG).strip().splitlines()[-1]
     shell('am', 'start', '-n', activity)
     wait('+ Browse')
-    appearance('fresh-install-follows-dark-phone', True)
+    appearance('fresh-install-follows-dark-phone', applied_dark)
     for choice in ['System', 'Light', 'Dark']:
         preference(choice)
         for system_dark in [False, True]:
-            phone(system_dark)
-            dark = choice == 'Dark' or (choice == 'System' and system_dark)
+            applied_dark = phone(system_dark)
+            dark = choice == 'Dark' or (choice == 'System' and applied_dark)
             appearance(choice.lower() + '-phone-' + ('dark' if system_dark else 'light'), dark)
             # Cold launch for each combination; video includes the native splash handoff.
             shell('am', 'force-stop', PKG)
@@ -134,7 +188,7 @@ try:
             time.sleep(.3); shell('am', 'start', '-n', activity)
             wait('+ Browse')
             appearance(name, dark)
-            tap('Shuffle all'); time.sleep(.8)
+            start_fixture()
             check(name + ' notification playback is active', is_playing(shell('dumpsys', 'media_session')))
             shell('cmd', 'statusbar', 'expand-notifications'); time.sleep(.6)
             shot(name + '-notification-card')
@@ -150,8 +204,7 @@ try:
     tap('Search your music'); shell('input', 'text', 'Theme'); shell('input', 'keyevent', '4')
     phone(False); appearance('dark-search-restored', True)
     check('theme changes retain search', any(n.get('text') == 'Theme' for n in tree().iter('node')))
-    tap('Shuffle all')
-    time.sleep(1)
+    start_fixture()
     check('fixture starts playback', is_playing(shell('dumpsys', 'media_session')))
     for destination in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played']:
         browse(destination); appearance('dark-' + destination.lower().replace(' ', '-'), True)

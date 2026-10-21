@@ -285,11 +285,15 @@ function MusicApp() {
     content = h(View, { style: styles.flex }, header('Playing queue'), text(`${state.queue.length} songs`, styles.count), h(FlatList, { data: state.queue, keyExtractor: (item, index) => `${item.id}-${index}`, renderItem: ({ item, index }) => songRow(item, index, state.queue, true), contentContainerStyle: styles.list, ListEmptyComponent: empty }));
   } else if ((page === 'library' && tab === 'Folders') || (page === 'collection' && selection?.kind === 'Folders')) {
     const path = folderPath;
-    const folderHeader = h(View, null,
-      h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' }), h(View, { style: styles.listControls }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()));
-    const actions = path ? h(View, { style: { paddingVertical: 8 } },
-      h(View, { style: [styles.listControls, { gap: 12, paddingLeft: 8 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
-      h(View, { style: { marginVertical: 12 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))) : null;
+    const folderHeader = h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder: 'Search this folder', placeholderTextColor: c.muted, accessibilityLabel: 'Search folders and tracks' });
+    // Only search collapses. Keep the controls in normal list flow, without
+    // reserving a second header-sized gap or stacking the shared row margins.
+    const folderControlStyle = [styles.listControls, { marginTop: 0, minHeight: 44, paddingLeft: 8 }];
+    const actions = h(View, { style: { paddingBottom: 8 } },
+      h(View, { style: folderControlStyle }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()),
+      path && h(View, null,
+        h(View, { style: [...folderControlStyle, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
+        h(View, { style: { marginTop: 4, marginBottom: 8 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))));
     content = h(View, { style: styles.flex },
       browseHeader(path ? folderName(path) : 'Folders', path ? backFolder : null),
       h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,

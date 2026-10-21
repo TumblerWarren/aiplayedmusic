@@ -45,6 +45,7 @@ jobs:
         run: |
           npm run check
           python scripts/media-session.test.py
+          python scripts/android-ui-geometry.test.py
       - name: Verify Expo dependency compatibility
         run: npx expo install --check
       - name: Generate Android project

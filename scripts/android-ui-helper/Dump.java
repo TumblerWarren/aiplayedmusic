@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.app.Instrumentation;
 import android.accessibilityservice.AccessibilityServiceInfo;
 import android.graphics.Rect;
+import android.media.MediaScannerConnection;
 import android.os.Bundle;
 import android.os.SystemClock;
 import android.util.Xml;
@@ -12,6 +13,8 @@ import android.view.MotionEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import org.xmlpull.v1.XmlSerializer;
 import java.io.StringWriter;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /** CI-only inspector. Reads live nodes without UiAutomator's animation-idle wait. */
 public final class Dump extends Instrumentation {
@@ -20,6 +23,16 @@ public final class Dump extends Instrumentation {
   @Override public void onStart() {
     Bundle result = new Bundle();
     try {
+      if ("scan".equals(options.getString("action"))) {
+        CountDownLatch complete = new CountDownLatch(1);
+        MediaScannerConnection.scanFile(getContext(), new String[]{options.getString("path")}, new String[]{"audio/mpeg"}, (path, uri) -> {
+          if (uri != null) result.putString("scanned", uri.toString());
+          complete.countDown();
+        });
+        if (!complete.await(60, TimeUnit.SECONDS) || result.getString("scanned") == null)
+          throw new IllegalStateException("Fixture scan did not complete");
+        finish(Activity.RESULT_OK, result); return;
+      }
       if ("rotate".equals(options.getString("action"))) {
         rotate(); result.putString("action", "rotated"); finish(Activity.RESULT_OK, result); return;
       }
