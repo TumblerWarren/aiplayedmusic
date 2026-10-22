@@ -88,6 +88,17 @@ jobs:
         id: native_build
         working-directory: android
         run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
+      - name: Save native compilation cache
+        continue-on-error: true
+        if: always() && steps.native_build.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          key: ${{ steps.native_cache.outputs.cache-primary-key }}
+          path: |
+            node_modules/**/android/.cxx/
+            node_modules/**/android/build/intermediates/cxx/
+            android/app/.cxx/
+            android/app/build/intermediates/cxx/
       - name: Retain candidate APK for validation diagnostics
         uses: actions/upload-artifact@v4
         with:
@@ -197,17 +208,6 @@ jobs:
           if-no-files-found: ignore
 
 
-      - name: Save native compilation cache
-        continue-on-error: true
-        if: always() && steps.native_build.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v4
-        with:
-          key: ${{ steps.native_cache.outputs.cache-primary-key }}
-          path: |
-            node_modules/**/android/.cxx/
-            node_modules/**/android/build/intermediates/cxx/
-            android/app/.cxx/
-            android/app/build/intermediates/cxx/
   themes:
     needs: build
     if: needs.build.result == 'success'

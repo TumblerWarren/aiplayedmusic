@@ -56,9 +56,9 @@ def wait(value):
         node = find(value, root)
         if node is not None:
             return node
-        if value in ['Theme', 'Choose folder'] or (value in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played'] and find('Close', root) is not None):
+        if value in ['Theme', 'Choose folder', 'Search your music'] or (value in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played'] and find('Close', root) is not None):
             try:
-                reverse = value == 'Choose folder' or (value == 'Theme' and scrolls == 0)
+                reverse = value in ['Choose folder', 'Search your music'] or (value == 'Theme' and scrolls == 0)
                 shell('input', 'swipe', *scroll_gesture(root, reverse=reverse), 350)
                 scrolls += 1
             except AssertionError:
@@ -155,14 +155,21 @@ def wait_for_fixture():
         time.sleep(.5)
 
 def start_fixture():
-    # A visible navigation header does not imply that the library scan is done.
+    # API31 images also index bundled ringtones. Locate the fixture itself,
+    # including below the first virtualized page, rather than shuffle those files.
     end = time.monotonic() + 30
-    while find('Theme Song') is None:
-        if find('Scan for songs') is not None:
+    while True:
+        root = tree()
+        if find('Theme Song, Theme Artist', root) is not None:
+            break
+        jump = find('Jump to T', root)
+        if jump is not None and jump.get('enabled') == 'true':
+            tap('Jump to T')
+        elif find('Scan for songs', root) is not None:
             tap('Scan for songs')
         assert time.monotonic() < end, 'Indexed fixture did not appear in the library'
         time.sleep(.5)
-    tap('Shuffle all')
+    tap('Theme Song, Theme Artist')
     end = time.monotonic() + 15
     while True:
         raw = shell('dumpsys', 'media_session')
@@ -207,7 +214,7 @@ try:
     shell('settings', 'put', 'system', 'accelerometer_rotation', '0')
     shell('settings', 'put', 'system', 'user_rotation', '0')
     fixture = out / 'theme.mp3'
-    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=300', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-metadata', 'title=Theme Song', '-metadata', 'artist=Theme Artist', '-metadata', 'album=Theme Album', str(fixture)], check=True)
+    subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=900', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-metadata', 'title=Theme Song', '-metadata', 'artist=Theme Artist', '-metadata', 'album=Theme Album', str(fixture)], check=True)
     shell('mkdir', '-p', '/sdcard/Music/ThemeChecks/Nested')
     adb('push', fixture, '/sdcard/Music/ThemeChecks/Nested/theme.mp3')
     scanned = shell('am', 'instrument', '-w', '-r', '-e', 'action', 'scan', '-e', 'path', '/sdcard/Music/ThemeChecks/Nested/theme.mp3', 'app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')

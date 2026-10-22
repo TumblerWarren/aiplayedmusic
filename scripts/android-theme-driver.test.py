@@ -20,6 +20,41 @@ def driver_functions(*names, **globals):
 
 
 class ThemeDriverChecks(unittest.TestCase):
+    def test_fixture_below_api31_ringtones_is_located_and_played_without_shuffle(self):
+        for below_fold in [False, True]:
+            with self.subTest(below_fold=below_fold):
+                root = ET.fromstring('<hierarchy><node package="app.localmusic.player" content-desc="Calm, Unknown artist" clickable="true" bounds="[42,520][954,709]"/>'
+                    '<node package="app.localmusic.player" content-desc="Jump to T" clickable="true" enabled="true" bounds="[970,1178][1075,1210]"/>'
+                    '<node package="app.localmusic.player" text="Theme Song" bounds="[200,1500][700,1600]"/></hierarchy>')
+                def reveal():
+                    root.append(ET.Element('node', {'package': PKG, 'content-desc': 'Theme Song, Theme Artist', 'clickable': 'true', 'bounds': '[42,520][954,709]'}))
+                if not below_fold: reveal()
+                calls = []
+                clock = SimpleNamespace(seconds=0)
+                def tap(value):
+                    calls.append(value)
+                    if value == 'Jump to T': reveal()
+                    elif value != 'Theme Song, Theme Artist': self.fail('must play the fixture row, not the mini-player or system ringtones')
+                class Evidence:
+                    def __truediv__(self, path): return self
+                    def write_text(self, value): pass
+                driver = driver_functions('find', 'start_fixture', tree=lambda: root, tap=tap, out=Evidence(),
+                    shell=lambda *args: 'playing', is_playing=lambda raw: raw == 'playing',
+                    time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+                driver['start_fixture']()
+                self.assertEqual(calls, ['Jump to T', 'Theme Song, Theme Artist'] if below_fold else ['Theme Song, Theme Artist'])
+
+    def test_search_is_restored_to_view_after_alphabet_navigation(self):
+        clock = SimpleNamespace(seconds=0)
+        root = ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,520][1080,1421]"/></hierarchy>')
+        def shell(*args):
+            self.assertEqual(args[:2], ('input', 'swipe'))
+            self.assertLess(args[3], args[5], 'scroll back toward the search header')
+            root.append(ET.Element('node', {'package': PKG, 'content-desc': 'Search your music', 'bounds': '[52,210][1027,321]'}))
+        driver = driver_functions('find', 'wait', tree=lambda: root, shell=shell,
+            time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+        self.assertEqual(driver['wait']('Search your music').get('content-desc'), 'Search your music')
+
     def test_theme_does_not_match_the_recorded_theme_song_or_system_ui(self):
         root = ET.fromstring('<hierarchy><node package="app.localmusic.player" content-desc="Theme Song, Theme Artist" clickable="true" bounds="[42,520][954,709]"/>'
             '<node package="com.android.systemui" content-desc="Theme" clickable="true" bounds="[20,100][300,200]"/></hierarchy>')
