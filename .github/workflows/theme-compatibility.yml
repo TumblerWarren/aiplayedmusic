@@ -17,7 +17,7 @@ permissions:
 jobs:
   theme:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 55
     strategy:
       fail-fast: false
       matrix:
@@ -70,7 +70,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: theme-evidence-api${{ matrix.api }}
+          name: theme-evidence-api${{ matrix.api }}-attempt${{ github.run_attempt }}
           path: verification/android-theme-api${{ matrix.api }}/
           retention-days: 30
           if-no-files-found: warn
