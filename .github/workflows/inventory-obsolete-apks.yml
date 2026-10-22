@@ -1,0 +1,47 @@
+name: Inventory obsolete APK files
+on:
+  push:
+    branches: [ci/verify-android12-only-20261022]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: List APK assets and build artifacts with explicit preservation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          repo = os.environ['GITHUB_REPOSITORY']
+          def api(path):
+              result = subprocess.run(['gh', 'api', path], check=True, capture_output=True, text=True)
+              return json.loads(result.stdout)
+          def pages(path, key=None):
+              result = []
+              for page in range(1, 101):
+                  data = api(path + ('&' if '?' in path else '?') + f'per_page=100&page={page}')
+                  batch = data[key] if key else data
+                  result.extend(batch)
+                  if len(batch) < 100:
+                      return result
+              raise AssertionError('Pagination limit reached; no deletion performed')
+          releases = pages(f'repos/{repo}/releases')
+          keep = [release for release in releases if release['tag_name'] == 'v1.2.5']
+          assert len(keep) == 1 and keep[0]['id'] == 419451400, 'Preserved release differs'
+          assert {662208830, 662208831}.issubset({asset['id'] for asset in keep[0]['assets']}), 'Preserved APK/checksum missing'
+          assets = []
+          for release in releases:
+              for asset in release['assets']:
+                  if asset['name'].lower().endswith(('.apk', '.apk.sha256')):
+                      assets.append({'id': asset['id'], 'name': asset['name'], 'tag': release['tag_name'], 'keep': release['tag_name'] == 'v1.2.5'})
+          artifacts = []
+          for artifact in pages(f'repos/{repo}/actions/artifacts', 'artifacts'):
+              if 'apk' in artifact['name'].lower():
+                  run_id = artifact.get('workflow_run', {}).get('id')
+                  artifacts.append({'id': artifact['id'], 'name': artifact['name'], 'run': run_id, 'keep': run_id in [39583253474, 39809400056], 'expired': artifact['expired']})
+          print(json.dumps({'release_assets': assets, 'apk_artifacts': artifacts}, indent=2))
+          PY
