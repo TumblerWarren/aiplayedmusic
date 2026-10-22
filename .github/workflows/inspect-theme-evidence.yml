@@ -1,0 +1,27 @@
+name: Inspect final Android 12 navigation
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/inspect-theme-evidence.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: theme-evidence-api31
+          run-id: 39770122788
+          github-token: ${{ github.token }}
+          path: evidence
+      - run: |
+          python - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          for p in Path('evidence').rglob('failure.xml'):
+              for n in ET.parse(p).getroot().iter('node'):
+                  if n.get('content-desc') or n.get('text'): print(dict(n.attrib),flush=True)
+          PY
