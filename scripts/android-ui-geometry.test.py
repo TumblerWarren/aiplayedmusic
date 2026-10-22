@@ -7,12 +7,78 @@ from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll
 
 
 class GeometryChecks(unittest.TestCase):
+    def test_action_lookup_uses_the_app_button_instead_of_a_heading_or_other_package(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'find']]
+        root = ET.fromstring('<hierarchy><node package="com.android.systemui" content-desc="Sound" clickable="true" bounds="[0,0][400,100]"/>'
+            '<node package="app.localmusic.player" text="Sound" bounds="[0,120][400,200]"/>'
+            '<node package="app.localmusic.player" content-desc="Sound" clickable="true" bounds="[500,1700][700,1820]"/></hierarchy>')
+        namespace = dict(tree=lambda: root, PKG='app.localmusic.player', find_node=find_node, visible_bounds=visible_bounds)
+        exec(compile(ast.Module(body=functions, type_ignores=[]), '<action lookup>', 'exec'), namespace)
+        self.assertIs(namespace['find']('Sound'), root[2])
+
+    def test_db_readback_keeps_fractional_values_when_the_dial_is_offscreen(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'knob_value']]
+        root = ET.parse('scripts/fixtures/run71-clipped-bass.xml').getroot()
+        root[1][0].set('bounds', '[126,-500][462,-164]')
+        namespace = dict(tree=lambda: root, re=__import__('re'))
+        exec(compile(ast.Module(body=functions, type_ignores=[]), '<semantic readback>', 'exec'), namespace)
+        self.assertEqual(namespace['knob_value']('bass'), 2.5, 'range-current is rounded to 2.0 in the captured native tree')
+
+    def test_sound_state_wait_accepts_delayed_exact_commits_and_rejects_wrong_steps(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        function = next(node for node in source.body if isinstance(node, ast.FunctionDef) and node.name == 'wait_knob_value')
+        for values, succeeds in [([2.5, 2.5, 3.0], True), ([3.5], False)]:
+            clock = SimpleNamespace(seconds=0, reads=0)
+            def read(name):
+                value = values[min(clock.reads, len(values)-1)]
+                clock.reads += 1
+                return value
+            namespace = dict(knob_value=read, time=SimpleNamespace(monotonic=lambda: clock.seconds,
+                sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+            exec(compile(ast.Module(body=[function], type_ignores=[]), '<commit wait>', 'exec'), namespace)
+            if succeeds:
+                self.assertEqual(namespace['wait_knob_value']('bass', lambda value: abs(value-3.0)<.05, 'expected one half-dB step', timeout=1), 3.0)
+                self.assertEqual(clock.reads, 3)
+            else:
+                with self.assertRaisesRegex(AssertionError, 'expected one half-dB step; observed 3.5'):
+                    namespace['wait_knob_value']('bass', lambda value: abs(value-3.0)<.05, 'expected one half-dB step', timeout=1)
+                self.assertLessEqual(clock.seconds, 1.2)
+
+    def test_precision_button_is_revealed_separately_from_the_visible_dial(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'bounds', 'find', 'wait', 'tap']]
+        root = ET.parse('scripts/fixtures/run71-clipped-bass.xml').getroot()
+        self.assertIsNotNone(find_view(root, 'knob-bass'), 'the recorded dial face already fits')
+        self.assertIsNone(find_node(root, 'Increase Bass'), 'the separate button is clipped below the viewport')
+        clock = SimpleNamespace(seconds=0)
+        gestures, taps = [], []
+        def swipe(x1, y1, x2, y2):
+            self.assertTrue(0 < x1 == x2 < 126, 'scroll outside the dial')
+            self.assertTrue(378 < y2 < y1 < 1484, 'scroll inside Sound and above the mini-player')
+            gestures.append((x1, y1, x2, y2))
+            root[1][0].set('bounds', '[126,498][462,834]')
+            root[1][2].set('bounds', '[315,923][441,1049]')
+        def shell(*args):
+            self.assertEqual(args[:2], ('input', 'tap'))
+            taps.append(args[2:])
+        namespace = dict(tree=lambda: root, PKG='app.localmusic.player', visible_bounds=visible_bounds,
+            find_node=find_node, scroll_bounds=scroll_bounds, scroll_gesture=scroll_gesture,
+            swipe=swipe, shell=shell, DESTINATIONS=[], re=__import__('re'),
+            time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+        exec(compile(ast.Module(body=functions, type_ignores=[]), '<precision navigation>', 'exec'), namespace)
+        namespace['tap']('Increase Bass')
+        self.assertEqual(len(gestures), 1)
+        self.assertEqual(taps, [(378, 986)])
+
     def test_choose_folder_keeps_scrolling_up_past_multiple_settings_rows(self):
         source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
         functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'find', 'wait']]
         root = ET.fromstring('<hierarchy><node text="Settings" bounds="[52,95][744,177]"/>'
             '<node scrollable="true" bounds="[0,242][1080,1421]"/>'
             '<node content-desc="Choose folder" bounds="[20,-500][1000,-400]"/></hierarchy>')
+        for node in root.iter('node'): node.set('package', 'app.localmusic.player')
         clock = SimpleNamespace(seconds=0)
         swipes = []
         def swipe(x1, y1, x2, y2):
@@ -20,7 +86,7 @@ class GeometryChecks(unittest.TestCase):
             swipes.append((x1, y1, x2, y2))
             clock.seconds += .5
             if len(swipes) == 3: root[-1].set('bounds', '[20,300][1000,440]')
-        namespace = dict(tree=lambda: root, visible_bounds=visible_bounds, scroll_gesture=scroll_gesture, swipe=swipe,
+        namespace = dict(tree=lambda: root, PKG='app.localmusic.player', find_node=find_node, visible_bounds=visible_bounds, scroll_gesture=scroll_gesture, swipe=swipe,
             DESTINATIONS=[], time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
         exec(compile(ast.Module(body=functions, type_ignores=[]), '<settings navigation>', 'exec'), namespace)
         self.assertIs(namespace['wait']('Choose folder', timeout=5), root[-1])
