@@ -1,18 +1,18 @@
 """Standalone APK checks on an Android emulator; retain raw UI trees, images and video."""
+import argparse
 import glob
 import json
 import os
 from pathlib import Path
 import re
-import signal
 import subprocess
 import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
-from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, find_folder_row, find_view
+from android_recording import stop_recording
+from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, find_folder_row, find_view, find_node
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
-OUT.mkdir(parents=True, exist_ok=True)
 PKG = 'app.localmusic.player'
 results = []
 failures = []
@@ -50,7 +50,7 @@ def bounds(node):
 
 def find(value, root=None):
     root = root if root is not None else tree()
-    return next((n for n in root.iter('node') if label(n) == value and visible_bounds(n)), None)
+    return find_node(root, value, package=PKG, exact=True)
 
 def wait(value, timeout=40):
     end = time.monotonic() + timeout
@@ -58,6 +58,12 @@ def wait(value, timeout=40):
     while time.monotonic() < end:
         root = tree()
         node = find(value, root)
+        precision = value.startswith(('Increase ', 'Decrease ')) and find('Sound studio', root) is not None
+        if node is not None and precision:
+            left, top, right, bottom = scroll_bounds(root)
+            x1, y1, x2, y2 = bounds(node)
+            if not (left <= x1 < x2 <= right and top + 8 <= y1 < y2 <= bottom - 8):
+                node = None
         if node is not None:
             return node
         if value in DESTINATIONS and find('Close', root) is not None:
@@ -75,11 +81,19 @@ def wait(value, timeout=40):
                 sheet_scrolls += 1
             except AssertionError:
                 pass
+        elif precision:
+            # The dial can fit while its separate +/- buttons remain below the
+            # viewport. Reveal the actual target without touching the dial.
+            raw = next((n for n in root.iter('node') if label(n) == value), None)
+            box = list(map(int, re.findall(r'-?\d+', raw.get('bounds', '')))) if raw is not None else []
+            _, top, _, _ = scroll_bounds(root)
+            swipe(*scroll_gesture(root, reverse=len(box) == 4 and box[1] <= top + 8))
         time.sleep(.3)
     raise AssertionError('Missing UI control: ' + value)
 
 def tap(value):
     node = wait(value) if isinstance(value, str) else value
+    assert node.get('enabled') != 'false', 'Control is disabled: ' + str(value)
     x1, y1, x2, y2 = bounds(node)
     shell('input', 'tap', (x1+x2)//2, (y1+y2)//2)
     time.sleep(.3)
@@ -175,11 +189,22 @@ def visible_knob(name):
     raise AssertionError('Rotary control not visible: ' + name)
 
 def knob_value(name):
-    node=knob_node(name)
+    # Reading an accessibility value does not require an onscreen hit target.
+    # Scrolling to the precision buttons can move the dial above the viewport.
+    node=next((n for n in tree().iter('node') if n.get('resource-id', '').split(':id/')[-1] == 'knob-' + name), None)
     assert node is not None and node.get('range-current') is not None, 'Knob accessibility range is missing'
     announced=re.search(r'([+-]?\d+(?:\.\d+)?)\s*dB\b',label(node))
     if announced: return float(announced[1])
     return float(node.get('range-current'))
+
+def wait_knob_value(name, predicate, description, timeout=10):
+    end = time.monotonic() + timeout
+    while True:
+        value = knob_value(name)
+        if predicate(value):
+            return value
+        assert time.monotonic() < end, f'{name}: {description}; observed {value}'
+        time.sleep(.2)
 
 def rotate_knob(name,degrees,cancel=False):
     x1,y1,x2,y2=bounds(visible_knob(name))
@@ -187,46 +212,7 @@ def rotate_knob(name,degrees,cancel=False):
     assert 'rotated' in raw, raw
     time.sleep(.6)
 
-recording = None
-recordings = []
-def start_record(name):
-    global recording
-    if recording:
-        shell('pkill','-INT','screenrecord',check=False)
-        try: recording.wait(timeout=8)
-        except subprocess.TimeoutExpired: recording.terminate()
-        adb('pull','/sdcard/'+recordings[-1]+'.mp4',str(OUT/(recordings[-1]+'.mp4')),check=False)
-    recordings.append(name)
-    recording = subprocess.Popen(['adb','shell','screenrecord','--time-limit','180','/sdcard/'+name+'.mp4'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-try:
-    apk = glob.glob('android/app/build/outputs/apk/release/*.apk')[0]
-    adb('install', '-r', '/tmp/aiplayed-ui-helper/ui-helper.apk', timeout=120)
-    adb('install', '-r', apk, timeout=120)
-    for permission in ['READ_MEDIA_AUDIO', 'POST_NOTIFICATIONS']:
-        shell('pm', 'grant', PKG, 'android.permission.'+permission)
-    shell('settings', 'put', 'system', 'accelerometer_rotation', '0')
-    shell('settings', 'put', 'system', 'user_rotation', '0')
-    shell('wm', 'size', '1080x1920')
-    shell('wm', 'density', '420')
-    # Indexed metadata covers every alphabet section, album, artist and nested folder.
-    fixtures = Path('/tmp/aiplayed-fixtures'); fixtures.mkdir(exist_ok=True)
-    for letter in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ':
-        remote = '/sdcard/Music/AiplayedChecks/'+letter+'Folder/Nested'
-        shell('mkdir', '-p', remote)
-        for i in range(2):
-            local = fixtures / f'{letter}{i:02}.mp3'
-            subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=300', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
-            adb('push', local, remote+'/'+local.name)
-            shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+remote+'/'+local.name)
-    time.sleep(2)
-    activity = shell('cmd', 'package', 'resolve-activity', '--brief', PKG).strip().splitlines()[-1]
-    shell('am', 'force-stop', PKG)
-    start_record('startup-and-browse')
-    subprocess.Popen(['adb', 'shell', 'am', 'start', '-n', activity], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    for i, delay in enumerate([.08, .12, .2, .4]):
-        time.sleep(delay); shot('startup-'+str(i), dump=False)
-    wait('+ Browse', timeout=60); shot('songs-expanded')
-    check('Branded cold start reaches the Library')
+def check_full_interactions():
     search_bounds = bounds(wait('Search your music'))
     check('Search retains its full intrinsic height before scrolling', search_bounds[3]-search_bounds[1] >= 100)
     # Real press hold frames preserve the native clipped highlight for review.
@@ -281,6 +267,7 @@ try:
     tap('Search your music'); shell('input','keycombination','113','29'); shell('input','keyevent','67'); shell('input','keyevent','4')
     tap('Jump to A'); root=tree(); song=next((n for n in root.iter('node') if label(n).startswith('A00 Song, ')),None); assert song is not None
     tap(song); wait('Pause'); initial=media_title()
+    assert initial == 'A00 Song', 'Playback must start from the known fixture queue'
     for destination in ['Albums','Artists','Folders','Playlists','Favourites','Recently played','Songs']:
         browse(destination)
         media = shell('dumpsys','media_session')
@@ -290,15 +277,15 @@ try:
     start_record('player-and-accessibility')
     node=wait('Open now playing'); x1,y1,x2,y2=bounds(node)
     swipe(x2-30,(y1+y2)/2,x1+30,(y1+y2)/2)
-    check('Mini-player swipe advances exactly one track', media_title()!=initial)
+    check('Mini-player swipe advances exactly one track', media_title()=='A01 Song')
     tap('Open now playing'); wait('NOW PLAYING'); shot('player')
     selected_artwork_style = artwork_style()
     (OUT/'artwork-style.json').write_text(json.dumps({'initial': selected_artwork_style}))
-    check('Full player displays a random artwork animation')
+    check('Full player renders a supported artwork style')
     current=media_title(); art=next((n for n in tree().iter('node') if n.get('resource-id','').endswith('player-artwork-swipe')),None)
     assert art is not None, 'Artwork gesture test target missing'
     x1,y1,x2,y2=bounds(art); cy=(y1+y2)/2
-    swipe(x2-35,cy,x1+35,cy); check('Artwork swipe advances a track', media_title()!=current)
+    swipe(x2-35,cy,x1+35,cy); check('Artwork swipe advances exactly one track', media_title()=='B00 Song')
     current=media_title(); swipe((x1+x2)/2,cy-80,(x1+x2)/2,cy+80)
     check('Vertical artwork gesture keeps current song', media_title()==current)
     swipe((x1+x2)/2,cy,(x1+x2)/2+10,cy)
@@ -357,35 +344,122 @@ try:
         node=wait(destination); x1,y1,x2,y2=bounds(node)
         holding=subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000'])
         time.sleep(.2); shot('navbar-'+destination.lower()+'-pressed',dump=False); holding.wait()
+
+
+def check_sound_controls():
     tap('Sound'); wait('Sound studio')
     if find('Play') is not None: tap('Play')
     visible_knob('bass'); before=knob_value('bass'); shot('sound-rotary-controls')
-    rotate_knob('bass',90); raised=knob_value('bass')
+    rotate_knob('bass',90); raised=wait_knob_value('bass', lambda value: value > before, 'clockwise rotation did not increase the value')
     check('Clockwise dial rotation increases Bass',raised>before)
-    rotate_knob('bass',-60); lowered=knob_value('bass')
+    rotate_knob('bass',-60); lowered=wait_knob_value('bass', lambda value: value < raised, 'anticlockwise rotation did not decrease the value')
     check('Anticlockwise dial rotation decreases Bass',lowered<raised)
     rotate_knob('bass',60,cancel=True)
-    check('Cancelled knob rotation restores the committed value',abs(knob_value('bass')-lowered)<.05)
-    tap('Increase Bass'); time.sleep(.5); precise=knob_value('bass')
+    restored=wait_knob_value('bass', lambda value: abs(value-lowered)<.05, 'cancel did not restore the committed value')
+    check('Cancelled knob rotation restores the committed value',abs(restored-lowered)<.05)
+    tap('Increase Bass'); precise=wait_knob_value('bass', lambda value: abs(value-lowered-.5)<.05, 'precision press did not add exactly 0.5 dB')
     check('Round precision button advances one exact step',abs(precise-lowered-.5)<.05)
     check('Playback continues while rotating sound controls',is_playing(shell('dumpsys','media_session')))
     tap('Library'); tap('Sound'); visible_knob('bass')
-    check('Rotary setting persists after leaving Sound',abs(knob_value('bass')-precise)<.05)
+    saved=wait_knob_value('bass', lambda value: abs(value-precise)<.05, 'saved Bass value did not survive navigation')
+    check('Rotary setting persists after leaving Sound',abs(saved-precise)<.05)
     shot('sound-rotary-saved')
-    assert not failures, '; '.join(failures)
-    (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
-except Exception as error:
-    (OUT/'result.json').write_text(json.dumps({'passed':False,'checks':results,'failures':failures,'error':str(error)},indent=2))
-    try: shot('failure')
-    except Exception: pass
-    raise
-finally:
-    (OUT/'logcat.txt').write_bytes(adb('logcat','-d',check=False).stdout)
-    shell('pkill','-INT','screenrecord',check=False)
+
+
+def play_sound_fixture():
+    end = time.monotonic() + 45
+    while True:
+        root = tree()
+        song = next((n for n in root.iter('node') if n.get('package') == PKG and label(n).startswith('A00 Song, ') and visible_bounds(n)), None)
+        if song is not None:
+            tap(song)
+            wait('Pause')
+            return
+        if find('Scan for songs', root) is not None:
+            tap('Scan for songs')
+        assert time.monotonic() < end, 'The indexed Sound fixture did not appear'
+        time.sleep(.3)
+
+
+recording = None
+recordings = []
+def start_record(name):
+    global recording
     if recording:
-        try: recording.wait(timeout=8)
-        except subprocess.TimeoutExpired: recording.terminate()
-    
-    for name in recordings: adb('pull','/sdcard/'+name+'.mp4',str(OUT/(name+'.mp4')),check=False)
-    shell('settings','put','system','font_scale','1.0',check=False)
-    shell('settings','put','system','user_rotation','0',check=False)
+        stop_recording(recording, shell)
+        adb('pull','/sdcard/'+recordings[-1]+'.mp4',str(OUT/(recordings[-1]+'.mp4')),check=False)
+    recordings.append(name)
+    recording = subprocess.Popen(['adb','shell','screenrecord','--time-limit','180','/sdcard/'+name+'.mp4'],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+def run_checks(apk, scenario='all'):
+    global recording
+    OUT.mkdir(parents=True, exist_ok=True)
+    try:
+        adb('install', '-r', '/tmp/aiplayed-ui-helper/ui-helper.apk', timeout=120)
+        adb('install', '-r', apk, timeout=120)
+        if scenario == 'sound':
+            assert shell('getprop', 'ro.kernel.qemu').strip() == '1', 'Fresh-data Sound repeats require an emulator'
+            shell('am', 'force-stop', PKG)
+            shell('pm', 'clear', PKG)
+        for permission in ['READ_MEDIA_AUDIO', 'POST_NOTIFICATIONS']:
+            shell('pm', 'grant', PKG, 'android.permission.'+permission)
+        shell('settings', 'put', 'system', 'accelerometer_rotation', '0')
+        shell('settings', 'put', 'system', 'user_rotation', '0')
+        shell('wm', 'size', '1080x1920')
+        shell('wm', 'density', '420')
+        # Indexed metadata covers every alphabet section, album, artist and nested folder.
+        fixtures = Path('/tmp/aiplayed-fixtures'); fixtures.mkdir(exist_ok=True)
+        for letter in ('A' if scenario == 'sound' else 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'):
+            remote = '/sdcard/Music/AiplayedChecks/'+letter+'Folder/Nested'
+            shell('mkdir', '-p', remote)
+            for i in range(1 if scenario == 'sound' else 2):
+                local = fixtures / f'{letter}{i:02}.mp3'
+                subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=900', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
+                adb('push', local, remote+'/'+local.name)
+                shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+remote+'/'+local.name)
+        time.sleep(2)
+        activity = shell('cmd', 'package', 'resolve-activity', '--brief', PKG).strip().splitlines()[-1]
+        shell('am', 'force-stop', PKG)
+        start_record('startup-and-browse')
+        subprocess.Popen(['adb', 'shell', 'am', 'start', '-n', activity], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        for i, delay in enumerate([.08, .12, .2, .4]):
+            time.sleep(delay); shot('startup-'+str(i), dump=False)
+        wait('+ Browse', timeout=60); shot('songs-expanded')
+        check('Cold start reaches the Library')
+        if scenario == 'all':
+            check_full_interactions()
+        else:
+            play_sound_fixture()
+        check_sound_controls()
+        assert not failures, '; '.join(failures)
+        (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
+    except Exception as error:
+        (OUT/'result.json').write_text(json.dumps({'passed':False,'checks':results,'failures':failures,'error':str(error)},indent=2))
+        try: shot('failure')
+        except Exception: pass
+        raise
+    finally:
+        (OUT/'logcat.txt').write_bytes(adb('logcat','-d',check=False).stdout)
+        if recording:
+            stop_recording(recording, shell)
+
+        for name in recordings: adb('pull','/sdcard/'+name+'.mp4',str(OUT/(name+'.mp4')),check=False)
+        shell('settings','put','system','font_scale','1.0',check=False)
+        shell('settings','put','system','user_rotation','0',check=False)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--apk', help='Existing standalone APK; defaults to the local release output')
+    parser.add_argument('--scenario', choices=['all', 'sound'], default='all')
+    parser.add_argument('--repeat', type=int, default=1, help='Repeat the isolated Sound scenario with fresh app data')
+    args = parser.parse_args()
+    if not 1 <= args.repeat <= 5 or (args.scenario == 'all' and args.repeat != 1):
+        parser.error('Use --scenario sound for 1 to 5 isolated repeats; the full suite runs once')
+    candidates = [args.apk] if args.apk else glob.glob('android/app/build/outputs/apk/release/*.apk')
+    if not candidates or not Path(candidates[0]).is_file():
+        parser.error('No release APK found; supply --apk PATH to validate an existing candidate')
+    base = OUT
+    for iteration in range(args.repeat):
+        OUT = base if args.scenario == 'all' else base / ('sound-run-' + str(iteration + 1))
+        results.clear(); failures.clear(); recordings.clear(); recording = None
+        run_checks(candidates[0], args.scenario)

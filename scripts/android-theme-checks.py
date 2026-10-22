@@ -112,21 +112,21 @@ def shot(name):
     (out / (name + '.xml')).write_text(ET.tostring(tree(), encoding='unicode'))
     return file
 
-def appearance(name, dark):
+def appearance(name, dark, surface='background'):
     end = time.monotonic() + 10
     while True:
         file = out / (name + '.png')
         file.write_bytes(adb('exec-out', 'screencap', '-p').stdout)
         with Image.open(file) as image:
             image = image.convert('RGB')
-            expected = (23, 25, 30) if dark else (255, 251, 246)
+            expected = ((45, 48, 57) if surface == 'sheet' else (23, 25, 30)) if dark else (255, 251, 246)
             count = next((count for count, color in image.getcolors(image.width * image.height) if color == expected), 0)
             matched = count > image.width * image.height * .08
         if matched or time.monotonic() >= end:
             break
         time.sleep(.3)
     (out / (name + '.xml')).write_text(ET.tostring(tree(), encoding='unicode'))
-    check(name + ' uses chosen screen background', matched)
+    check(name + ' uses chosen ' + surface + ' colour', matched)
 
 def phone(dark):
     shell('cmd', 'uimode', 'night', 'yes' if dark else 'no')
@@ -140,8 +140,9 @@ def phone(dark):
             break
         time.sleep(.25)
     (out / ('phone-request-' + str(dark) + '.txt')).write_text(raw)
-    if api >= 29:
-        assert applied == dark, 'Phone night-mode request was not applied'
+    # A requested dark case must never silently become a light case on API26.
+    # Failure to establish the prerequisite is a test-environment failure.
+    assert applied == dark, 'Phone night-mode request was not applied'
     return applied
 
 def wait_for_fixture():
@@ -285,11 +286,18 @@ try:
     tap('Lyrics'); shot('dark-lyrics'); phone(True); shot('dark-open-lyrics-phone-change'); tap('Close')
     check('open lyrics and phone changes preserve playback', is_playing(shell('dumpsys', 'media_session')))
     return_from_player(); preference('System'); tap('Library'); tap('+ Browse')
-    phone(False); shot('system-open-browse-light'); phone(True); shot('system-open-browse-dark'); tap('Close')
+    for dark in [False, True]:
+        phone(dark)
+        check('System phone change keeps Browse open (' + str(dark) + ')', find('Close') is not None)
+        appearance('system-open-browse-' + ('dark' if dark else 'light'), dark, surface='sheet')
+    tap('Close'); wait_absent('Close')
     for scale, rotation in [('1.6', '0'), ('1.6', '1'), ('1.0', '0')]:
         shell('settings', 'put', 'system', 'font_scale', scale)
         shell('settings', 'put', 'system', 'user_rotation', rotation)
-        time.sleep(1); tap('+ Browse'); shot('dark-browse-font-' + scale + '-rotation-' + rotation); tap('Close')
+        time.sleep(1); tap('+ Browse'); wait('Close')
+        appearance('dark-browse-font-' + scale + '-rotation-' + rotation, True, surface='sheet')
+        tap('Close'); wait_absent('Close')
+        check('Browse opens and closes at font ' + scale + ' rotation ' + rotation, find('+ Browse') is not None)
     (out / 'result.json').write_text(json.dumps({'passed': True, 'api': api, 'checks': checks}, indent=2))
 except Exception as error:
     (out / 'result.json').write_text(json.dumps({'passed': False, 'api': api, 'checks': checks, 'error': str(error)}, indent=2))

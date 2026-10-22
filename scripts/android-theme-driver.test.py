@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import unittest
 import xml.etree.ElementTree as ET
 from android_recording import stop_recording
-from android_ui_geometry import find_node, find_view, visible_bounds, scroll_gesture
+from android_ui_geometry import find_node, find_view, visible_bounds, scroll_gesture, configuration_night
 
 PKG = 'app.localmusic.player'
 
@@ -20,6 +20,26 @@ def driver_functions(*names, **globals):
 
 
 class ThemeDriverChecks(unittest.TestCase):
+    def test_phone_dark_case_cannot_pass_when_android_did_not_apply_dark_mode(self):
+        class Evidence:
+            def __truediv__(self, path): return self
+            def write_text(self, value): pass
+        for api in [26, 31, 35]:
+            for applied in [False, True]:
+                with self.subTest(api=api, applied=applied):
+                    clock = SimpleNamespace(seconds=0)
+                    def shell(*args):
+                        if args[:2] == ('am', 'get-config'):
+                            return 'config: en-rUS-port-' + ('night' if applied else 'notnight') + '-420dpi-v' + str(api)
+                        return ''
+                    driver = driver_functions('phone', api=api, shell=shell, out=Evidence(), configuration_night=configuration_night,
+                        time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+                    if applied:
+                        self.assertTrue(driver['phone'](True))
+                    else:
+                        with self.assertRaisesRegex(AssertionError, 'Phone night-mode request was not applied'):
+                            driver['phone'](True)
+
     def test_player_return_waits_for_lyrics_dismissal_and_library_destination(self):
         root = ET.fromstring('<hierarchy><node package="app.localmusic.player" content-desc="Close" clickable="true" bounds="[800,1000][1020,1120]"/></hierarchy>')
         clock = SimpleNamespace(seconds=0, navigating=False, destination_at=0)
