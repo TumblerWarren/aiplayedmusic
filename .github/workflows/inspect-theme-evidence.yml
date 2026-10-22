@@ -29,6 +29,8 @@ jobs:
       - name: Prepare isolated diagnostic APK
         run: |
           python -m pip install --quiet Pillow
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends ffmpeg
           curl -fsSL https://github.com/iBotPeaches/Apktool/releases/download/v2.12.1/apktool_2.12.1.jar -o /tmp/apktool.jar
           java -jar /tmp/apktool.jar d -r -f candidate/app-release.apk -o /tmp/patched
           python - <<'PY'
