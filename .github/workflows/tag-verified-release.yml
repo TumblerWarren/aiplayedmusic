@@ -1,0 +1,32 @@
+name: Tag the fully verified APK source
+on:
+  push:
+    branches: [ci/verify-android12-only-20261022]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  tag-verified-source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 8dd974083e20e51f24c45b91a11830a0e54472e0
+      - name: Require the exact APK source and every device validation
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/39791701435 --jq .head_sha)" = "$(git rev-parse HEAD)"
+          gh api repos/$GITHUB_REPOSITORY/actions/runs/39791701435/jobs --jq '[.jobs[] | select(.name == "build" or .name == "themes / theme (26)" or .name == "themes / theme (31)" or .name == "themes / theme (35)") | {name, conclusion}]' > verified-jobs.json
+          python - <<'PY'
+          import json
+          jobs = json.load(open('verified-jobs.json'))
+          assert len(jobs) == 4, jobs
+          assert all(job['conclusion'] == 'success' for job in jobs), jobs
+          print('Exact source, build and all three Android theme jobs verified.')
+          PY
+      - name: Create the release tag at the exact validated commit
+        run: |
+          git tag v1.2.6 8dd974083e20e51f24c45b91a11830a0e54472e0
+          git push origin refs/tags/v1.2.6
