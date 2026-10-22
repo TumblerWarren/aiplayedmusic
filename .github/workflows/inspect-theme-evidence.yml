@@ -1,0 +1,52 @@
+name: Inspect theme startup evidence
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/inspect-theme-evidence.yml]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: theme-evidence-api26
+          run-id: 39751660475
+          github-token: ${{ github.token }}
+          path: evidence
+      - uses: actions/download-artifact@v4
+        with:
+          name: unverified-candidate-apk
+          run-id: 39751660475
+          github-token: ${{ github.token }}
+          path: candidate
+      - run: python -m pip install --quiet Pillow androguard
+      - name: Inspect rendered appearance and compiled startup
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          from loguru import logger
+          logger.remove()
+          from androguard.core.apk import APK
+          from androguard.core.dex import DEX
+          for p in Path('evidence').rglob('*'):
+              if p.suffix in ['.txt', '.json']: print(p.name, p.read_text()[:16000], flush=True)
+              if p.suffix == '.png':
+                  with Image.open(p) as i:
+                      i=i.convert('RGB')
+                      print(p.name,sorted(i.getcolors(i.width*i.height),reverse=True)[:8],flush=True)
+          a=APK('candidate/app-release.apk')
+          for data in a.get_all_dex():
+              d=DEX(data)
+              for c in d.get_classes():
+                  if c.get_name() in ['Lapp/localmusic/player/MainActivity;', 'Lapp/localmusic/player/ThemePreferences;', 'Lexpo/modules/systemui/singletons/SystemUI;']:
+                      print('CLASS',c.get_name(),flush=True)
+                      for m in c.get_methods():
+                          if m.get_name() in ['onCreate','restoreBeforeCreate','restoreAfterCreate','applyPreference','setUserInterfaceStyle']:
+                              print('METHOD',m.get_name(),flush=True)
+                              for ins in m.get_instructions(): print(ins.get_name(),ins.get_output(),flush=True)
+          PY
