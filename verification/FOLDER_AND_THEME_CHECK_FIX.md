@@ -23,3 +23,12 @@ Validation: `npm run check`, `python scripts/media-session.test.py` (3 checks), 
 
 
 The full-player vinyl artwork has also been replaced by random Pulse, Wave or Orbit animation, with no style preference UI. See [playback animation notes](../docs/PLAYBACK_ANIMATIONS.md) for design references, implementation and lifecycle coverage.
+
+
+## Folder-row navigation repair after run 39712593924
+
+The APK compiled, passed Lint/package checks, and passed random-artwork and pause/resume checks. The interaction script advanced past Browse but stopped at `Missing UI control: Music`, after a text-coordinate tap on Internal storage. The downloaded screenshot/XML evidence was unavailable in this workspace, so the precise native failure is not claimed as established.
+
+Folder rows now expose the full path on the actionable button, and browser/picker screens have stable destination identifiers. The device test targets the clickable full-path row, waits for the expected folder screen, and re-reads/retries moved rows during scroll restoration. It no longer assumes a text tap opened the folder or that the asynchronous picker catalog is ready immediately. Settings checks scroll within measured content if needed.
+
+A new UI regression scans the same 52-song fixture hierarchy, navigates every ancestor and nested folder, verifies route restoration and checks 52 versus 0 recursive songs after changing the Settings-only toggle. A geometry regression distinguishes folder buttons from headings, similarly named paths and clipped rows. Local validation: all 69 JavaScript tests, 3 media-session checks and 7 geometry/navigation checks passed, as did Python syntax compilation and `git diff --check`. Android validation remains required in the rebuild; no validation gate has been bypassed.

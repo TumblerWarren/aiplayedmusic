@@ -14,6 +14,23 @@ def find_node(root, value):
     return exact if exact is not None else next((node for node in candidates if re.match(re.escape(value) + r'(?:[ ,\n]|$)', label(node))), None)
 
 
+def find_folder_row(root, path):
+    # Match the actionable row, not a heading or a clipped child text node.
+    for node in root.iter('node'):
+        label = node.get('content-desc') or node.get('text', '')
+        if node.get('clickable') == 'true' and visible_bounds(node) and (
+            label == 'Open folder ' + path or label.startswith(path + ', ')
+        ):
+            return node
+    return None
+
+
+def find_view(root, test_id):
+    return next((node for node in root.iter('node') if
+                 node.get('resource-id', '').split(':id/')[-1] == test_id
+                 and visible_bounds(node)), None)
+
+
 def scroll_gesture(root, reverse=False):
     boxes = [visible_bounds(node) for node in root.iter('node') if node.get('scrollable') == 'true']
     boxes = [box for box in boxes if box and box[3] - box[1] > 100]

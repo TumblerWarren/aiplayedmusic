@@ -149,3 +149,66 @@ test('Android folder picker mounts a gesture root inside its native Modal', () =
   const root=ui.render('FolderPicker',{c:{},roots:[],onClose(){},onSelect(){}});
   assert.equal(root.type,'Modal'); assert.equal(root.children[0].type,'GestureHandlerRootView');
 });
+
+test('fixture folder navigation opens every ancestor, restores the route and follows Settings recursion', async () => {
+  const browse = await import('../src/browse.js'), navigation = await import('../src/navigation.js');
+  const { createLibraryIndex } = await import('../src/libraryIndex.js');
+  const { formatTime } = await import('../src/music.js');
+  const { palette, tones } = await import('../src/design.js');
+  const base = '/storage/emulated/0/Music/AiplayedChecks';
+  const fixtures = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'].flatMap(letter => [0, 1].map(index => ({
+    id: `${letter}${index}`, title: `${letter}0${index} Song`, artist: `${letter}Artist`, album: `${letter}Album`,
+    folder: `${base}/${letter}Folder/Nested`, duration: 300000,
+  })));
+  const commands = [], state = { theme: 'Light', playing: true, queue: [], favorites: [], recent: [], playlists: {}, musicRoots: [], includeSubfolders: true, sort: 'Title', sound: {} };
+  const ui = harness('App.js', ['MusicApp'], { ...browse, ...navigation, createLibraryIndex, formatTime, palette, tones,
+    Native: { scan: async () => JSON.stringify(fixtures), command: async (action, raw) => {
+      const data = JSON.parse(raw); commands.push({ action, data });
+      if (action === 'includeSubfolders') state.includeSubfolders = data.value;
+      return JSON.stringify(state);
+    } }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() }, useMusicSlice: () => state,
+    useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
+    useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 },
+    PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
+  let tree = ui.render('MusicApp');
+  const permission = ui.slots.indexOf(false), ready = ui.slots.indexOf(false, permission + 1);
+  ui.slots[permission] = ui.slots[ready] = true;
+  const render = () => tree = ui.render('MusicApp'); render();
+  const list = () => nodes(tree).find(n => n.type === 'IndexedSongList');
+  const button = label => nodes(tree).find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
+  const choose = title => { button('+ Browse').props.onPress(); render(); button(title).props.onPress(); render(); };
+  const empty = list().props.ListEmptyComponent();
+  await nodes(empty).find(n => n.type === 'Pressable' && nodes(n).some(child => child.children.includes('Scan for songs'))).props.onPress(); render();
+  assert.equal(list().props.data.length, 52);
+  choose('Folders');
+  assert.equal(list().props.data.length, 1);
+  const open = path => {
+    const item = list().props.data.find(item => item.directory && item.name === path);
+    assert(item, `missing folder ${path}`);
+    const row = list().props.renderItem({ item });
+    assert.equal(row.props.accessibilityLabel, 'Open folder ' + path);
+    row.props.onPress(); render();
+    assert(nodes(tree).some(n => n.props.testID === 'folder-screen:' + path));
+  };
+  for (const path of ['/storage/emulated/0', '/storage/emulated/0/Music', base]) open(path);
+  assert.equal(list().props.data.length, 26);
+  const count = expected => assert(nodes(list().props.prelude).some(n => n.children.includes(`Play folder · ${expected} songs`)));
+  count(52);
+  open(base + '/AFolder'); open(base + '/AFolder/Nested');
+  assert.deepEqual(Array.from(list().props.data, item => item.id), ['A0', 'A1']);
+  count(2);
+  choose('Songs'); choose('Folders');
+  assert(nodes(tree).some(n => n.props.testID === 'folder-screen:' + base + '/AFolder/Nested'));
+  button('Back').props.onPress(); render(); button('Back').props.onPress(); render();
+  count(52);
+  assert.deepEqual(commands, [], 'scanning and folder navigation do not issue playback commands');
+  for (const [value, expected] of [[false, 0], [true, 52]]) {
+    button('Settings').props.onPress(); render();
+    await nodes(tree).find(n => n.type === 'Switch' && n.props.accessibilityLabel === 'Include subfolders when playing').props.onValueChange(value); render();
+    button('Library').props.onPress(); render();
+    assert(nodes(tree).some(n => n.props.testID === 'folder-screen:' + base));
+    count(expected);
+    assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'));
+  }
+  assert.deepEqual(commands.map(command => command.action), ['includeSubfolders', 'includeSubfolders']);
+});

@@ -9,7 +9,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
-from android_ui_geometry import visible_bounds, scroll_gesture
+from android_ui_geometry import visible_bounds, scroll_gesture, find_folder_row, find_view
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 OUT.mkdir(parents=True, exist_ok=True)
@@ -69,6 +69,12 @@ def wait(value, timeout=40):
                 sheet_scrolls += 1
             except AssertionError:
                 pass  # A fitting/non-scrolling sheet may still be animating in.
+        elif value in ['Include subfolders when playing', 'Choose folder'] and find('Settings', root) is not None:
+            try:
+                swipe(*scroll_gesture(root, reverse=sheet_scrolls == 0))
+                sheet_scrolls += 1
+            except AssertionError:
+                pass
         time.sleep(.3)
     raise AssertionError('Missing UI control: ' + value)
 
@@ -102,6 +108,31 @@ def browse(destination):
     tap(destination)
     assert wait_absent('Close'), 'Browse did not close after selecting ' + destination
     wait('+ Browse')
+
+def open_folder(path, picker=False, timeout=40):
+    expected = ('folder-picker:' if picker else 'folder-screen:') + path
+    end = time.monotonic() + timeout
+    last_tap = 0
+    while time.monotonic() < end:
+        root = tree()
+        if find_view(root, expected) is not None:
+            return
+        row = find_folder_row(root, path)
+        if row is not None:
+            # A row can move while the native list restores its scroll offset.
+            # Re-read it before tapping and require the destination to open.
+            if time.monotonic() - last_tap >= 2:
+                tap(row)
+                last_tap = time.monotonic()
+        elif not last_tap:
+            try:
+                swipe(*scroll_gesture(root))
+            except AssertionError:
+                pass  # Folder-picker catalog may still be loading.
+        time.sleep(.3)
+    shot('folder-navigation-timeout')
+    raise AssertionError('Folder did not open: ' + path)
+
 
 def media_title():
     raw = shell('dumpsys', 'media_session')
@@ -291,8 +322,9 @@ try:
         assert wait_absent('Close'), 'Browse did not close after font/rotation check'
         check('Browse works with font '+scale+' rotation '+rotation, find('+ Browse') is not None)
     browse('Folders')
-    for title in ['Internal storage', 'Music', 'AiplayedChecks']:
-        tap(title)
+    for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
+        open_folder(path)
+    check('Folder navigation reaches the fixture directory')
     controls = bounds(wait('Folders and songs'))
     folder_play = next(n for n in tree().iter('node') if label(n).startswith('Play folder · ') and visible_bounds(n))
     check('Nested folder controls have no leftover search-sized gap', 0 <= bounds(folder_play)[1] - controls[3] < 108)
@@ -308,9 +340,7 @@ try:
     check('Include subfolders is available in Settings')
     tap('Choose folder'); wait('Close folder browser')
     for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
-        root=tree(); row=next((n for n in root.iter('node') if label(n).startswith(path+', ')),None)
-        assert row is not None, 'Folder picker path missing: '+path
-        tap(row)
+        open_folder(path, picker=True)
     rail_bounds(); tap('Jump to Z'); shot('folder-picker')
     check('Folder picker A-Z gesture lands on the Z folder', any(label(n).startswith('/storage/emulated/0/Music/AiplayedChecks/ZFolder, ') for n in tree().iter('node')))
     tap('Close folder browser')

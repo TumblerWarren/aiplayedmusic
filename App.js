@@ -294,10 +294,10 @@ function MusicApp() {
     const actions = h(View, { style: { paddingBottom: 8 } },
       h(View, { style: folderControlStyle }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()),
       path && h(View, { style: { marginTop: 4, marginBottom: 8 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))));
-    content = h(View, { style: styles.flex },
-      browseHeader(path ? folderName(path) : 'Folders', path ? backFolder : null),
+    content = h(View, { testID: `folder-screen:${path || 'roots'}`, collapsable: false, style: styles.flex },
+      browseHeader(path ? displayFolder(path) : 'Folders', path ? backFolder : null),
       h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,
-        renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name)) : songRow(item, selectedIndices.get(item.id), selected),
+        renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name), `Open folder ${item.name}`) : songRow(item, selectedIndices.get(item.id), selected),
         ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose music folders or adjust library filters in Settings.', styles.emptyDetail)) })));
   } else {
     const collection = page === 'collection';
