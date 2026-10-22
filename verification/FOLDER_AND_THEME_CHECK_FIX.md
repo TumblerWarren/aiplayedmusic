@@ -52,3 +52,13 @@ The native build, package validation and full interaction suite passed. The API2
 Phone-mode diagnostics now retain ActivityManager's applied resource configuration alongside UiModeManager state. Exact screenshot-colour assertions, all six preference/phone combinations, cold starts, saved selections, playback checks and publication gates remain enabled. Offline regressions cover selector collisions, selected parent buttons, navigation sequencing and recorder shutdown paths. The temporary evidence-inspection workflow is removed once these repairs are committed.
 
 Upstream source confirming the SDK56 override: https://github.com/expo/expo/blob/sdk-56/packages/expo-system-ui/android/src/main/java/expo/modules/systemui/singletons/SystemUI.kt
+
+## Prevent the API26 startup override before it occurs
+
+Run 39751660475 passed compilation, Lint, signature/branding/offline checks and the full interaction suite. API26 still failed the fresh-install dark assertion. Inspection of the compiled DEX in diagnostic run 39758122592 confirmed that both bootstrap calls were present in the correct order, while the saved screenshot still contained 1,462,631 light-background pixels. Restoring FOLLOW_SYSTEM after Expo's battery-mode change was insufficient.
+
+The installation hook now changes only Expo SDK56's API26/27 automatic fallback from AUTO_BATTERY to FOLLOW_SYSTEM before native compilation. This prevents the conflicting mode from being applied in the first place. Explicit Light/Dark logic is unchanged. The hook is idempotent and rejects an unexpected upstream implementation instead of silently applying an unreviewed patch. Tests use the upstream SDK56 source fixture and CI also checks the installed dependency before packaging. The post-create bootstrap remains necessary to restore explicit saved choices after Expo's automatic listener.
+
+The isolated API26 diagnostic run 39758883015 (after repairing a missing FFmpeg dependency in probe 39758405371) changes the same single constant in the existing APK and executes the complete theme suite. This diagnostic APK is signed only for testing and cannot be published as a release. The full production rebuild recompiles the patched dependency with the regular signing key and retains every release gate. At commit time, the diagnostic device suite and production rebuild still require completion.
+
+API31/35 in run 39751660475 passed the previously failing startup-video and saved-selection checks. Their jobs were cancelled by the subsequent diagnostic push before the entire matrix completed; they are not claimed as passed overall. Local validation with the dependency patch: 73 JavaScript tests, UI syntax/import checks, native helper/DSP checks and git diff whitespace checks passed.
