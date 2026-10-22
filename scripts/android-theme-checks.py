@@ -202,6 +202,11 @@ def dismiss_playlist_dialog():
     wait_absent('Close dialog')
 
 
+def return_from_player():
+    wait_absent('Close')
+    tap('chevron-down')
+    wait('+ Browse')
+
 recording = None
 try:
     adb('install', '-r', args.helper)
@@ -275,7 +280,7 @@ try:
     tap('Library'); tap('Open now playing'); appearance('dark-player', True)
     tap('Lyrics'); shot('dark-lyrics'); phone(True); shot('dark-open-lyrics-phone-change'); tap('Close')
     check('open lyrics and phone changes preserve playback', is_playing(shell('dumpsys', 'media_session')))
-    shell('input', 'keyevent', '4'); preference('System'); tap('Library'); tap('+ Browse')
+    return_from_player(); preference('System'); tap('Library'); tap('+ Browse')
     phone(False); shot('system-open-browse-light'); phone(True); shot('system-open-browse-dark'); tap('Close')
     for scale, rotation in [('1.6', '0'), ('1.6', '1'), ('1.0', '0')]:
         shell('settings', 'put', 'system', 'font_scale', scale)

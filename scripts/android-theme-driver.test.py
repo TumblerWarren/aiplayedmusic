@@ -20,6 +20,31 @@ def driver_functions(*names, **globals):
 
 
 class ThemeDriverChecks(unittest.TestCase):
+    def test_player_return_waits_for_lyrics_dismissal_and_library_destination(self):
+        root = ET.fromstring('<hierarchy><node package="app.localmusic.player" content-desc="Close" clickable="true" bounds="[800,1000][1020,1120]"/></hierarchy>')
+        clock = SimpleNamespace(seconds=0, navigating=False)
+        taps = []
+        def sleep(seconds):
+            clock.seconds += seconds
+            if clock.seconds >= .4 and not clock.navigating:
+                root.clear()
+                root.append(ET.Element('node', {'package': PKG, 'content-desc': 'chevron-down', 'clickable': 'true', 'bounds': '[32,79][158,205]'}))
+            if clock.navigating and clock.seconds >= 1:
+                root.clear()
+                for label in ['+ Browse', 'Settings']:
+                    root.append(ET.Element('node', {'package': PKG, 'content-desc': label, 'clickable': 'true', 'bounds': '[765,74][1028,200]'}))
+        def shell(*args):
+            self.assertEqual(args[:2], ('input', 'tap'))
+            self.assertGreaterEqual(clock.seconds, .4, 'wait for the lyrics window to disappear')
+            self.assertEqual(args[2:], (95, 142), 'tap the recorded visible player return button')
+            taps.append(args[2:]); clock.navigating = True
+        driver = driver_functions('find', 'wait', 'tap', 'wait_absent', 'return_from_player', tree=lambda: root, shell=shell,
+            time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=sleep))
+        driver['return_from_player']()
+        self.assertEqual(taps, [(95, 142)])
+        self.assertGreaterEqual(clock.seconds, 1, 'wait for the actual library destination')
+        self.assertIsNotNone(driver['find']('Settings'))
+
     def test_fixture_below_api31_ringtones_is_located_and_played_without_shuffle(self):
         for below_fold in [False, True]:
             with self.subTest(below_fold=below_fold):
