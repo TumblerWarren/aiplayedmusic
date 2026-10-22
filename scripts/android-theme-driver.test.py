@@ -104,6 +104,27 @@ class ThemeDriverChecks(unittest.TestCase):
         def shell(*args, **kwargs): self.fail('completed recording must not be signalled')
         self.assertEqual(stop_recording(process, shell), 0)
 
+    def test_playlist_dialog_dismisses_via_visible_cancel_instead_of_covered_scrim_center(self):
+        clock = SimpleNamespace(seconds=0)
+        root = ET.fromstring('<hierarchy><node package="app.localmusic.player" content-desc="Close dialog" clickable="true" bounds="[0,0][1080,1600]"/>'
+            '<node package="app.localmusic.player" text="Cancel" clickable="true" bounds="[600,900][800,1000]"/></hierarchy>')
+        taps = []
+        def shell(*args):
+            self.assertEqual(args[:2], ('input', 'tap'))
+            taps.append(args[2:])
+            if 600 < args[2] < 800 and 900 < args[3] < 1000:
+                root.clear()
+                root.append(ET.Element('node', {'package': PKG, 'content-desc': 'Settings', 'clickable': 'true', 'bounds': '[800,1500][1000,1600]'}))
+        def sleep(seconds): clock.seconds += seconds
+        driver = driver_functions('find', 'wait', 'tap', 'wait_absent', 'dismiss_playlist_dialog', tree=lambda: root, shell=shell,
+            time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=sleep))
+        driver['tap']('Close dialog')
+        self.assertIsNotNone(driver['find']('Close dialog'), 'covered scrim center does not dismiss the dialog')
+        driver['dismiss_playlist_dialog']()
+        self.assertEqual(taps, [(540, 800), (700, 950)])
+        self.assertIsNone(driver['find']('Close dialog'))
+        self.assertIsNotNone(driver['find']('Settings'))
+
 
 if __name__ == '__main__':
     unittest.main()

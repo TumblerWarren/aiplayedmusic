@@ -188,6 +188,12 @@ def browse(value):
     wait('+ Browse')
 
 
+def dismiss_playlist_dialog():
+    # The scrim covers the whole window in accessibility, but its center is
+    # covered by the dialog. Use the visible dialog button and await dismissal.
+    tap('Cancel')
+    wait_absent('Close dialog')
+
 
 recording = None
 try:
@@ -257,7 +263,7 @@ try:
     for tab in ['Tone', 'Output', 'Playback']:
         tap(tab); appearance('dark-sound-' + tab.lower(), True)
     tap('Reset'); shot('dark-sound-reset-dialog'); tap('Cancel')
-    tap('Library'); browse('Playlists'); tap('New playlist'); shot('dark-new-playlist-dialog'); tap('Close dialog')
+    tap('Library'); browse('Playlists'); tap('New playlist'); shot('dark-new-playlist-dialog'); dismiss_playlist_dialog()
     tap('Settings'); tap('Choose folder'); shot('dark-folder-picker'); tap('Close folder browser')
     tap('Library'); tap('Open now playing'); appearance('dark-player', True)
     tap('Lyrics'); shot('dark-lyrics'); phone(True); shot('dark-open-lyrics-phone-change'); tap('Close')

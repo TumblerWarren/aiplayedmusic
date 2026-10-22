@@ -6,7 +6,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: android-${{ github.ref }}
+  group: android-${{ (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build apk]')) && github.ref || github.run_id }}
   cancel-in-progress: true
 jobs:
   pause:
