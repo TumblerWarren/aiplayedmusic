@@ -9,7 +9,7 @@ test('all seven Browse destinations select, dismiss and independently restore se
   const { palette, tones } = await import('../src/design.js');
   const commands = [], state = { theme: 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', current: { id: 1, title: 'Playing', artist: 'Artist' }, sound: {} };
   const ui = harness('App.js', ['MusicApp'], { ...browse, ...navigation, createLibraryIndex, formatTime, palette, tones,
-    Native: { command: async action => { commands.push(action); return JSON.stringify(state); } }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() }, useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn, useColorScheme: () => 'light', useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 }, PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
+    Native: { command: async (action, raw) => { commands.push({ action, data: JSON.parse(raw) }); return JSON.stringify(state); } }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() }, useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn, useColorScheme: () => 'light', useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 }, PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
   let tree = ui.render('MusicApp');
   const permission = ui.slots.indexOf(false), ready = ui.slots.indexOf(false, permission + 1); ui.slots[permission] = ui.slots[ready] = true;
   const render = () => tree = ui.render('MusicApp'); render();
@@ -53,6 +53,7 @@ test('all seven Browse destinations select, dismiss and independently restore se
   choose('Folders'); input().props.onChangeText(''); render();
   const hasChooseFolder = content => nodes(content).some(n => n.children.includes('Choose folder'));
   assert(!hasChooseFolder(list().props.prelude), 'folder roots have no selection shortcut');
+  assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'), 'folder roots have no subfolder toggle');
   assert.equal(list().props.header.type, 'TextInput', 'only search occupies the collapsing header');
   assert(nodes(list().props.prelude).some(n => n.props.accessibilityLabel === 'Sort by name'), 'folder controls stay in normal list flow');
   assert(!hasChooseFolder(list().props.ListEmptyComponent), 'empty folders direct users to Settings');
@@ -60,7 +61,8 @@ test('all seven Browse destinations select, dismiss and independently restore se
   const folderRow = list().props.renderItem({ item: list().props.data[0] });
   folderRow.props.onPress(); render();
   assert(!hasChooseFolder(list().props.prelude), 'nested folders keep playback controls without a picker shortcut');
-  assert(nodes(list().props.prelude).some(n => n.props.accessibilityLabel === 'Include subfolders when playing'));
+  assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'), 'nested folders have no subfolder toggle or empty row');
+  assert(nodes(list().props.prelude).some(n => n.children.includes('Play folder · 0 songs')), 'folder playback remains available');
   assert.equal(list().props.header.type, 'TextInput', 'nested folders do not reserve header space for playback controls');
   nodes(tree).find(n => n.props.accessibilityRole === 'tab' && n.props.key === 'Settings').props.onPress(); render();
   button('Choose folder').props.onPress(); render();
@@ -69,6 +71,16 @@ test('all seven Browse destinations select, dismiss and independently restore se
   picker.props.onClose(); render();
   assert(button('Choose folder'), 'closing the picker returns to Settings');
   assert.deepEqual(commands, [], 'opening or dismissing folder selection leaves playback unchanged');
+  const subfolderSwitch = () => nodes(tree).filter(n => n.type === 'Switch' && n.props.accessibilityLabel === 'Include subfolders when playing');
+  assert.equal(subfolderSwitch().length, 1, 'Settings contains the only subfolder toggle');
+  for (const value of [true, false]) {
+    state.includeSubfolders = !value; render();
+    assert.equal(subfolderSwitch()[0].props.value, !value);
+    await subfolderSwitch()[0].props.onValueChange(value);
+    assert.deepEqual(commands.at(-1), { action: 'includeSubfolders', data: { value } });
+    state.includeSubfolders = value; render();
+    assert.equal(subfolderSwitch()[0].props.value, value);
+  }
 });
 
 test('displayed names and normalized A-Z sections use the same order, including folders', async () => {
