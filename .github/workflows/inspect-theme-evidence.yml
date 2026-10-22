@@ -7,42 +7,50 @@ permissions:
   contents: read
   actions: read
 jobs:
-  inspect:
+  probe26:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     steps:
       - uses: actions/download-artifact@v4
         with:
-          pattern: theme-evidence-api*
+          name: unverified-candidate-apk
           run-id: 39740576422
           github-token: ${{ github.token }}
-          path: evidence
-      - run: python -m pip install --quiet Pillow
-      - name: Inspect recorded failure state and screenshot colours
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import json, xml.etree.ElementTree as ET
-          from PIL import Image
-          for directory in sorted(Path('evidence').iterdir()):
-              print('\nAPI EVIDENCE:', directory.name, flush=True)
-              for p in directory.rglob('result.json'):
-                  print(p.name, p.read_text(), flush=True)
-              for p in directory.rglob('phone-request-*.txt'):
-                  print(p.name, p.read_text(), flush=True)
-              for name in ['fresh-install-follows-dark-phone', 'failure', 'system-startup-phone-light']:
-                  for p in directory.rglob(name + '.xml'):
-                      root=ET.parse(p).getroot()
-                      print('UI:',p.name,flush=True)
-                      for n in root.iter('node'):
-                          label=n.get('content-desc') or n.get('text','')
-                          if label:
-                              print({key:n.get(key) for key in ['package','text','content-desc','selected','clickable','bounds']},flush=True)
-                  for p in directory.rglob(name + '.png'):
-                      with Image.open(p) as image:
-                          image=image.convert('RGB')
-                          colours=sorted(image.getcolors(image.width*image.height),reverse=True)
-                          print('IMAGE:',p.name,image.size,'DOMINANT:',colours[:12],flush=True)
-                          for colour in [(23,25,30),(255,251,246)]:
-                              print('EXPECTED:',colour,'PIXELS:',sum(count for count,c in colours if c==colour),flush=True)
-          PY
+          path: candidate
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          log-accepted-android-sdk-licenses: false
+      - run: |
+          python -m pip install --quiet Pillow
+          sudo chmod 666 /dev/kvm
+          cat > /tmp/probe-theme.sh <<'SH'
+          set -eu
+          adb install -r candidate/app-release.apk
+          adb shell pm grant app.localmusic.player android.permission.READ_EXTERNAL_STORAGE
+          adb shell cmd uimode night yes
+          echo 'BEFORE LAUNCH GLOBAL CONFIGURATION'
+          adb shell am get-config
+          adb shell dumpsys uimode
+          activity=$(adb shell cmd package resolve-activity --brief app.localmusic.player | tail -1 | tr -d '\r')
+          adb shell am start -n "$activity"
+          sleep 8
+          echo 'AFTER LAUNCH GLOBAL CONFIGURATION'
+          adb shell am get-config
+          adb shell dumpsys uimode
+          adb shell dumpsys activity activities | grep -Ei 'configuration|overrideconfig|night|app.localmusic' || true
+          adb exec-out screencap -p > /tmp/api26-probe.png
+          python -c "from PIL import Image; i=Image.open('/tmp/api26-probe.png').convert('RGB'); print('IMAGE COLOURS',sorted(i.getcolors(i.width*i.height),reverse=True)[:8])"
+          SH
+      - uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 26
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
+          script: bash /tmp/probe-theme.sh
