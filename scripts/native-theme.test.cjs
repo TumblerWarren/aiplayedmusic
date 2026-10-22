@@ -51,7 +51,10 @@ public class ThemePreferencesTest {
     expect(sdk>=31?activity.manager.selected==(expected==-1?0:expected):activity.manager.calls==0,"per-app native mode/API gate");
     ThemePreferences.restoreBeforeCreate(activity);
     expect(ThemePreferences.get(activity).equals(preference),"cold launch retains preference");
-    ThemePreferences.applyWindow(activity);
+    // Reproduce Expo automatic overwriting the app's pre-create selection.
+    androidx.appcompat.app.AppCompatDelegate.selected=3;
+    ThemePreferences.restoreAfterCreate(activity);
+    expect(androidx.appcompat.app.AppCompatDelegate.selected==expected,"post-Expo bootstrap restores the saved/System mode");
     boolean dark=preference.equals("Dark")||(preference.equals("System")&&phoneDark);
     int background=Color.parseColor(dark?"#17191E":"#FFFBF6");
     expect(activity.window.decor.background==background,"window matches chosen palette");

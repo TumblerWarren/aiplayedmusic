@@ -24,6 +24,10 @@ jobs:
         api: [26, 31, 35]
     steps:
       - uses: actions/checkout@v4
+      - name: Verify theme-driver regressions
+        run: |
+          python scripts/android-ui-geometry.test.py
+          python scripts/android-theme-driver.test.py
       - name: Require a candidate from this exact source revision
         env:
           GH_TOKEN: ${{ github.token }}

@@ -122,7 +122,9 @@ test('theme bootstrap preserves activity configuration and Expo splash order and
   assert.equal(mod.modResults.contents, patched);
   assert(patched.indexOf('restoreBeforeCreate(this)') < patched.indexOf('setTheme('));
   assert(patched.indexOf('restoreBeforeCreate(this)') < patched.indexOf('SplashScreenManager.register'));
-  assert(patched.indexOf('applyWindow(this)') > patched.indexOf('super.onCreate(null)'));
+  assert(patched.indexOf('restoreAfterCreate(this)') > patched.indexOf('super.onCreate(null)'));
+  const legacy = patched.replace('restoreAfterCreate(this)', 'applyWindow(this)');
+  assert.equal(module.exports.patchActivity(legacy), patched, 'existing generated projects migrate the old post-create hook');
   const activity = { $: { 'android:name': '.MainActivity', 'android:configChanges': 'orientation|screenSize' } };
   manifestMod({ modResults: { manifest: { application: [{ activity: [activity] }] } } });
   manifestMod({ modResults: { manifest: { application: [{ activity: [activity] }] } } });
@@ -142,4 +144,38 @@ test('native splash has distinct dark artwork and matches the React launch palet
   assert.equal(png.readUInt32BE(16), 512); assert.equal(png.readUInt32BE(20), 512);
   assert(fs.readFileSync('assets/startup-turntable-dark.svg', 'utf8').includes(c.startup.base));
   assert.equal(config.icon, './assets/aiplayed-icon.png');
+});
+
+test('Settings exposes exact theme buttons and saved selection without issuing playback commands', async () => {
+  const browse = await import('../src/browse.js'), navigation = await import('../src/navigation.js');
+  const { createLibraryIndex } = await import('../src/libraryIndex.js');
+  const { formatTime } = await import('../src/music.js');
+  const { tones } = await import('../src/design.js');
+  const commands = [], state = { theme: 'System', playing: true, queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', sound: {}, current: { id: 1, title: 'Theme Song' } };
+  const ui = harness('App.js', ['MusicApp'], { ...browse, ...navigation, createLibraryIndex, formatTime, palette, tones,
+    Native: { command: async (action, raw) => { const data = JSON.parse(raw); commands.push({ action, data }); if (action === 'theme') state.theme = data.value; return JSON.stringify(state); } },
+    musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() }, useMusicSlice: () => state,
+    useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
+    useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 },
+    PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
+  let tree = ui.render('MusicApp');
+  const permission = ui.slots.indexOf(false), ready = ui.slots.indexOf(false, permission + 1);
+  ui.slots[permission] = ui.slots[ready] = true;
+  const render = () => tree = ui.render('MusicApp'); render();
+  const button = label => nodes(tree).find(n => n.type === 'Pressable' && n.props.accessibilityLabel === label);
+  button('Settings').props.onPress(); render();
+  assert(nodes(tree).some(n => n.props.testID === 'settings-screen'));
+  for (const value of ['Light', 'Dark', 'System']) {
+    button('Theme').props.onPress(); render();
+    assert(nodes(tree).find(n => n.type === 'Sheet').props.visible);
+    for (const option of ['System', 'Light', 'Dark']) {
+      assert(button(option));
+      assert.equal(button(option).props.accessibilityState.selected, option === state.theme);
+    }
+    button(value).props.onPress(); await new Promise(resolve => setImmediate(resolve)); render();
+    assert.equal(state.theme, value);
+    assert.equal(state.playing, true);
+    assert.equal(nodes(tree).find(n => n.type === 'Sheet').props.visible, false);
+  }
+  assert.deepEqual(commands, ['Light', 'Dark', 'System'].map(value => ({ action: 'theme', data: { value } })));
 });

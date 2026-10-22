@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
-from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll_gesture, system_night, fixture_indexed, find_folder_row, find_view
+from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll_gesture, system_night, fixture_indexed, find_folder_row, find_view, configuration_night
 
 
 class GeometryChecks(unittest.TestCase):
@@ -109,6 +109,13 @@ class GeometryChecks(unittest.TestCase):
         self.assertTrue(system_night('mNightMode=2 mCurUiMode=0x21'))
         with self.assertRaises(AssertionError):
             system_night('mode not available')
+
+    def test_applied_resource_mode_is_distinct_from_service_night_mode(self):
+        self.assertFalse(configuration_night('config: en-rUS-ldltr-sw411dp-port-notnight-420dpi-v26\nabi: x86_64'))
+        self.assertTrue(configuration_night('config: en-rUS-ldltr-sw411dp-port-night-420dpi-v35'))
+        self.assertFalse(configuration_night('mCurUiMode=0x21\nconfig: en-rUS-port-notnight-420dpi-v26'))
+        with self.assertRaises(AssertionError):
+            configuration_night('mCurUiMode=0x21')
 
     def test_music_is_ready_only_after_its_metadata_is_indexed(self):
         self.assertFalse(fixture_indexed('No result found.'))

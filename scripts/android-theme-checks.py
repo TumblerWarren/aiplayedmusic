@@ -12,7 +12,8 @@ import time
 import xml.etree.ElementTree as ET
 from PIL import Image
 from android_media_session import is_playing
-from android_ui_geometry import find_node, scroll_gesture, system_night, fixture_indexed
+from android_ui_geometry import find_node, find_view, visible_bounds, scroll_gesture, configuration_night, fixture_indexed
+from android_recording import stop_recording
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--apk', required=True)
@@ -45,26 +46,60 @@ def label(n):
 
 def find(value, root=None):
     root = root if root is not None else tree()
-    return find_node(root, value)
+    return find_node(root, value, package=PKG, exact=value in ['Theme', 'System', 'Light', 'Dark', 'Settings', 'Close'])
 
 def wait(value):
     end = time.monotonic() + 45
+    scrolls = 0
     while time.monotonic() < end:
         root = tree()
         node = find(value, root)
         if node is not None:
             return node
-        if value == 'Theme':
-            shell('input', 'swipe', *scroll_gesture(root), 350)
+        if value in ['Theme', 'Choose folder'] or (value in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played'] and find('Close', root) is not None):
+            try:
+                reverse = value == 'Choose folder' or (value == 'Theme' and scrolls == 0)
+                shell('input', 'swipe', *scroll_gesture(root, reverse=reverse), 350)
+                scrolls += 1
+            except AssertionError:
+                pass
         time.sleep(.3)
     raise AssertionError('Missing control: ' + value)
 
 def tap(value):
     node = wait(value)
-    x1, y1, x2, y2 = map(int, re.findall(r'\d+', node.get('bounds')))
+    x1, y1, x2, y2 = visible_bounds(node)
     assert x2 > x1 and y2 > y1, value + ' has empty bounds'
     shell('input', 'tap', (x1+x2)//2, (y1+y2)//2)
     time.sleep(.4)
+
+def wait_absent(value):
+    end = time.monotonic() + 10
+    while time.monotonic() < end:
+        if find(value) is None:
+            return
+        time.sleep(.2)
+    raise AssertionError('Control did not close: ' + value)
+
+
+def wait_view(test_id):
+    end = time.monotonic() + 15
+    while time.monotonic() < end:
+        node = find_view(tree(), test_id)
+        if node is not None:
+            return node
+        time.sleep(.2)
+    raise AssertionError('Screen did not open: ' + test_id)
+
+
+def open_theme():
+    if find_view(tree(), 'settings-screen') is None:
+        tap('Settings')
+        wait_view('settings-screen')
+    tap('Theme')
+    wait('System')
+    wait('Close')
+
 
 def check(name, passed):
     assert passed, name
@@ -97,8 +132,10 @@ def phone(dark):
     shell('cmd', 'uimode', 'night', 'yes' if dark else 'no')
     end = time.monotonic() + 5
     while True:
-        raw = shell('dumpsys', 'uimode')
-        applied = system_night(raw)
+        service = shell('dumpsys', 'uimode')
+        configuration = shell('am', 'get-config')
+        raw = service + '\nAPPLIED RESOURCE CONFIGURATION\n' + configuration
+        applied = configuration_night(configuration)
         if applied == dark or time.monotonic() >= end:
             break
         time.sleep(.25)
@@ -136,19 +173,21 @@ def start_fixture():
         time.sleep(.3)
 
 def preference(value):
-    tap('Settings'); tap('Theme'); tap(value)
-    wait('Settings')
-    time.sleep(.8)
+    open_theme()
+    tap(value)
+    wait_absent('Close')
+    wait_view('settings-screen')
+    time.sleep(.5)
+
 
 def browse(value):
     tap('+ Browse')
-    # On smaller screens Recently played may need a scroll inside the sheet.
-    for _ in range(3):
-        if find(value) is not None:
-            break
-        shell('input', 'swipe', 450, 1600, 450, 900, 350)
-        time.sleep(.4)
-    tap(value); wait('+ Browse')
+    wait('Close')
+    tap(value)
+    wait_absent('Close')
+    wait('+ Browse')
+
+
 
 recording = None
 try:
@@ -184,7 +223,7 @@ try:
             shell('am', 'force-stop', PKG)
             name = choice.lower() + '-startup-phone-' + ('dark' if system_dark else 'light')
             remote = '/sdcard/' + name + '.mp4'
-            recording = subprocess.Popen(['adb', 'shell', 'screenrecord', '--time-limit', '15', remote], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            recording = subprocess.Popen(['adb', 'shell', 'screenrecord', '--size', '720x1280', '--bit-rate', '2000000', '--time-limit', '15', remote], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             time.sleep(.3); shell('am', 'start', '-n', activity)
             wait('+ Browse')
             appearance(name, dark)
@@ -192,14 +231,18 @@ try:
             check(name + ' notification playback is active', is_playing(shell('dumpsys', 'media_session')))
             shell('cmd', 'statusbar', 'expand-notifications'); time.sleep(.6)
             shot(name + '-notification-card')
-            shell('cmd', 'statusbar', 'collapse'); time.sleep(.3)
-            shell('pkill', '-INT', 'screenrecord', check=False)
-            recording.wait(timeout=20); recording = None
-            adb('pull', remote, str(out / (name + '.mp4')))
-            tap('Settings'); tap('Theme')
+            shell('cmd', 'statusbar', 'collapse')
+            wait('+ Browse')  # Wait for this app, rather than tapping through the shade.
+            stop_recording(recording, shell); recording = None
+            video = out / (name + '.mp4')
+            adb('pull', remote, str(video))
+            probe = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'json', str(video)], check=True, capture_output=True, text=True, timeout=20)
+            duration = float(json.loads(probe.stdout)['format']['duration'])
+            check(name + ' retains a playable startup video', duration > 0)
+            open_theme()
             selected = wait(choice)
             check(name + ' retains saved selection', selected.get('selected') == 'true')
-            shot(name + '-saved-choice'); tap('Close')
+            shot(name + '-saved-choice'); tap('Close'); wait_absent('Close')
     preference('Dark'); tap('Library'); browse('Songs')
     tap('Search your music'); shell('input', 'text', 'Theme'); shell('input', 'keyevent', '4')
     phone(False); appearance('dark-search-restored', True)
@@ -234,12 +277,8 @@ except Exception as error:
         pass
     raise
 finally:
-    if recording:
-        shell('pkill', '-INT', 'screenrecord', check=False)
-        try:
-            recording.wait(timeout=20)
-        except subprocess.TimeoutExpired:
-            recording.terminate()
+    if recording is not None:
+        stop_recording(recording, shell)
     (out / 'logcat.txt').write_bytes(adb('logcat', '-d', check=False).stdout)
     shell('settings', 'put', 'system', 'font_scale', '1.0', check=False)
     shell('settings', 'put', 'system', 'user_rotation', '0', check=False)

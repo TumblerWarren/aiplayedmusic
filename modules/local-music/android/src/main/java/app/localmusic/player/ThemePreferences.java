@@ -25,6 +25,12 @@ public final class ThemePreferences {
     public static void restoreBeforeCreate(Activity activity) {
         applyPreference(activity.getApplicationContext(), get(activity.getApplicationContext()));
     }
+    public static void restoreAfterCreate(Activity activity) {
+        // Expo's onCreate listener maps automatic to AUTO_BATTERY below API28.
+        // Restore our explicit/System choice after that listener has run.
+        restoreBeforeCreate(activity);
+        applyWindow(activity);
+    }
     private static void applyPreference(Context context, String value) {
         if (Build.VERSION.SDK_INT >= 31) {
             // AUTO clears the per-app night override (UI_MODE_NIGHT_UNDEFINED), following the OS.

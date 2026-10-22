@@ -7,11 +7,15 @@ def visible_bounds(node):
     return (max(0, box[0]), max(0, box[1]), box[2], box[3]) if len(box) == 4 and box[2] > max(0, box[0]) and box[3] > max(0, box[1]) else None
 
 
-def find_node(root, value):
-    candidates = [node for node in root.iter('node') if visible_bounds(node)]
+def find_node(root, value, package=None, exact=False):
+    candidates = [node for node in root.iter('node') if visible_bounds(node)
+                  and (package is None or node.get('package') == package)]
+    candidates.sort(key=lambda node: node.get('clickable') != 'true')
     label = lambda node: node.get('content-desc') or node.get('text', '')
-    exact = next((node for node in candidates if label(node) == value), None)
-    return exact if exact is not None else next((node for node in candidates if re.match(re.escape(value) + r'(?:[ ,\n]|$)', label(node))), None)
+    match = next((node for node in candidates if label(node) == value), None)
+    if match is not None or exact:
+        return match
+    return next((node for node in candidates if re.match(re.escape(value) + r'(?:[ ,\n]|$)', label(node))), None)
 
 
 def find_folder_row(root, path):
@@ -56,3 +60,14 @@ def system_night(raw):
 
 def fixture_indexed(raw):
     return any(re.search(r'\btitle=Theme Song(?:,|$)', line) and re.search(r'\bduration=[1-9]\d*', line) for line in raw.splitlines())
+
+
+def configuration_night(raw):
+    # ActivityManager's applied resource configuration, not UiModeManager's intent.
+    match = re.search(r'^config:\s*(.+)$', raw, re.MULTILINE)
+    qualifiers = match.group(1).strip().split('-') if match else []
+    if 'night' in qualifiers:
+        return True
+    if 'notnight' in qualifiers:
+        return False
+    raise AssertionError('Android did not report an applied night resource qualifier')

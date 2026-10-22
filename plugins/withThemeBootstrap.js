@@ -1,12 +1,12 @@
 const { withAndroidManifest, withMainActivity } = require('expo/config-plugins');
 const helper = 'app.localmusic.player.ThemePreferences';
 function patchActivity(source) {
-  if (source.includes('// aiplayed-theme-bootstrap')) return source;
+  if (source.includes('// aiplayed-theme-bootstrap')) return source.replace(`${helper}.applyWindow(this)`, `${helper}.restoreAfterCreate(this)`);
   const signature = /override fun onCreate\(savedInstanceState: Bundle\?\)\s*\{/;
   const created = /super\.onCreate\([^)]*\)/;
   if (!signature.test(source) || !created.test(source)) throw new Error('Cannot install theme bootstrap in the generated MainActivity');
   return source.replace(signature, match => `${match}\n    // aiplayed-theme-bootstrap\n    ${helper}.restoreBeforeCreate(this)`)
-    .replace(created, match => `${match}\n    ${helper}.applyWindow(this)`);
+    .replace(created, match => `${match}\n    ${helper}.restoreAfterCreate(this)`);
 }
 module.exports = config => {
   config = withAndroidManifest(config, mod => {
