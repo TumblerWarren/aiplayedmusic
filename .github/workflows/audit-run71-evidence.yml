@@ -1,0 +1,35 @@
+name: Audit run 71 interaction failure evidence
+on:
+  push:
+    branches: [ci/verify-android12-only-20261022]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: android-interaction-evidence-v1.2.6
+          path: evidence
+          run-id: 39809400056
+          github-token: ${{ github.token }}
+      - name: Inspect the failed control and its scroll viewport
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+          for path in Path('evidence').rglob('result.json'):
+              data = json.loads(path.read_text())
+              print('RESULT', json.dumps({'passed': data.get('passed'), 'error': data.get('error'), 'checks': len(data.get('checks', [])), 'failures': data.get('failures')}))
+          for name in ['failure.xml', 'sound-rotary-controls.xml']:
+              for path in Path('evidence').rglob(name):
+                  print('TREE', name)
+                  root = ET.parse(path).getroot()
+                  for node in root.iter('node'):
+                      label = node.get('content-desc') or node.get('text', '')
+                      if node.get('scrollable') == 'true' or 'Bass' in label or 'knob-bass' in node.get('resource-id', '') or label in ['Sound studio', 'Open now playing', 'Play', 'Pause']:
+                          print(json.dumps(node.attrib, sort_keys=True))
+          PY
