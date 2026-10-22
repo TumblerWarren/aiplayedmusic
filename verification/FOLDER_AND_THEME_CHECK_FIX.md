@@ -94,3 +94,9 @@ The focused API31 final-path diagnostic 39779592279 passed Lyrics/phone playback
 Run 39778544244 passed compilation, Lint and package checks. Its interaction script passed folder navigation, compact spacing, the Settings-only switch and large-text/rotation checks, then failed to find Choose folder after reaching the lower Include subfolders row. The Settings search scrolled upward once and then changed to downward swipes for every remaining attempt. A target above multiple rows could never become visible.
 
 Choose folder now keeps its upward scroll direction until the row appears. The regression exercises the actual interaction-driver wait function with a clipped row that requires three upward gestures; it first reproduced Missing UI control: Choose folder on the old driver, then passed after the correction. Other Browse/Settings navigation and all validation assertions remain in place.
+
+## Complete Android 12 verification before the full rebuild
+
+At the user's request, the full pipeline for run 39783516772 was deliberately paused after successful APK assembly, Lint and package validation. Isolated run 39786995174 then tested that exact revision's retained APK on API31 with the complete, unmodified theme suite. It passed all 53 logged assertions, including all six theme/phone combinations, playable startup recordings, saved choices, search, every Browse destination, Sound, player colours and playback across Lyrics/phone changes. The final player return, System preference, open-sheet phone changes and large-text/rotation flow also completed successfully. Both sets of ten driver regressions passed before the device suite.
+
+This verifies the previously failing Android 12 job independently before starting another full production rebuild. The new production run still requires the complete interaction suite, API26/31/35 theme matrix and publication gates; the isolated success does not replace any release check.
