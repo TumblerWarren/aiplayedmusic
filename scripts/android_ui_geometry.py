@@ -31,12 +31,16 @@ def find_view(root, test_id):
                  and visible_bounds(node)), None)
 
 
-def scroll_gesture(root, reverse=False):
+def scroll_bounds(root):
     boxes = [visible_bounds(node) for node in root.iter('node') if node.get('scrollable') == 'true']
     boxes = [box for box in boxes if box and box[3] - box[1] > 100]
     if not boxes:
         raise AssertionError('No visible scrollable content')
-    left, top, right, bottom = max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
+    return max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
+
+
+def scroll_gesture(root, reverse=False):
+    left, top, right, bottom = scroll_bounds(root)
     x = round(left + (right - left) * .06)
     high = round(top + (bottom - top) * .25)
     low = round(top + (bottom - top) * .8)

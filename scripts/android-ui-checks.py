@@ -9,7 +9,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
-from android_ui_geometry import visible_bounds, scroll_gesture, find_folder_row, find_view
+from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, find_folder_row, find_view
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 OUT.mkdir(parents=True, exist_ok=True)
@@ -153,19 +153,26 @@ def artwork_style():
     assert len(styles) == 1 and styles[0] in ['pulse', 'wave', 'orbit'], 'Random artwork style is missing'
     return styles[0]
 
-def knob_node(name):
-    return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name) and bounds(n)[2]>bounds(n)[0] and bounds(n)[3]>bounds(n)[1]),None)
+def knob_node(name, root=None):
+    return find_view(tree() if root is None else root, 'knob-' + name)
 
 def visible_knob(name):
     for _ in range(10):
-        node=knob_node(name)
+        root = tree()
+        left, top, right, bottom = scroll_bounds(root)
+        node = knob_node(name, root)
         if node is not None:
-            box=bounds(node)
-            if box[1]>=300 and box[3]<=1150: return node
-            if box[1]<300: swipe(70,650,70,1000); continue
-        # Scroll in the page margin, outside every rotary face and precision button.
-        swipe(70,1300,70,800)
-    raise AssertionError('Rotary control not visible: '+name)
+            x1, y1, x2, y2 = bounds(node)
+            # Android can report a positive but cropped rectangle. Rotation
+            # requires the whole square face, not merely its visible fragment.
+            if left <= x1 < x2 <= right and top + 8 <= y1 < y2 <= bottom - 8 and abs((y2 - y1) - (x2 - x1)) <= 4:
+                return node
+        raw = next((n for n in root.iter('node') if n.get('resource-id', '').split(':id/')[-1] == 'knob-' + name), None)
+        box = list(map(int, re.findall(r'-?\d+', raw.get('bounds', '')))) if raw is not None else []
+        reverse = len(box) == 4 and box[1] <= top + 8
+        # Scroll inside the current viewport's margin, clear of every dial.
+        swipe(*scroll_gesture(root, reverse=reverse))
+    raise AssertionError('Rotary control not visible: ' + name)
 
 def knob_value(name):
     node=knob_node(name)

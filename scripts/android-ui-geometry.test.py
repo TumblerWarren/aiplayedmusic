@@ -3,7 +3,7 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
-from android_ui_geometry import visible_bounds, find_node, scroll_gesture, system_night, fixture_indexed, find_folder_row, find_view
+from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll_gesture, system_night, fixture_indexed, find_folder_row, find_view
 
 
 class GeometryChecks(unittest.TestCase):
@@ -77,6 +77,32 @@ class GeometryChecks(unittest.TestCase):
         with self.assertRaisesRegex(AssertionError, 'Folder did not open'):
             namespace['open_folder'](path, timeout=1)
         self.assertEqual(screenshots, ['folder-navigation-timeout'])
+
+    def test_rotary_navigation_scrolls_past_the_recorded_inverted_bass_bounds(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['bounds', 'knob_node', 'visible_knob']]
+        root = ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,350][1080,1484]">'
+            '<node resource-id="knob-bass" content-desc="Bass, 0.0 dB" range-current="0.0" bounds="[126,1718][462,1484]"/>'
+            '</node></hierarchy>')
+        swipes = []
+        def swipe(x1, y1, x2, y2, *args):
+            self.assertTrue(0 < x1 == x2 < 126, 'scroll in the margin, outside the rotary face')
+            self.assertTrue(350 < min(y1, y2) < max(y1, y2) < 1484)
+            swipes.append((x1, y1, x2, y2))
+            root[0][0].set('bounds', '[126,700][462,1036]')
+        namespace = dict(tree=lambda: root, visible_bounds=visible_bounds, find_view=find_view,
+            scroll_gesture=scroll_gesture, scroll_bounds=scroll_bounds, swipe=swipe, re=__import__('re'))
+        exec(compile(ast.Module(body=functions, type_ignores=[]), '<rotary navigation>', 'exec'), namespace)
+        self.assertIs(namespace['visible_knob']('bass'), root[0][0])
+        self.assertEqual(len(swipes), 1)
+        # The same control can be clipped above the viewport after restoring scroll.
+        root[0][0].set('bounds', '[126,350][462,120]')
+        self.assertIs(namespace['visible_knob']('bass'), root[0][0])
+        self.assertGreater(swipes[-1][3], swipes[-1][1])
+        # A partially visible, positive rectangle is still too short for a rotation.
+        root[0][0].set('bounds', '[126,1300][462,1484]')
+        self.assertIs(namespace['visible_knob']('bass'), root[0][0])
+        self.assertEqual(len(swipes), 3)
 
     def test_actual_os_mode_is_distinct_from_a_requested_setting(self):
         self.assertFalse(system_night('mNightMode=2 mCurUiMode=0x11'))

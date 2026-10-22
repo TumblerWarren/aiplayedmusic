@@ -32,3 +32,10 @@ The APK compiled, passed Lint/package checks, and passed random-artwork and paus
 Folder rows now expose the full path on the actionable button, and browser/picker screens have stable destination identifiers. The device test targets the clickable full-path row, waits for the expected folder screen, and re-reads/retries moved rows during scroll restoration. It no longer assumes a text tap opened the folder or that the asynchronous picker catalog is ready immediately. Settings checks scroll within measured content if needed.
 
 A new UI regression scans the same 52-song fixture hierarchy, navigates every ancestor and nested folder, verifies route restoration and checks 52 versus 0 recursive songs after changing the Settings-only toggle. A geometry regression distinguishes folder buttons from headings, similarly named paths and clipped rows. Local validation: all 69 JavaScript tests, 3 media-session checks and 7 geometry/navigation checks passed, as did Python syntax compilation and `git diff --check`. Android validation remains required in the rebuild; no validation gate has been bypassed.
+
+
+## Clipped rotary-control repair after run 39735488192
+
+The folder hierarchy, compact spacing, Settings-only toggle and picker A–Z checks all passed in this run. The next failure was in `knob_node`: it called the asserting `bounds()` helper on the offscreen Bass control. The log retains the exact inverted rectangle `[126,1718][462,1484]`. A matching accessibility ID does not establish a visible target.
+
+Knob lookup now uses the non-asserting visible-node finder. The driver scrolls within the measured Sound viewport and requires the full dial face before injecting a rotation. Inverted, wholly offscreen and partially clipped rectangles are scrolled into view rather than measured as interactive controls. The offline regression first reproduced the exact assertion from the log, then passed with the fix; it also exercises clipping above the viewport and a positive but cropped rectangle. All existing gesture/value/cancellation and release assertions remain enabled.
