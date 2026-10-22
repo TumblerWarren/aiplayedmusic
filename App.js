@@ -39,6 +39,7 @@ function MusicApp() {
   const [artBounds, setArtBounds] = useState({ width: 0, height: 0 });
   const artSize = Math.max(0, Math.min(370, artBounds.width, artBounds.height));
   const state = useMusicSlice('main');
+  const artworkVariant = useMemo(() => ['Pulse', 'Wave', 'Orbit'][Math.floor(Math.random() * 3)], [state.current?.id]);
   const active = useAppActive();
   const [soundTab, setSoundTab] = useState('Tone');
   const soundOffsets = useRef({});
@@ -266,7 +267,7 @@ function MusicApp() {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: [styles.pageHeader, styles.playerHeader] }, icon('chevron-down', () => navigateRoot('Library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
       h(View, { style: [styles.playerBody, landscape && { flexDirection: 'row', gap: 20 }] },
-        h(View, { style: styles.playerArtSpace, onLayout: ({ nativeEvent: { layout } }) => setArtBounds(previous => previous.width === layout.width && previous.height === layout.height ? previous : { width: layout.width, height: layout.height }) }, artSize > 0 && h(SwipeSurface, { testID: 'player-artwork-swipe', collapsable: false, accessible: true, accessibilityRole: 'image', accessibilityLabel: 'Album artwork', enabled: !!song && !sheet && !nameDialog, onAction: command }, h(PlayingArtwork, { playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.52, round: true })))),
+        h(View, { testID: 'player-artwork-space', style: styles.playerArtSpace, onLayout: ({ nativeEvent: { layout } }) => setArtBounds(previous => previous.width === layout.width && previous.height === layout.height ? previous : { width: layout.width, height: layout.height }) }, artSize > 0 && h(SwipeSurface, { testID: 'player-artwork-swipe', collapsable: false, accessible: true, accessibilityRole: 'image', accessibilityLabel: 'Album artwork', enabled: !!song && !sheet && !nameDialog, onAction: command }, h(PlayingArtwork, { variant: artworkVariant, playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.62 })))),
         h(View, { style: [styles.playerControls, landscape && { flex: 1, justifyContent: 'center' }] },
         h(View, { style: [styles.playerTitles, landscape && { marginTop: 0, marginBottom: 0 }] }, h(View, { style: { flex: 1, minWidth: 0 } }, text(song?.title || 'Choose a song', [styles.playerTitle, landscape && { fontSize: 16 }], { numberOfLines: 1, maxFontSizeMultiplier: 1.3 }), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', [styles.playerArtist, landscape && { fontSize: 12, marginTop: 2 }], { numberOfLines: 1, maxFontSizeMultiplier: 1.3 })), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26, { label: song && state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', filled: !!song && state.favorites.includes(String(song.id)) })),
         h(PlayerProgress, { key: song?.id, c, styles, landscape, command }),
@@ -278,6 +279,7 @@ function MusicApp() {
   } else if (page === 'settings') {
     content = h(View, { style: styles.flex }, header('Settings'), h(ScrollView, { contentContainerStyle: styles.settingsBody },
       text('LIBRARY', styles.section), groupRow('Choose folder', 'Select music folders on your phone', 'folder', chooseFolder, undefined, 'Choose folder'), groupRow('Scan for songs', scanning ? 'Scanning…' : `${songs.length} songs on this phone`, 'music', scan), groupRow('Filter audio files', 'Hide short clips and small audio files', 'filter', () => go('filters')), groupRow('Excluded folders', `${state.excludedCount || 0} folders hidden`, 'folder', () => go('filters')),
+      h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Include subfolders', styles.songTitle), text('Include songs in nested folders when playing a folder', styles.subtitle)), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
       text('PLAYBACK', styles.section), groupRow('Sound', 'Equalizer, boost, dynamics and playback', 'sliders', openSound), groupRow('Sleep timer', state.sleepRemaining ? 'Active' : 'Off', 'clock', timerSheet), groupRow('Playback speed', `${state.speed}×`, 'play', speedSheet),
       h(View, { style: styles.groupRow }, h(View, { style: styles.flex }, text('Pause when disconnected', styles.songTitle), text('Headphones and Bluetooth', styles.subtitle)), h(Switch, { value: state.pauseDisconnect, onValueChange: value => command('pauseDisconnect', { value }), trackColor: { false: c.track, true: accent }, accessibilityLabel: 'Pause when disconnected' })),
       text('APPEARANCE', styles.section), groupRow('Theme', state.theme, 'sun', themeSheet), text('ABOUT', styles.section), groupRow('Aiplayed', 'Version 1.2.6 · Your music, offline', 'music', () => Alert.alert('Aiplayed', 'An independent local music player inspired by Mi Music. No ads, streaming or accounts. Not affiliated with Xiaomi.')), groupRow('App permissions', 'Audio access and notifications', 'shield', () => Linking.openSettings()), groupRow('Clear listening history', 'Keeps music files and playlists', 'clock', () => Alert.alert('Clear listening history?', 'Recently played songs will be removed.', [{ text: 'Cancel' }, { text: 'Clear', onPress: () => command('clearHistory') }]))));
@@ -291,9 +293,7 @@ function MusicApp() {
     const folderControlStyle = [styles.listControls, { marginTop: 0, minHeight: 44, paddingLeft: 8 }];
     const actions = h(View, { style: { paddingBottom: 8 } },
       h(View, { style: folderControlStyle }, text('Folders and songs', styles.subtitle), h(View, { style: styles.flex }), sortControl()),
-      path && h(View, null,
-        h(View, { style: [...folderControlStyle, { gap: 12 }] }, text('Include subfolders', { flex: 1 }), h(Switch, { value: !!state.includeSubfolders, onValueChange: value => command('includeSubfolders', { value }), trackColor: { false: c.track, true: accent }, thumbColor: c.onAccent, accessibilityLabel: 'Include subfolders when playing' })),
-        h(View, { style: { marginTop: 4, marginBottom: 8 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs)))));
+      path && h(View, { style: { marginTop: 4, marginBottom: 8 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))));
     content = h(View, { style: styles.flex },
       browseHeader(path ? folderName(path) : 'Folders', path ? backFolder : null),
       h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,

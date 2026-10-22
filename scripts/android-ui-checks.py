@@ -9,6 +9,7 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
+from android_ui_geometry import visible_bounds, scroll_gesture
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 OUT.mkdir(parents=True, exist_ok=True)
@@ -43,13 +44,13 @@ def label(node):
     return node.get('content-desc') or node.get('text', '')
 
 def bounds(node):
-    values = list(map(int, re.findall(r'\d+', node.get('bounds', ''))))
-    assert len(values) == 4, node.attrib
-    return values
+    box = visible_bounds(node)
+    assert box is not None, node.attrib
+    return box
 
 def find(value, root=None):
     root = root if root is not None else tree()
-    return next((n for n in root.iter('node') if label(n) == value and len(re.findall(r'\d+', n.get('bounds',''))) == 4 and bounds(n)[2] > bounds(n)[0] and bounds(n)[3] > bounds(n)[1]), None)
+    return next((n for n in root.iter('node') if label(n) == value and visible_bounds(n)), None)
 
 def wait(value, timeout=40):
     end = time.monotonic() + timeout
@@ -61,9 +62,13 @@ def wait(value, timeout=40):
             return node
         if value in DESTINATIONS and find('Close', root) is not None:
             # The seven rows deliberately scroll on compact screens and large text.
-            if sheet_scrolls == 0: swipe(540, 1000, 540, 1600)
-            else: swipe(540, 1650, 540, 850)
-            sheet_scrolls += 1
+            # Rotation/font changes move the sheet. Keep both gesture ends
+            # inside its live ScrollView, away from the handle and backdrop.
+            try:
+                swipe(*scroll_gesture(root, reverse=sheet_scrolls == 0))
+                sheet_scrolls += 1
+            except AssertionError:
+                pass  # A fitting/non-scrolling sheet may still be animating in.
         time.sleep(.3)
     raise AssertionError('Missing UI control: ' + value)
 
@@ -93,7 +98,9 @@ def check(name, condition=True):
 
 def browse(destination):
     tap('+ Browse')
+    wait('Close')
     tap(destination)
+    assert wait_absent('Close'), 'Browse did not close after selecting ' + destination
     wait('+ Browse')
 
 def media_title():
@@ -108,6 +115,12 @@ def rail_bounds():
     a, z = find('Jump to A', root), find('Jump to Z', root)
     assert a is not None and z is not None, 'Alphabet rail is missing'
     return bounds(a), bounds(z)
+
+def artwork_style():
+    root = tree()
+    styles = [n.get('resource-id', '').split('artwork-animation-')[-1] for n in root.iter('node') if 'artwork-animation-' in n.get('resource-id', '') and visible_bounds(n)]
+    assert len(styles) == 1 and styles[0] in ['pulse', 'wave', 'orbit'], 'Random artwork style is missing'
+    return styles[0]
 
 def knob_node(name):
     return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name) and bounds(n)[2]>bounds(n)[0] and bounds(n)[3]>bounds(n)[1]),None)
@@ -241,6 +254,9 @@ try:
     swipe(x2-30,(y1+y2)/2,x1+30,(y1+y2)/2)
     check('Mini-player swipe advances exactly one track', media_title()!=initial)
     tap('Open now playing'); wait('NOW PLAYING'); shot('player')
+    selected_artwork_style = artwork_style()
+    (OUT/'artwork-style.json').write_text(json.dumps({'initial': selected_artwork_style}))
+    check('Full player displays a random artwork animation')
     current=media_title(); art=next((n for n in tree().iter('node') if n.get('resource-id','').endswith('player-artwork-swipe')),None)
     assert art is not None, 'Artwork gesture test target missing'
     x1,y1,x2,y2=bounds(art); cy=(y1+y2)/2
@@ -252,6 +268,12 @@ try:
     pause=wait('Pause'); x1,y1,x2,y2=bounds(pause)
     holding=subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000']);time.sleep(.15);shot('player-button-pressed',dump=False);holding.wait()
     if find('Play') is not None: tap('Play')
+    # Artwork/mini-player swipes above may have changed tracks; record the current style.
+    current_artwork_style = artwork_style()
+    tap('Pause'); wait('Play')
+    check('Pausing keeps the selected artwork style', artwork_style() == current_artwork_style)
+    tap('Play'); wait('Pause')
+    check('Resuming keeps the selected artwork style', artwork_style() == current_artwork_style)
     lyrics_track = media_title()
     tap('Lyrics'); wait('Choose lyrics file'); shot('lyrics-current-design')
     resumed = shell('dumpsys','activity','activities')
@@ -265,21 +287,26 @@ try:
     tap('Library') if find('Library') is not None else tap('chevron-down')
     for scale,rotation in [('1.6','0'),('1.6','1'),('1.0','0')]:
         shell('settings','put','system','font_scale',scale); shell('settings','put','system','user_rotation',rotation);time.sleep(1)
-        wait('+ Browse'); tap('+ Browse'); shot('browse-font-'+scale+'-rotation-'+rotation);tap('Close')
+        wait('+ Browse'); tap('+ Browse'); wait('Close'); shot('browse-font-'+scale+'-rotation-'+rotation); tap('Close')
+        assert wait_absent('Close'), 'Browse did not close after font/rotation check'
         check('Browse works with font '+scale+' rotation '+rotation, find('+ Browse') is not None)
     browse('Folders')
     for title in ['Internal storage', 'Music', 'AiplayedChecks']:
         tap(title)
     controls = bounds(wait('Folders and songs'))
-    subfolders = bounds(wait('Include subfolders'))
-    check('Nested folder controls have no leftover search-sized gap', 0 <= subfolders[1] - controls[3] < 108)
+    folder_play = next(n for n in tree().iter('node') if label(n).startswith('Play folder · ') and visible_bounds(n))
+    check('Nested folder controls have no leftover search-sized gap', 0 <= bounds(folder_play)[1] - controls[3] < 108)
+    check('Include subfolders is absent from folder screens', find('Include subfolders when playing') is None)
     shot('folders-expanded-compact-controls')
     expanded, _ = rail_bounds()
     swipe(70, 1300, 70, 800)
     collapsed, _ = rail_bounds()
     check('Folder search collapse expands the same alphabet rail', collapsed[1] < expanded[1])
     shot('folders-collapsed-no-gap')
-    tap('Settings'); tap('Choose folder'); wait('Close folder browser')
+    tap('Settings'); wait('Include subfolders when playing')
+    shot('settings-include-subfolders')
+    check('Include subfolders is available in Settings')
+    tap('Choose folder'); wait('Close folder browser')
     for path in ['/storage/emulated/0', '/storage/emulated/0/Music', '/storage/emulated/0/Music/AiplayedChecks']:
         root=tree(); row=next((n for n in root.iter('node') if label(n).startswith(path+', ')),None)
         assert row is not None, 'Folder picker path missing: '+path

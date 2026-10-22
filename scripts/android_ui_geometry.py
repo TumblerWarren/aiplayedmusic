@@ -14,14 +14,16 @@ def find_node(root, value):
     return exact if exact is not None else next((node for node in candidates if re.match(re.escape(value) + r'(?:[ ,\n]|$)', label(node))), None)
 
 
-def scroll_gesture(root):
+def scroll_gesture(root, reverse=False):
     boxes = [visible_bounds(node) for node in root.iter('node') if node.get('scrollable') == 'true']
     boxes = [box for box in boxes if box and box[3] - box[1] > 100]
     if not boxes:
         raise AssertionError('No visible scrollable content')
     left, top, right, bottom = max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
     x = round(left + (right - left) * .06)
-    return x, round(top + (bottom - top) * .8), x, round(top + (bottom - top) * .25)
+    high = round(top + (bottom - top) * .25)
+    low = round(top + (bottom - top) * .8)
+    return (x, high, x, low) if reverse else (x, low, x, high)
 
 
 def system_night(raw):

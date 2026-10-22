@@ -10,6 +10,16 @@ class GeometryChecks(unittest.TestCase):
         self.assertTrue(0 < x1 == x2 < 1080)
         self.assertTrue(242 < y2 < y1 < 1421)
 
+    def test_browse_gestures_follow_sheet_bounds_after_rotation_and_font_changes(self):
+        for box in ['[0,1150][1080,1800]', '[0,120][1920,900]', '[0,500][1080,1800]']:
+            root = ET.fromstring(f'<hierarchy><node content-desc="Drag down to close" bounds="[0,100][1080,200]"/><node scrollable="true" bounds="{box}"/></hierarchy>')
+            left, top, right, bottom = visible_bounds(root[1])
+            for reverse in [False, True]:
+                x1, y1, x2, y2 = scroll_gesture(root, reverse=reverse)
+                self.assertTrue(left < x1 == x2 < right)
+                self.assertTrue(top < min(y1, y2) < max(y1, y2) < bottom)
+                self.assertEqual(y1 < y2, reverse)
+
     def test_clipped_labels_cannot_match_or_be_tapped(self):
         root = ET.fromstring('<hierarchy><node text="Theme" bounds="[20,1648][600,1421]"/><node text="Theme" bounds="[20,-100][600,-20]"/><node text="Theme" bounds="[20,300][600,350]"/></hierarchy>')
         self.assertIsNone(visible_bounds(root[0]))
