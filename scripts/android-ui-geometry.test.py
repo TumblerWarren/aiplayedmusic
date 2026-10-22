@@ -7,6 +7,25 @@ from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll
 
 
 class GeometryChecks(unittest.TestCase):
+    def test_choose_folder_keeps_scrolling_up_past_multiple_settings_rows(self):
+        source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'find', 'wait']]
+        root = ET.fromstring('<hierarchy><node text="Settings" bounds="[52,95][744,177]"/>'
+            '<node scrollable="true" bounds="[0,242][1080,1421]"/>'
+            '<node content-desc="Choose folder" bounds="[20,-500][1000,-400]"/></hierarchy>')
+        clock = SimpleNamespace(seconds=0)
+        swipes = []
+        def swipe(x1, y1, x2, y2):
+            self.assertTrue(242 < y1 < y2 < 1421, 'keep scrolling toward the top until Choose folder appears')
+            swipes.append((x1, y1, x2, y2))
+            clock.seconds += .5
+            if len(swipes) == 3: root[-1].set('bounds', '[20,300][1000,440]')
+        namespace = dict(tree=lambda: root, visible_bounds=visible_bounds, scroll_gesture=scroll_gesture, swipe=swipe,
+            DESTINATIONS=[], time=SimpleNamespace(monotonic=lambda: clock.seconds, sleep=lambda seconds: setattr(clock, 'seconds', clock.seconds+seconds)))
+        exec(compile(ast.Module(body=functions, type_ignores=[]), '<settings navigation>', 'exec'), namespace)
+        self.assertIs(namespace['wait']('Choose folder', timeout=5), root[-1])
+        self.assertEqual(len(swipes), 3)
+
     def test_settings_swipe_stays_above_the_miniplayer(self):
         root = ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,242][1080,1421]"/><node content-desc="Open now playing" bounds="[74,1450][770,1576]"/></hierarchy>')
         x1, y1, x2, y2 = scroll_gesture(root)

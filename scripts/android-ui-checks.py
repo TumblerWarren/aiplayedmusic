@@ -71,7 +71,7 @@ def wait(value, timeout=40):
                 pass  # A fitting/non-scrolling sheet may still be animating in.
         elif value in ['Include subfolders when playing', 'Choose folder'] and find('Settings', root) is not None:
             try:
-                swipe(*scroll_gesture(root, reverse=sheet_scrolls == 0))
+                swipe(*scroll_gesture(root, reverse=value == 'Choose folder' or sheet_scrolls == 0))
                 sheet_scrolls += 1
             except AssertionError:
                 pass

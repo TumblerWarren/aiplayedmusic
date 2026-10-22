@@ -86,3 +86,11 @@ The API35 job passed all six theme/phone combinations, recordings, saved selecti
 Run 39770122788 passed the full build/interaction job and the complete API26 and API35 theme jobs. API31 also passed all six combinations, videos, saved selections, fixture playback, search, every Browse destination, Sound, player colours and playback across Lyrics/phone changes. The final System-theme step then failed to find Settings after a hardware Back injection. Saved XML inspected in run 39778031578 showed the full player still visible, with the actionable chevron-down at [32,79][158,205] and active playback. The driver had assumed a route change that did not occur.
 
 The theme driver now awaits Lyrics dismissal, taps that visible player return control and waits for the Library's Browse destination before accessing Settings. The separate interaction suite retains its hardware Back coverage. The offline regression exercises the actual driver against delayed modal dismissal, the recorded return-button bounds and delayed Library navigation; all ten theme-driver regressions pass. No application code or validation assertion is removed for this correction.
+
+The focused API31 final-path diagnostic 39779592279 passed Lyrics/phone playback, the Library return, System appearance and all large-text/rotation screenshots using the existing source-built APK.
+
+## Keep Settings scrolling toward Choose folder
+
+Run 39778544244 passed compilation, Lint and package checks. Its interaction script passed folder navigation, compact spacing, the Settings-only switch and large-text/rotation checks, then failed to find Choose folder after reaching the lower Include subfolders row. The Settings search scrolled upward once and then changed to downward swipes for every remaining attempt. A target above multiple rows could never become visible.
+
+Choose folder now keeps its upward scroll direction until the row appears. The regression exercises the actual interaction-driver wait function with a clipped row that requires three upward gestures; it first reproduced Missing UI control: Choose folder on the old driver, then passed after the correction. Other Browse/Settings navigation and all validation assertions remain in place.
