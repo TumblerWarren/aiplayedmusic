@@ -14,6 +14,8 @@ function fixSystemUI(source) {
 }
 
 if (require.main === module) {
+  if (!require('../package.json').expo?.autolinking?.android?.buildFromSource?.includes('expo-system-ui'))
+    throw new Error('expo-system-ui must build from source; a prebuilt AAR ignores the Android 8 patch.');
   const root = path.dirname(require.resolve('expo-system-ui/package.json'));
   const file = path.join(root, 'android/src/main/java/expo/modules/systemui/singletons/SystemUI.kt');
   const source = fs.readFileSync(file, 'utf8');

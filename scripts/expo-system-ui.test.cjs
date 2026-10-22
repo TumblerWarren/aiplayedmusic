@@ -20,6 +20,7 @@ test('an unexpected upstream theme implementation stops installation for review'
 test('installed Expo source is patched before native packaging', () => {
   const pkg = require('../package.json');
   assert.equal(pkg.scripts.postinstall, 'node scripts/fix-expo-system-ui.cjs');
+  assert(pkg.expo.autolinking.android.buildFromSource.includes('expo-system-ui'), 'Expo prebuilt modules ignore patched Kotlin source');
   let file;
   try { file = require.resolve('expo-system-ui/package.json'); } catch { return; }
   const path = require('node:path');
