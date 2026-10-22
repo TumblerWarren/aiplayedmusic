@@ -20,3 +20,6 @@ The interaction script used fixed Browse swipe coordinates `(540,1000) → (540,
 Include subfolders now appears once in Settings, retains the existing persisted native preference, and continues to control recursive folder playback. Folder roots and nested folders contain no copy of the toggle and no reserved row. The folder-spacing device assertion now measures from Folders and songs to Play folder.
 
 Validation: `npm run check`, `python scripts/media-session.test.py` (3 checks), `python scripts/android-ui-geometry.test.py` (5 checks), Python syntax compilation and `git diff --check` passed locally. The UI regression exercises both toggle values and verifies their native command payload. No Android SDK/emulator is installed in this workspace, so Android interaction and API26/31/35 theme validation remain pending. No APK was built or published for this change.
+
+
+The full-player vinyl artwork has also been replaced by random Pulse, Wave or Orbit animation, with no style preference UI. See [playback animation notes](../docs/PLAYBACK_ANIMATIONS.md) for design references, implementation and lifecycle coverage.

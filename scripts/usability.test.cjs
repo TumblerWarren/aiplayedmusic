@@ -11,9 +11,10 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   const { formatTime } = await import('../src/music.js');
   const { palette, tones } = await import('../src/design.js');
   const state = { theme: 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', current: { id: 1, title: 'Track', artist: 'Infra' }, sound: {} };
-  let darkTheme = false;
+  let darkTheme = false, artDraws = 0;
+  const artSamples = [0, .5, .99];
   const commands = [], shared = [];
-  const ui = harness('App.js', ['MusicApp'], { useTheme: () => palette(darkTheme), ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); }, shareSong: async raw => shared.push(JSON.parse(raw)) }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
+  const ui = harness('App.js', ['MusicApp'], { useTheme: () => palette(darkTheme), Math: Object.assign(Object.create(Math), { random: () => artSamples[artDraws++] }), ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); }, shareSong: async raw => shared.push(JSON.parse(raw)) }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
     useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
     useColorScheme: () => 'light', useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1 }), Platform: { OS: 'android', Version: 36 }, PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert() {} } });
   let tree = ui.render('MusicApp');
@@ -47,6 +48,18 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   assert(nodes(ui.render('MusicApp')).some(n => n.type === 'SoundStudio'), 'transport press must not open the player');
   nodes(tree).find(n => n.props.accessibilityLabel === 'Open now playing').props.onPress(); tree = ui.render('MusicApp');
   assert(!nodes(tree).some(n => n.props.accessibilityRole === 'tab'), 'full player stays immersive');
+  nodes(tree).find(n => n.props.testID === 'player-artwork-space').props.onLayout({ nativeEvent: { layout: { width: 300, height: 300 } } });
+  tree = ui.render('MusicApp');
+  assert.equal(nodes(tree).find(n => n.type === 'PlayingArtwork').props.variant, 'Pulse');
+  assert.equal(artDraws, 1, 'navigation, theme and layout changes retain the track animation');
+  const previousSong = state.current, previousCommands = commands.length;
+  state.current = { ...previousSong, id: 2 }; tree = ui.render('MusicApp');
+  assert.equal(nodes(tree).find(n => n.type === 'PlayingArtwork').props.variant, 'Wave', 'a new track randomly selects an animation');
+  assert.equal(artDraws, 2);
+  assert.equal(commands.length, previousCommands, 'artwork rendering does not issue playback commands');
+  state.current = previousSong; tree = ui.render('MusicApp');
+  assert.equal(nodes(tree).find(n => n.type === 'PlayingArtwork').props.variant, 'Orbit');
+  assert.equal(artDraws, 3);
   const beforeLyrics = commands.length;
   nodes(tree).find(n => n.props.accessibilityLabel === 'Lyrics').props.onPress(); tree = ui.render('MusicApp');
   const lyricsSheet = nodes(tree).find(n => n.type === 'Sheet');

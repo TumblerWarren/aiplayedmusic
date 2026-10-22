@@ -116,6 +116,12 @@ def rail_bounds():
     assert a is not None and z is not None, 'Alphabet rail is missing'
     return bounds(a), bounds(z)
 
+def artwork_style():
+    root = tree()
+    styles = [n.get('resource-id', '').split('artwork-animation-')[-1] for n in root.iter('node') if 'artwork-animation-' in n.get('resource-id', '') and visible_bounds(n)]
+    assert len(styles) == 1 and styles[0] in ['pulse', 'wave', 'orbit'], 'Random artwork style is missing'
+    return styles[0]
+
 def knob_node(name):
     return next((n for n in tree().iter('node') if n.get('resource-id','').endswith('knob-'+name) and bounds(n)[2]>bounds(n)[0] and bounds(n)[3]>bounds(n)[1]),None)
 
@@ -248,6 +254,9 @@ try:
     swipe(x2-30,(y1+y2)/2,x1+30,(y1+y2)/2)
     check('Mini-player swipe advances exactly one track', media_title()!=initial)
     tap('Open now playing'); wait('NOW PLAYING'); shot('player')
+    selected_artwork_style = artwork_style()
+    (OUT/'artwork-style.json').write_text(json.dumps({'initial': selected_artwork_style}))
+    check('Full player displays a random artwork animation')
     current=media_title(); art=next((n for n in tree().iter('node') if n.get('resource-id','').endswith('player-artwork-swipe')),None)
     assert art is not None, 'Artwork gesture test target missing'
     x1,y1,x2,y2=bounds(art); cy=(y1+y2)/2
@@ -259,6 +268,12 @@ try:
     pause=wait('Pause'); x1,y1,x2,y2=bounds(pause)
     holding=subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000']);time.sleep(.15);shot('player-button-pressed',dump=False);holding.wait()
     if find('Play') is not None: tap('Play')
+    # Artwork/mini-player swipes above may have changed tracks; record the current style.
+    current_artwork_style = artwork_style()
+    tap('Pause'); wait('Play')
+    check('Pausing keeps the selected artwork style', artwork_style() == current_artwork_style)
+    tap('Play'); wait('Pause')
+    check('Resuming keeps the selected artwork style', artwork_style() == current_artwork_style)
     lyrics_track = media_title()
     tap('Lyrics'); wait('Choose lyrics file'); shot('lyrics-current-design')
     resumed = shell('dumpsys','activity','activities')

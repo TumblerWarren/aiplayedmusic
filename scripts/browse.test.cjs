@@ -73,6 +73,7 @@ test('all seven Browse destinations select, dismiss and independently restore se
   assert.deepEqual(commands, [], 'opening or dismissing folder selection leaves playback unchanged');
   const subfolderSwitch = () => nodes(tree).filter(n => n.type === 'Switch' && n.props.accessibilityLabel === 'Include subfolders when playing');
   assert.equal(subfolderSwitch().length, 1, 'Settings contains the only subfolder toggle');
+  assert(!nodes(tree).some(n => n.children.includes('Playback animation')), 'artwork styles are automatic, with no Settings picker');
   for (const value of [true, false]) {
     state.includeSubfolders = !value; render();
     assert.equal(subfolderSwitch()[0].props.value, !value);

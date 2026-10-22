@@ -39,9 +39,11 @@ export function PlayingBars({ playing, color, size = 24 }) {
     ...values.map((value, i) => h(Animated.View, { key: i, style: { width: Math.max(2, size / 8), height: size * 0.85, borderRadius: 3, backgroundColor: color, transform: [{ scaleY: value }] } })));
 }
 
-export function PlayingArtwork({ playing, color, children, size }) {
+export function PlayingArtwork({ playing, color, children, size, variant = 'Pulse' }) {
   const c = useTheme();
+  const style = ['Pulse', 'Wave', 'Orbit'].includes(variant) ? variant : 'Pulse';
   const allowed = useMotionAllowed(playing);
+  const rotating = allowed && style === 'Orbit';
   const turn = useRef(new Animated.Value(0)).current;
   const glow = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -52,28 +54,28 @@ export function PlayingArtwork({ playing, color, children, size }) {
     if (allowed) loop.start();
     else glow.setValue(0);
     return () => loop.stop();
-  }, [allowed, glow]);
+  }, [allowed, style, glow]);
   useEffect(() => {
     let cancelled = false, loop;
     turn.stopAnimation(value => {
-      if (!allowed || cancelled) return;
+      if (!rotating || cancelled) return;
       // One complete revolution has the same visual orientation at the loop seam.
       loop = Animated.loop(Animated.timing(turn, { toValue: value + 1, duration: 14000, easing: Easing.linear, useNativeDriver: true, isInteraction: false }));
       loop.start();
     });
     return () => { cancelled = true; loop?.stop(); turn.stopAnimation(); };
-  }, [allowed, turn]);
-  const disc = size * 0.9;
-  return h(View, { style: { width: size, height: size, alignItems: 'center', justifyContent: 'center' } },
-    h(Animated.View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: glow.interpolate({ inputRange: [0, 1], outputRange: [0.07, 0.18] }), transform: [{ scale: glow.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] } }),
-    h(Animated.View, { style: { width: disc, height: disc, borderRadius: disc / 2, backgroundColor: c.vinyl, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] } },
-      ...[0.92, 0.84, 0.76, 0.68].map(scale => h(View, { key: scale, style: { position: 'absolute', width: disc * scale, height: disc * scale, borderRadius: disc, borderWidth: 1.2, borderColor: c.groove } })),
-      h(View, { style: { width: size * 0.52, height: size * 0.52, borderRadius: size, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' } }, children),
-      h(View, { pointerEvents: 'none', style: { position: 'absolute', width: size * 0.055, height: size * 0.055, borderRadius: size, backgroundColor: c.spindle, borderWidth: 2, borderColor: c.vinyl } })),
-    h(Animated.View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', width: size * 0.96, height: size * 0.96, opacity: playing ? 0.75 : 0, transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] }) }] } },
-      ...[{ left: '27%', top: '3%', scale: 1 }, { right: '13%', bottom: '14%', scale: 0.65 }].map(({ scale, ...position }, i) => h(View, { key: i, style: { position: 'absolute', ...position, width: Math.max(3, size * 0.025 * scale), height: Math.max(3, size * 0.025 * scale), borderRadius: size, backgroundColor: color } }))),
-    h(View, { pointerEvents: 'none', style: { position: 'absolute', right: size * 0.03, top: size * 0.03, width: size * 0.08, height: size * 0.38, borderRadius: 8, backgroundColor: c.tonearm, transform: [{ rotate: '25deg' }] } }),
-    h(View, { pointerEvents: 'none', style: { position: 'absolute', right: size * 0.045, top: size * 0.025, width: size * 0.09, height: size * 0.09, borderRadius: size, backgroundColor: color } }));
+  }, [rotating, style, turn]);
+  const circle = { position: 'absolute', width: size * .9, height: size * .9, borderRadius: size / 2 };
+  const breathing = glow.interpolate({ inputRange: [0, 1], outputRange: [.94, 1.04] });
+  return h(View, { testID: `artwork-animation-${style.toLowerCase()}`, collapsable: false, style: { width: size, height: size, alignItems: 'center', justifyContent: 'center' } },
+    style === 'Pulse' && [1, .84, .68].map((scale, i) => h(Animated.View, { key: i, pointerEvents: 'none', accessible: false, style: { ...circle, width: size * .9 * scale, height: size * .9 * scale, borderWidth: 2, borderColor: color, opacity: allowed ? glow.interpolate({ inputRange: [0, 1], outputRange: [.3 - i * .05, .08] }) : .12, transform: [{ scale: breathing }] } })),
+    style === 'Wave' && [-1, 0, 1].map((wave, i) => h(Animated.View, { key: i, pointerEvents: 'none', accessible: false, style: { ...circle, width: size * .8, height: size * (.38 + i * .1), backgroundColor: color, opacity: .08 + i * .04, transform: [{ rotate: `${wave * 24}deg` }, { scaleX: glow.interpolate({ inputRange: [0, 1], outputRange: [i % 2 ? .86 : 1, i % 2 ? 1 : .86] }) }, { translateY: glow.interpolate({ inputRange: [0, 1], outputRange: [-size * .025 * wave, size * .025 * wave] }) }] } })),
+    style === 'Orbit' && h(Animated.View, { pointerEvents: 'none', accessible: false, style: { ...circle, borderWidth: 1, borderColor: color, transform: [{ rotate: turn.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] } },
+      ...Array.from({ length: 6 }, (_, i) => {
+        const angle = i * Math.PI / 3, dot = size * (i % 2 ? .025 : .04);
+        return h(View, { key: i, style: { position: 'absolute', left: size * .45 * (1 + Math.cos(angle)) - dot / 2, top: size * .45 * (1 + Math.sin(angle)) - dot / 2, width: dot, height: dot, borderRadius: dot, backgroundColor: color } });
+      })),
+    h(Animated.View, { style: { width: size * .68, height: size * .68, borderRadius: size * .22, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, transform: style === 'Wave' ? [{ translateY: glow.interpolate({ inputRange: [0, 1], outputRange: [0, -size * .025] }) }] : [{ scale: !allowed ? 1 : breathing }] } }, children));
 }
 
 export function PlaybackRipple({ playing, color, children, maxScale = 1.4 }) {
