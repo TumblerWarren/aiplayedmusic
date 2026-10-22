@@ -204,8 +204,12 @@ def dismiss_playlist_dialog():
 
 def return_from_player():
     wait_absent('Close')
-    tap('chevron-down')
-    wait('+ Browse')
+    end = time.monotonic() + 20
+    while find('+ Browse') is None:
+        if find('chevron-down') is not None:
+            tap('chevron-down')
+        assert time.monotonic() < end, 'Player did not return to Library'
+        time.sleep(.3)
 
 recording = None
 try:
