@@ -32,7 +32,8 @@ public final class ModelGate extends Instrumentation {
                 p.getInt("segment_samples"), (float)p.getDouble("log_offset"), floats("window.f32"), floats("mel-filters.f32"));
             JSONArray names = new JSONArray(new String(bytes("golden.json"), java.nio.charset.StandardCharsets.UTF_8));
             JSONArray clips = new JSONArray();
-            try (Interpreter interpreter = new Interpreter(model, new Interpreter.Options().setNumThreads(2).setUseNNAPI(false))) {
+            long peakPssKiB = 0, peakNativeHeapBytes = 0;
+            try (Interpreter interpreter = new Interpreter(model, new Interpreter.Options().setNumThreads(2))) {
                 for (int i = 0; i < names.length(); i++) {
                     String name = names.getString(i), base = "golden/" + name;
                     float[] expected = floats(base + ".embedding.f32");
@@ -54,6 +55,10 @@ public final class ModelGate extends Instrumentation {
                     clip.put("clip", name).put("runtime_cosine", runtimeCosine).put("preprocessing_and_runtime_cosine", fullCosine)
                         .put("mel_max_absolute_error", maximumError).put("inference_ms", elapsed);
                     clips.put(clip);
+                    android.os.Debug.MemoryInfo memory = new android.os.Debug.MemoryInfo();
+                    android.os.Debug.getMemoryInfo(memory);
+                    peakPssKiB = Math.max(peakPssKiB, memory.getTotalPss());
+                    peakNativeHeapBytes = Math.max(peakNativeHeapBytes, android.os.Debug.getNativeHeapAllocatedSize());
                 }
             }
             JSONObject report = new JSONObject();
@@ -61,7 +66,7 @@ public final class ModelGate extends Instrumentation {
                 .put("sdk", android.os.Build.VERSION.SDK_INT).put("clips", clips)
                 .put("measurement_kind", "emulator; physical phone measurements pending")
                 .put("java_heap_bytes", Runtime.getRuntime().totalMemory() - Runtime.getRuntime().freeMemory())
-                .put("native_heap_bytes", android.os.Debug.getNativeHeapAllocatedSize());
+                .put("peak_native_heap_bytes", peakNativeHeapBytes).put("peak_process_pss_kib", peakPssKiB);
             try (java.io.FileOutputStream stream = getTargetContext().openFileOutput("android-parity.json", 0)) {
                 stream.write(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
