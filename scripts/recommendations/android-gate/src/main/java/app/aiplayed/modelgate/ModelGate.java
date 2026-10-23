@@ -36,7 +36,10 @@ public final class ModelGate extends Instrumentation {
                 for (int i = 0; i < names.length(); i++) {
                     String name = names.getString(i), base = "golden/" + name;
                     float[] expected = floats(base + ".embedding.f32");
-                    float[] logmel = transform.apply(floats(base + ".pcm.f32"));
+                    float[] sourcePcm = floats(base + ".source.f32");
+                    int sourceRate = Integer.parseInt(new String(bytes(base + ".source-rate.txt"), java.nio.charset.StandardCharsets.UTF_8));
+                    float[] pcm = SincResampler.apply(sourcePcm, sourceRate, p.getInt("sample_rate"));
+                    float[] logmel = transform.apply(pcm);
                     float[] referenceMel = floats(base + ".mel.f32");
                     require(logmel.length == referenceMel.length, "Spectrogram shape mismatch");
                     float maximumError = 0;

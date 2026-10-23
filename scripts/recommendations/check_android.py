@@ -10,7 +10,9 @@ def run(*args):
 
 out = Path('verification/recommendations')
 out.mkdir(parents=True, exist_ok=True)
-run('adb', 'install', '-r', 'scripts/recommendations/android-gate/build/outputs/apk/debug/android-gate-debug.apk')
+apks = list(Path('scripts/recommendations/android-gate/build/outputs/apk/debug').glob('*-debug.apk'))
+assert len(apks) == 1, f'Expected one validation APK: {apks}'
+run('adb', 'install', '-r', str(apks[0]))
 result = run('adb', 'shell', 'am', 'instrument', '-w', 'app.aiplayed.modelgate/app.aiplayed.modelgate.ModelGate')
 (out / 'instrumentation.txt').write_text(result)
 print(result)

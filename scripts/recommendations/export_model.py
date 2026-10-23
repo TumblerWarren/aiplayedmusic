@@ -120,33 +120,46 @@ def main():
     mel.spectrogram.window.numpy().astype('<f4').tofile(OUT / 'window.f32')
     mel.mel_scale.fb.numpy().astype('<f4').tofile(OUT / 'mel-filters.f32')
     vectors, exports, results, names = [], [], [], []
+    def check_clip(name, source_pcm, source_rate):
+        pcm = torchaudio.functional.resample(source_pcm, source_rate, mel.sample_rate)
+        pcm = pcm[:samples]
+        pcm = torch.nn.functional.pad(pcm, (0, max(0, samples - len(pcm))))
+        logmel = reference.preprocess(pcm).contiguous()
+        original = reference.get_embeddings(pcm).numpy().reshape(-1)
+        interpreter.set_tensor(inp['index'], logmel.numpy())
+        began = time.perf_counter()
+        interpreter.invoke()
+        elapsed = time.perf_counter() - began
+        exported = interpreter.get_tensor(output['index']).reshape(-1)
+        cosine = float(np.dot(original, exported) / (np.linalg.norm(original) * np.linalg.norm(exported)))
+        assert np.isfinite(exported).all() and cosine >= .999, (name, cosine)
+        results.append({'clip': name, 'cosine': cosine, 'inference_ms': elapsed * 1000})
+        vectors.append(original); exports.append(exported); names.append(name)
+        source_pcm.numpy().astype('<f4').tofile(golden_dir / (name + '.source.f32'))
+        (golden_dir / (name + '.source-rate.txt')).write_text(str(source_rate))
+        pcm.numpy().astype('<f4').tofile(golden_dir / (name + '.pcm.f32'))
+        logmel.numpy().astype('<f4').tofile(golden_dir / (name + '.mel.f32'))
+        original.astype('<f4').tofile(golden_dir / (name + '.embedding.f32'))
+
     with torch.inference_mode():
         for fixture in fixtures:
             base = 'https://librosa.org/data/audio/' + urllib.parse.quote(fixture['path'])
             audio = download(base + '.ogg', fixture_dir / (fixture['id'] + '.ogg'), fixture['sha256'])
             download(base + '.toml', OUT / (fixture['id'] + '-licence.toml'), fixture['licence_sha256'])
-            # Decode at the original rate; no codec backend or resampling hidden in inference.
             decoded, source_rate = sf.read(str(audio), dtype='float32', always_2d=True)
-            signal = torchaudio.functional.resample(torch.from_numpy(decoded.mean(axis=1)), source_rate, mel.sample_rate)
-            starts = sorted(set([0, max(0, (len(signal) - samples) // 2), max(0, len(signal) - samples)]))
+            signal = torch.from_numpy(decoded.mean(axis=1))
+            source_samples = 10 * source_rate
+            starts = sorted(set([0, max(0, (len(signal) - source_samples) // 2), max(0, len(signal) - source_samples)]))
             for section, offset in enumerate(starts):
-                pcm = signal[offset:offset + samples]
-                pcm = torch.nn.functional.pad(pcm, (0, max(0, samples - len(pcm))))
-                logmel = reference.preprocess(pcm).contiguous()
-                original = reference.get_embeddings(pcm).numpy().reshape(-1)
-                interpreter.set_tensor(inp['index'], logmel.numpy())
-                began = time.perf_counter()
-                interpreter.invoke()
-                elapsed = time.perf_counter() - began
-                exported = interpreter.get_tensor(output['index']).reshape(-1)
-                cosine = float(np.dot(original, exported) / (np.linalg.norm(original) * np.linalg.norm(exported)))
-                assert np.isfinite(exported).all() and cosine >= .999, (fixture['id'], section, cosine)
-                name = f"{fixture['id']}-{section}"
-                results.append({'clip': name, 'cosine': cosine, 'inference_ms': elapsed * 1000})
-                vectors.append(original); exports.append(exported); names.append(name)
-                pcm.numpy().astype('<f4').tofile(golden_dir / (name + '.pcm.f32'))
-                logmel.numpy().astype('<f4').tofile(golden_dir / (name + '.mel.f32'))
-                original.astype('<f4').tofile(golden_dir / (name + '.embedding.f32'))
+                check_clip(f"{fixture['id']}-{section}", signal[offset:offset + source_samples], source_rate)
+        # Padding, resampling and log-offset edge cases supplement held-out music.
+        generator = torch.Generator().manual_seed(1030)
+        for rate in (16000, 22050, 32000, 44100, 48000):
+            time_axis = torch.arange(rate // 4, dtype=torch.float32) / rate
+            signal = .1 * torch.sin(2 * torch.pi * 440 * time_axis) + .01 * torch.randn(len(time_axis), generator=generator)
+            check_clip(f'short-{rate}', signal, rate)
+        check_clip('silence', torch.zeros(samples), mel.sample_rate)
+        check_clip('one-sample', torch.tensor([.5]), mel.sample_rate)
     py, edge = np.stack(vectors), np.stack(exports)
     py /= np.linalg.norm(py, axis=1, keepdims=True)
     edge /= np.linalg.norm(edge, axis=1, keepdims=True)
