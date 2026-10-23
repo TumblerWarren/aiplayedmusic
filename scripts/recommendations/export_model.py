@@ -65,7 +65,8 @@ def main():
             return self.backbone(logmel).reshape(1, 960)
 
     embedding = EmbeddingOnly().eval().float()
-    with torch.inference_mode():
+    embedding.requires_grad_(False)
+    with torch.no_grad():
         example = reference.preprocess(torch.zeros(samples)).contiguous()
     import litert_torch
     start = time.perf_counter()
