@@ -64,8 +64,9 @@ as a prerelease with latest disabled. The bundle SHA-256 is
 `d182eab57b78249da4529448d7aac29717c22b6c4930a8906ed064abab84753b`.
 Its exported FP32 model is **11,979,512 bytes**. Python/export minimum cosine was
 0.99999988; Android native preprocessing/runtime minimum cosine exceeded
-0.999999997 across 29 inputs. An independent Android 35 native run passed 35 checks covering SQLite,
-content-URI inference and real playback-service sessions. The Java behavior
+0.999999997 across 29 inputs. An independent Android 35 native run passed 42 checks covering SQLite,
+content-URI inference, real playback-service sessions, charging constraints,
+manual playback priority, cancellation and battery-temperature recovery. The Java behavior
 suite passed 107 checks, and the real Expo Kotlin/Java bridge compiled with
 LiteRT 2.3.0 isolated in a Java library to avoid incompatible Kotlin metadata. Physical-phone measurements remain pending.
 
@@ -121,3 +122,21 @@ Embeddings remain in private native SQLite. React receives status and fixed mix
 metadata only. Paused selections with zero played duration carry no negative or
 recency signal. Open sessions can affect recency only after actual playback;
 positive contributions require a closed session with sustained listening.
+
+Charging requires a connected power source as well as charging/full battery
+status. Manual analysis rechecks battery-temperature pauses every ten seconds
+while the app remains foregrounded; it does not depend on a thermal callback.
+Every native Gradle build runs the pinned artifact fetch/verification task,
+including direct Expo/EAS builds. This task runs only on the build host.
+
+## APK footprint
+
+The initial universal v1.3.0 candidate packaged at 102,706,569 bytes, an increase
+of 31,170,951 bytes over the published 71,535,618-byte v1.2.6 APK. The FP32 model
+accounts for 11,979,512 bytes. Standalone LiteRT native libraries account for
+18,431,900 bytes across ARMv7, ARM64 and x86_64 together; runtime Java APIs,
+WorkManager and other code/resources account for the remaining increase. These
+are uncompressed APK entries. See
+`verification/recommendations/apk-size-initial-candidate.json`; the final build
+produces its own exact size report. The 20 MB ceiling applies to the model file,
+not to the complete application or all runtime ABIs combined.

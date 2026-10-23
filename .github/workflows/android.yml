@@ -75,6 +75,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: native-v2-${{ runner.os }}-${{ hashFiles('package.json', 'modules/**/android/build.gradle', 'modules/**/android/src/main/java/**') }}
+          restore-keys: native-v2-${{ runner.os }}-
           path: |
             node_modules/**/android/.cxx/
             node_modules/**/android/build/intermediates/cxx/
@@ -172,7 +173,7 @@ jobs:
         run: |
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
             if test -f /etc/apt/sources.list.d/ubuntu.sources; then
-              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+              sudo sed -i -e 's|http://|https://|g' -e 's|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
             fi
             sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq
             sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg

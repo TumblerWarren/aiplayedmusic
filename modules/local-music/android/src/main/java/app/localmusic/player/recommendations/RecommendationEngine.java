@@ -34,7 +34,7 @@ public final class RecommendationEngine {
     private final Object eventLock=new Object();
     private volatile int[] counts=new int[]{0,0,0};
     private volatile String error="";
-    private boolean eventPending;
+    private boolean eventPending, coolingCheckPending;
     private RecommendationEngine(Context context){
         this.context=context;library=new Library(context);prefs=context.getSharedPreferences("personal-mixes",0);store=new RecommendationStore(context);
         if(ModelRuntime.MODEL_SHA.equals(prefs.getString("modelFailure","")))error="Audio analysis couldn’t start. Try Analyse now again.";else prefs.edit().remove("modelFailure").apply();
@@ -58,7 +58,14 @@ public final class RecommendationEngine {
         manual.execute(()->{if(retryFailed)store.retryFailed();run(true,()->false);});emit();
     }
     public void pause(){manualRequested=false;prefs.edit().putBoolean("paused",true).apply();generation.incrementAndGet();WorkManager.getInstance(context).cancelUniqueWork(AUTO_WORK);emit();}
-    private void resumeManual(){if(manualRequested&&foreground&&!playback&&!running&&enabled()&&!hot())manual.execute(()->run(true,()->false));}
+    private void resumeManual(){
+        if(!manualRequested||!foreground||playback||running||!enabled())return;
+        if(hot()){
+            // Battery-temperature fallback has no PowerManager thermal callback, especially on API 26.
+            synchronized(eventLock){if(coolingCheckPending)return;coolingCheckPending=true;}
+            handler.postDelayed(()->{synchronized(eventLock){coolingCheckPending=false;}resumeManual();emit();},10000);
+        }else manual.execute(()->run(true,()->false));
+    }
     private void schedule(){
         if(!enabled()||prefs.getBoolean("paused",false)||prefs.contains("modelFailure"))return;
         Constraints constraints=new Constraints.Builder().setRequiresCharging(true).setRequiresBatteryNotLow(true).build();
@@ -113,7 +120,7 @@ public final class RecommendationEngine {
     }
     private boolean chargingAndBatteryOk(){Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));if(battery==null)return false;
         int status=battery.getIntExtra(BatteryManager.EXTRA_STATUS,-1),level=battery.getIntExtra(BatteryManager.EXTRA_LEVEL,0),scale=battery.getIntExtra(BatteryManager.EXTRA_SCALE,100);
-        return (status==BatteryManager.BATTERY_STATUS_CHARGING||status==BatteryManager.BATTERY_STATUS_FULL)&&level*100/Math.max(1,scale)>15;
+        return battery.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)>0&&(status==BatteryManager.BATTERY_STATUS_CHARGING||status==BatteryManager.BATTERY_STATUS_FULL)&&level*100/Math.max(1,scale)>15;
     }
     private boolean batteryLow(){Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return battery!=null&&battery.getIntExtra(BatteryManager.EXTRA_LEVEL,100)*100/Math.max(1,battery.getIntExtra(BatteryManager.EXTRA_SCALE,100))<=15;}
     private boolean hot(){if(Build.VERSION.SDK_INT>=29&&((PowerManager)context.getSystemService(Context.POWER_SERVICE)).getCurrentThermalStatus()>=PowerManager.THERMAL_STATUS_MODERATE)return true;
@@ -130,7 +137,7 @@ public final class RecommendationEngine {
     public JSONObject status(){
         JSONObject out=new JSONObject();int[] c=counts;
         String reason=!enabled()?"disabled":prefs.getBoolean("paused",false)?"paused_user":!error.isEmpty()?"error":c[0]==0?"empty":c[0]==c[1]+c[2]?"ready":playback?"paused_playback":hot()?"paused_thermal":running?"analysing":manualRequested&&!foreground?"waiting_foreground":c[0]==c[1]+c[2]?"ready":!chargingAndBatteryOk()?(batteryLow()?"waiting_battery":"waiting_charging"):"waiting";
-        try{out.put("enabled",enabled()).put("state",reason).put("eligible",c[0]).put("analysed",c[1]).put("failed",c[2]).put("running",running).put("error",error)
+        try{out.put("enabled",enabled()).put("state",reason).put("eligible",c[0]).put("analysed",c[1]).put("failed",c[2]).put("running",running).put("error",error).put("historyVersion",historyGeneration.get())
             .put("mixesAvailable",c[1]>0&&(c[1]>=10||(c[0]<10&&c[0]==c[1]+c[2])));}catch(JSONException impossible){throw new IllegalStateException(impossible);}return out;
     }
     public void emit(){synchronized(eventLock){if(eventPending)return;eventPending=true;}handler.postDelayed(()->{

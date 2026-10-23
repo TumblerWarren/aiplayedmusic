@@ -1,0 +1,12 @@
+{
+  "run_id": 39933073079,
+  "job_id": 120345859756,
+  "source": "qa/offline-personal-mixes@e9df5794edac25e2616830e2eb00662aaedfb81c",
+  "passed": true,
+  "checks": 42,
+  "sdk": 35,
+  "device": "sdk_gphone64_x86_64",
+  "kind": "emulator",
+  "physical_phone": false,
+  "model_sha256": "b71333936779151d44e6b6e90e97af6729bc6f1c7f69a901b1a4d3881abb4723"
+}

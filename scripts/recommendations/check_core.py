@@ -23,7 +23,10 @@ for permission in ['READ_MEDIA_AUDIO', 'POST_NOTIFICATIONS']:
 result = run('adb', 'shell', 'am', 'instrument', '-r', '-w', 'app.aiplayed.modelgate/app.aiplayed.modelgate.CoreGate')
 (out / 'instrumentation.txt').write_text(result)
 print(result)
-(out / 'logcat.txt').write_text(run('adb', 'logcat', '-d'))
+logcat=run('adb', 'logcat', '-d')
+(out / 'logcat.txt').write_text(logcat)
+if 'INSTRUMENTATION_CODE: -1' not in result:
+    print('\n'.join(line for line in logcat.splitlines() if 'AndroidRuntime' in line)[-12000:])
 assert 'INSTRUMENTATION_CODE: -1' in result
 report = run('adb', 'exec-out', 'run-as', 'app.aiplayed.modelgate', 'cat', 'files/core-gate.json')
 (out / 'core-gate.json').write_text(report)

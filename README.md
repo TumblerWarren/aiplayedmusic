@@ -32,7 +32,10 @@ New releases derive their tag, APK name and evidence directory from `package.jso
 
 ## Development
 
-Use Node.js 22.13+ and a full JDK 17, plus Android Studio / Android SDK 36:
+Use Node.js 22.13+, Python 3, a full JDK 17 and Android Studio / Android SDK 36.
+Every native build fetches the pinned FP32 model on the build host, checks its
+checksum and bundles it. Subsequent builds verify the cached bundle. The phone
+never downloads it:
 
 ```sh
 npm install
@@ -78,6 +81,6 @@ python scripts/android-theme-driver.test.py
 
 The released v1.2.6 APK passed native compilation, Android Lint, signing/branding/offline checks, 61 interaction assertions and 63 theme assertions on each of API26/31/35. Its formerly failing Sound path also passed three fresh-data repetitions. See [current verification status](verification/STATUS.txt) and [the test validity audit](verification/TEST_VALIDITY_AUDIT.md).
 
-To check an existing APK on a configured emulator, build the independent inspector with `python scripts/build-ui-helper.py`, then run `python scripts/android-ui-checks.py --apk /path/to/app.apk`. For the isolated Sound path, append `--scenario sound --repeat 3`; this clears app data and is emulator-only. The scripts require Android SDK tools, Java, FFmpeg/FFprobe and Python; theme checks also require Pillow. The API35 interaction fixture is calibrated to a 1080×1920, density-420 emulator. Theme checks use `python scripts/android-theme-checks.py --apk /path/to/app.apk` on API26/31/35. Neither script compiles the application.
+To check an existing APK on a configured emulator, build the independent inspector with `python scripts/build-ui-helper.py`, then run `python scripts/android-ui-checks.py --apk /path/to/app.apk`. For the isolated Sound path, append `--scenario sound --repeat 3`; for the personal-mix path use `--scenario recommendations`. Both focused modes clear app data and are emulator-only. The scripts require Android SDK tools, Java, FFmpeg/FFprobe and Python; theme checks also require Pillow. The API35 interaction fixture is calibrated to a 1080×1920, density-420 emulator. Theme checks use `python scripts/android-theme-checks.py --apk /path/to/app.apk` on API26/31/35. Neither script compiles the application.
 
 Physical-device playback, Bluetooth/headset controls, listening quality and performance measurements remain pending in [the device checklist](verification/DEVICE_CHECKLIST.md). [Verification records](verification/README.md) distinguish current evidence from historical reviews.

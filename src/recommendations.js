@@ -21,10 +21,14 @@ export function createRecommendationStore(api) {
     loadingMixes = true;
     const token = generation;
     try { const mixes = parse(await api.recommendationMixes(refresh)); if (token === generation) update({ mixes }); }
-    finally { loadingMixes = false; }
+    finally {
+      loadingMixes = false;
+      if (token !== generation && value.status.enabled && value.status.mixesAvailable) loadMixes(false).catch(error => update({ error: error.message }));
+    }
   };
   const accept = raw => {
     const status = parse(raw);
+    if (status.historyVersion !== value.status.historyVersion) { generation++; update({ mixes: [] }); }
     if (!status.enabled) { generation++; update({ status, mixes: [], loaded: true }); }
     else { if (!status.mixesAvailable) { generation++; update({ mixes: [] }); } update({ status, loaded: true }); if (status.mixesAvailable && !value.mixes.length && !loadingMixes) loadMixes(false).catch(error => update({ error: error.message })); }
   };

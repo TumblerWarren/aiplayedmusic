@@ -75,3 +75,20 @@ test('For You opt-in, fixed previews, saving and settings fit both themes withou
     assert(button.props.disabled && button.props.accessibilityState.disabled && button.props.style.minHeight >= 48);
   }
 });
+
+
+test('clearing listening history replaces stale visible profiles even during mix retrieval', async () => {
+  const { createRecommendationStore } = await import('../src/recommendations.js');
+  let listener, resolveOld, requests = 0;
+  const ready = { enabled: true, mixesAvailable: true, analysed: 12, eligible: 12, historyVersion: 0 };
+  const api = { addListener: (name, callback) => { listener = callback; return { remove() {} }; },
+    recommendationStatus: async () => JSON.stringify(ready),
+    recommendationMixes: () => ++requests === 1 ? new Promise(resolve => { resolveOld = resolve; }) : Promise.resolve(JSON.stringify([{ id: 'fresh-profile' }])) };
+  const store = createRecommendationStore(api), stop = store.start(); await flush();
+  listener({ json: JSON.stringify({ ...ready, historyVersion: 1 }) });
+  resolveOld(JSON.stringify([{ id: 'old-listening-profile' }])); await flush(); await flush();
+  assert.equal(requests, 2, 'a reset starts a fresh retrieval after the stale request finishes');
+  assert.deepEqual(store.getSnapshot().mixes, [{ id: 'fresh-profile' }]);
+  assert.equal(store.getSnapshot().status.analysed, 12, 'clearing listening signals retains audio analysis');
+  stop();
+});

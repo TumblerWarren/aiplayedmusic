@@ -59,6 +59,7 @@ public final class CoreGate extends Instrumentation {
    check(TasteRanker.cosine(TasteRanker.normalize(actual),TasteRanker.normalize(expected))>=.999,"Content URI decode through native preprocessing and FP32 runtime preserves embeddings");
   }
   playbackSessions(context);
+  analysisLifecycle(context);
   JSONObject report=new JSONObject().put("passed",true).put("checks",checks).put("sdk",android.os.Build.VERSION.SDK_INT).put("device",android.os.Build.MODEL).put("model_sha256",ModelRuntime.MODEL_SHA);
   try(FileOutputStream out=context.openFileOutput("core-gate.json",0)){out.write(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
   result.putString("stream",report.toString());finish(-1,result);
@@ -102,6 +103,36 @@ public final class CoreGate extends Instrumentation {
    onMain(()->service.play(Collections.singletonList(missing),0));Thread.sleep(1500);drain(engine);
    check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='error' AND early_next=0"))>0,"Playback failure is recorded without dislike");
   }finally{onMain(service::pause);engine.setEnabled(false);context.unbindService(connection);context.stopService(new Intent(context,PlaybackService.class));}
+ }
+ private void analysisLifecycle(Context context)throws Exception{
+  RecommendationEngine engine=RecommendationEngine.get(context);
+  try{
+   command("dumpsys battery unplug");command("dumpsys battery set temp 250");
+   engine.clearAnalysis().get();engine.setEnabled(true);engine.foreground(true);drain(engine);
+   check(engine.status().getInt("eligible")>=2,"Resumable analysis sees the MediaStore library");
+   check(!engine.run(false,()->false),"Automatic analysis respects the charging constraint");
+   engine.playback(true);engine.analyse(false);Thread.sleep(300);
+   check(engine.status().getInt("analysed")==0&&"paused_playback".equals(engine.status().getString("state")),"Manual analysis gives active playback priority");
+   engine.pause();engine.playback(false);command("dumpsys battery set temp 450");engine.analyse(false);Thread.sleep(300);
+   check(engine.status().getInt("analysed")==0&&"paused_thermal".equals(engine.status().getString("state")),"Battery temperature pauses manual analysis");
+   command("dumpsys battery set temp 250");
+   long deadline=android.os.SystemClock.elapsedRealtime()+40000;
+   while(engine.status().getInt("analysed")<2&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(200);
+   check(engine.status().getInt("analysed")>=2,"Manual analysis resumes after the battery cools without a foreground or playback transition");
+   engine.clearAnalysis().get();engine.setEnabled(true);drain(engine);command("dumpsys battery set ac 1");command("dumpsys battery set status 2");
+   long chargingDeadline=android.os.SystemClock.elapsedRealtime()+10000;
+   while(android.os.SystemClock.elapsedRealtime()<chargingDeadline){
+    Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+    if(battery!=null&&battery.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED,0)>0&&battery.getIntExtra(android.os.BatteryManager.EXTRA_STATUS,0)==android.os.BatteryManager.BATTERY_STATUS_CHARGING)break;
+    Thread.sleep(100);
+   }
+   check(!engine.run(false,()->true),"Work cancellation leaves audio pending for recovery");
+   boolean completed=engine.run(false,()->false);
+   check(completed&&engine.status().getInt("analysed")>=2,"Charging analysis resumes and completes pending files: completed="+completed+" status="+engine.status());
+  }finally{engine.pause();engine.setEnabled(false);command("dumpsys battery reset");}
+ }
+ private void command(String value)throws Exception{
+  try(android.os.ParcelFileDescriptor descriptor=getUiAutomation().executeShellCommand(value);InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}
  }
  private void onMain(Runnable action){
   java.util.concurrent.atomic.AtomicReference<Throwable> failure=new java.util.concurrent.atomic.AtomicReference<>();
