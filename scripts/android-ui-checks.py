@@ -16,7 +16,7 @@ OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())
 PKG = 'app.localmusic.player'
 results = []
 failures = []
-DESTINATIONS = ['Songs','Albums','Artists','Folders','Playlists','Favourites','Recently played']
+DESTINATIONS = ['Songs','For You','Albums','Artists','Folders','Playlists','Favourites','Recently played']
 
 def adb(*args, check=True, timeout=40):
     return subprocess.run(['adb', *map(str, args)], check=check, capture_output=True, timeout=timeout)
@@ -67,7 +67,7 @@ def wait(value, timeout=40):
         if node is not None:
             return node
         if value in DESTINATIONS and find('Close', root) is not None:
-            # The seven rows deliberately scroll on compact screens and large text.
+            # Browse rows deliberately scroll on compact screens and large text.
             # Rotation/font changes move the sheet. Keep both gesture ends
             # inside its live ScrollView, away from the handle and backdrop.
             try:
@@ -220,7 +220,7 @@ def check_full_interactions():
     holding = subprocess.Popen(['adb','shell','input','swipe',str((x1+x2)//2),str((y1+y2)//2),str((x1+x2)//2),str((y1+y2)//2),'1000'])
     time.sleep(.15); shot('browse-pressed', dump=False); holding.wait()
     if find('Close') is not None: tap('Close')
-    for destination in ['Songs','Albums','Artists','Folders','Playlists','Favourites','Recently played']:
+    for destination in ['Songs','For You','Albums','Artists','Folders','Playlists','Favourites','Recently played']:
         browse(destination); tap('+ Browse')
         option = wait(destination)
         check(destination+' is selected in Browse', option.get('selected') == 'true')
@@ -366,6 +366,59 @@ def check_sound_controls():
     shot('sound-rotary-saved')
 
 
+def mix_control(value, timeout=60, reverse=False):
+    end=time.monotonic()+timeout
+    moves=0
+    while time.monotonic()<end:
+        root=tree();node=find(value,root)
+        if node is not None:return node
+        try:swipe(*scroll_gesture(root,reverse=reverse if moves<3 else not reverse))
+        except AssertionError:pass
+        moves=(moves+1)%6
+        time.sleep(.5)
+    raise AssertionError('Missing personal mix control: '+value)
+
+
+def check_personal_mixes():
+    # Unplug only the emulator: manual analysis must work without charging.
+    shell('dumpsys','battery','unplug')
+    try:
+        tap('Library');browse('For You');wait('Enable personal mixes')
+        initial=media_title();tap('Enable personal mixes')
+        wait('Paused while music plays')
+        check('Enabling local mixes preserves playback',is_playing(shell('dumpsys','media_session')) and media_title()==initial)
+        tap(mix_control('Analyse now'))
+        check('Manual analysis waits for playback priority',find('Paused while music plays') is not None)
+        tap('Pause')
+        tap(mix_control('Preview your mix 1',timeout=180))
+        check('Partial analysis exposes a mix preview',find('Hide songs') is not None)
+        shot('for-you-partial-preview')
+        tap(mix_control('Play your mix 1',reverse=True));wait('Pause');title=media_title()
+        tap(mix_control('Refresh suggestions',reverse=True));time.sleep(.5)
+        check('Refreshing suggestions preserves the playing song',is_playing(shell('dumpsys','media_session')) and media_title()==title)
+        tap(mix_control('Save as playlist'))
+        wait('Playlist name');tap('Playlist name');shell('input','keycombination','113','29');shell('input','keyevent','67');shell('input','text','OfflineMix');shell('input','keyevent','4')
+        tap(mix_control('Save playlist'))
+        assert wait_absent('Playlist name'),'Saving a personal mix did not close the dialog'
+        browse('Playlists');wait('OfflineMix')
+        check('A personal mix saves as an ordinary playlist')
+        browse('For You')
+        for scale,rotation in [('1.6','0'),('1.6','1'),('1.0','0')]:
+            shell('settings','put','system','font_scale',scale);shell('settings','put','system','user_rotation',rotation);time.sleep(1)
+            tap(mix_control('Refresh suggestions',reverse=True));shot('for-you-font-'+scale+'-rotation-'+rotation)
+            check('For You refresh remains accessible at font '+scale+' rotation '+rotation,media_title()==title)
+        tap('Settings');tap(mix_control('Personal mixes'))
+        wait('Enable personal mixes')
+        check('Settings exposes recommendation opt-in and analysis controls',find('Enable personal mixes') is not None)
+        tap(mix_control('Delete audio analysis'));wait('Delete');tap('Delete');time.sleep(1)
+        mix_control('Personal mixes are off',reverse=True)
+        check('Deleting analysis switches personal mixes off')
+        tap('Library');browse('Playlists');wait('OfflineMix')
+        check('Deleting analysis retains saved playlists')
+    finally:
+        shell('dumpsys','battery','reset',check=False)
+
+
 def play_sound_fixture():
     end = time.monotonic() + 45
     while True:
@@ -430,6 +483,7 @@ def run_checks(apk, scenario='all'):
         else:
             play_sound_fixture()
         check_sound_controls()
+        if scenario == 'all': check_personal_mixes()
         assert not failures, '; '.join(failures)
         (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
     except Exception as error:

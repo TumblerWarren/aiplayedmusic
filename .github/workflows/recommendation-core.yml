@@ -3,11 +3,17 @@ on:
   push:
     branches: [feat/offline-personal-mixes]
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      called_for_apk:
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
 jobs:
   core:
-    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[verify mixes]')
+    if: inputs.called_for_apk || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[verify mixes]')
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -29,6 +35,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+          cache-read-only: false
       - name: Focused JS and native logic checks
         run: |
           npm run check

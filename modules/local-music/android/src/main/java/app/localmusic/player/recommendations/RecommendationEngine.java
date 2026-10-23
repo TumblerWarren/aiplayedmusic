@@ -126,7 +126,7 @@ public final class RecommendationEngine {
     }
     public static String fingerprint(Song song){return digest(song.uri()+"|"+song.path+"|"+song.size+"|"+song.modified+"|"+song.duration+"|"+ModelRuntime.MODEL_SHA+"|"+ModelRuntime.PREPROCESS_VERSION);}
     private Song findEligible(long id){return library.eligible(context,id);}
-    public static long[] sections(long duration){long last=Math.max(0,duration-10000);TreeSet<Long> values=new TreeSet<>(Arrays.asList(0L,last/2,last));return values.stream().mapToLong(Long::longValue).toArray();}
+    public static long[] sections(long duration){if(duration<20000)return new long[]{0};if(duration<30000)return new long[]{0,duration-10000};long last=Math.max(0,duration-10000);TreeSet<Long> values=new TreeSet<>(Arrays.asList(0L,last/2,last));return values.stream().mapToLong(Long::longValue).toArray();}
     public JSONObject status(){
         JSONObject out=new JSONObject();int[] c=counts;
         String reason=!enabled()?"disabled":prefs.getBoolean("paused",false)?"paused_user":!error.isEmpty()?"error":c[0]==0?"empty":c[0]==c[1]+c[2]?"ready":playback?"paused_playback":hot()?"paused_thermal":running?"analysing":manualRequested&&!foreground?"waiting_foreground":c[0]==c[1]+c[2]?"ready":!chargingAndBatteryOk()?(batteryLow()?"waiting_battery":"waiting_charging"):"waiting";

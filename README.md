@@ -4,6 +4,8 @@ A local music player inspired by Mi Music, built with **Expo SDK 56 and React Na
 
 **Current release:** [Aiplayed v1.2.6 APK](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk), Android version code **9**. [Release notes and checksum](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.6). The previous stable [v1.2.5](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.5) is retained.
 
+The v1.3.0 candidate adds offline personal mixes using a bundled, validated S-SONDO FP32 model. See [implementation and validation](docs/offline-personal-mixes.md). The published v1.2.6 APK remains available.
+
 Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. There is no animation style setting.
 
 Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and measurement plan](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).

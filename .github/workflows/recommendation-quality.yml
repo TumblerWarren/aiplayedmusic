@@ -1,0 +1,35 @@
+name: Evaluate offline music retrieval
+on:
+  push:
+    branches: [feat/offline-personal-mixes]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  quality:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build apk]') || contains(github.event.head_commit.message, '[evaluate mixes]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install CPU evaluation tools
+        run: |
+          python -m pip install 'torch==2.14.1+cpu' 'torchaudio==2.11.0+cpu' --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install 'ai-edge-litert==2.3.0' 'soundfile==0.13.1'
+      - name: Fetch the approved bundled model
+        run: python scripts/recommendations/fetch_model.py
+      - name: Evaluate licensed regional, devotional, electronic and long-form music
+        run: python scripts/recommendations/evaluate_quality.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recommendation-relevance-and-cost
+          path: verification/recommendations/quality/
+          retention-days: 30

@@ -18,14 +18,17 @@ public final class CoreGate extends Instrumentation {
  public void onStart(){Bundle result=new Bundle();try{
   Context context=getTargetContext();context.deleteDatabase("personal-mixes.db");
   check(Arrays.equals(RecommendationEngine.sections(3000),new long[]{0}),"Short songs get one padded section");
+  check(Arrays.equals(RecommendationEngine.sections(15000),new long[]{0}),"Mostly overlapping short sections are not analysed repeatedly");
+  check(Arrays.equals(RecommendationEngine.sections(25000),new long[]{0,15000}),"Medium tracks use two distinct sections");
   check(Arrays.equals(RecommendationEngine.sections(3600000),new long[]{0,1795000,3590000}),"Long medleys get three bounded sections");
   RecommendationStore store=new RecommendationStore(context);
-  List<RecommendationStore.FileEntry> files=new ArrayList<>();float[] vector=new float[960];vector[0]=1;
+  List<RecommendationStore.FileEntry> files=new ArrayList<>();float[] vector=new float[960];vector[0]=1;vector[1]=.12345679f;
   for(int i=0;i<12;i++){RecommendationStore.FileEntry f=new RecommendationStore.FileEntry();f.id=i;f.identity="file"+i;f.fingerprint="v1-"+i;f.title="Song "+i;f.artist="Artist "+i;f.album="Album "+i;f.duration=180000;files.add(f);}
   store.synchronize(files);check(Arrays.equals(store.counts(),new int[]{12,0,0}),"Cold index has twelve pending tracks");
   for(int i=0;i<10;i++)store.analysed(i,"v1-"+i,new long[]{0},Collections.singletonList(vector),vector);
   check(Arrays.equals(store.counts(),new int[]{12,10,0}),"Partial index becomes available at ten tracks");
   check(store.indexed().size()==10,"FP32 embeddings round trip from private SQLite");
+  check(Arrays.equals(store.indexed().get(0).vector,vector),"FP32 precision survives SQLite without rounding to FP16");
   check(store.indexed().get(0).vector.length==960,"Track dimensions stay native");
   files.get(0).fingerprint="v2-0";store.synchronize(files);check(store.counts()[1]==9,"Changed files invalidate their embeddings");
   files.remove(1);store.synchronize(files);check(store.counts()[0]==11&&store.counts()[1]==8,"Deleted or excluded tracks become ineligible");
@@ -40,7 +43,10 @@ public final class CoreGate extends Instrumentation {
   store.recoverSessions();check("20000".equals(scalar(db,"SELECT COUNT(*) FROM sessions")),"Session count is capped at twenty thousand");
   check("0".equals(scalar(db,"SELECT COUNT(*) FROM sessions WHERE id='expired'")),"Sessions older than 180 days are removed");
   Library library=new Library(context);library.createPlaylist("Keep me");Song favorite=new Song();favorite.id=555;library.toggleFavorite(favorite);
-  store.clearHistory();check(store.indexed().size()==8,"Clear history retains audio embeddings");
+  store.cache("day","[]",TasteRanker.mixes(Collections.singletonList(new TasteRanker.Track(5,"Artist","Album","same",vector,true,1,0,0))));
+  check("1".equals(scalar(db,"SELECT COUNT(*) FROM profiles")),"Weighted taste profile is persisted");
+  store.clearHistory();check("0".equals(scalar(db,"SELECT COUNT(*) FROM profiles"))&&"0".equals(scalar(db,"SELECT COUNT(*) FROM snapshots")),"Clear history also removes profiles and daily snapshots");
+  check(store.indexed().size()==8,"Clear history retains audio embeddings");
   check("0".equals(scalar(db,"SELECT COUNT(*) FROM sessions")),"Clear history removes listening sessions");
   check(library.favorites().contains("555")&&library.playlists().has("Keep me"),"History reset retains favourites and playlists");
   store.clearAnalysis();check(store.indexed().isEmpty()&&"0".equals(scalar(db,"SELECT COUNT(*) FROM segments")),"Deleting analysis cascades to segment embeddings");store.close();

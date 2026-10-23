@@ -1,7 +1,7 @@
 # Offline personal mixes — v1.3.0 implementation
 
-Status: model integration gate in progress on `feat/offline-personal-mixes`.
-The application remains v1.2.6 until the FP32 export and Android parity gates pass.
+Status: model gate passed; v1.3.0 integration is under validation on
+`feat/offline-personal-mixes`. The source targets version code 10.
 The published v1.2.6 APK must be preserved.
 
 ## Immutable model inputs
@@ -58,7 +58,16 @@ upstream licence, model manifest and golden input provenance together. A passing
 numerical gate does not establish real-phone indexing cost or listening relevance.
 Report emulator, hosted CPU and physical-phone results separately.
 
-Only after all model gates pass may the model be uploaded to a versioned
+The approved model is published at
+https://github.com/TumblerWarren/aiplayedmusic/releases/tag/model-assets-ssondo-fp32-v1
+as a prerelease with latest disabled. The bundle SHA-256 is
+`d182eab57b78249da4529448d7aac29717c22b6c4930a8906ed064abab84753b`.
+Its exported FP32 model is **11,979,512 bytes**. Python/export minimum cosine was
+0.99999988; Android native preprocessing/runtime minimum cosine exceeded
+0.999999997 across 29 inputs. An independent native core run passed twenty
+SQLite/content-URI/runtime checks. Physical-phone measurements remain pending.
+
+Only after all model gates pass may a new model be uploaded to a versioned
 `model-assets` GitHub release with `make_latest=false`. Application builds must
 fetch the immutable artifact, check its SHA-256, then bundle it. There is no
 runtime model download and no production INTERNET permission.

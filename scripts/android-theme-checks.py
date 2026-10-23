@@ -56,7 +56,7 @@ def wait(value):
         node = find(value, root)
         if node is not None:
             return node
-        if value in ['Theme', 'Choose folder', 'Search your music'] or (value in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played'] and find('Close', root) is not None):
+        if value in ['Theme', 'Choose folder', 'Search your music'] or (value in ['Songs', 'For You', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played'] and find('Close', root) is not None):
             try:
                 reverse = value in ['Choose folder', 'Search your music'] or (value == 'Theme' and scrolls == 0)
                 shell('input', 'swipe', *scroll_gesture(root, reverse=reverse), 350)
@@ -272,7 +272,7 @@ try:
     check('theme changes retain search', any(n.get('text') == 'Theme' for n in tree().iter('node')))
     start_fixture()
     check('fixture starts playback', is_playing(shell('dumpsys', 'media_session')))
-    for destination in ['Songs', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played']:
+    for destination in ['Songs', 'For You', 'Albums', 'Artists', 'Folders', 'Playlists', 'Favourites', 'Recently played']:
         browse(destination); appearance('dark-' + destination.lower().replace(' ', '-'), True)
         tap('+ Browse'); shot('dark-browse-' + destination.lower().replace(' ', '-')); tap('Close')
         check(destination + ' navigation preserves playback', is_playing(shell('dumpsys', 'media_session')))
