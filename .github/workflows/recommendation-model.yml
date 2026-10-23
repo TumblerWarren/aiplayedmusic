@@ -5,6 +5,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: recommendation-model-${{ github.ref }}
   cancel-in-progress: false
@@ -42,6 +43,9 @@ jobs:
           retention-days: 30
 
   android-parity:
+    if: always() && (needs.export.result == 'success' || contains(github.event.head_commit.message, '[android gate]'))
+    env:
+      MODEL_GATE_RUN_ID: '39904828659'
     needs: export
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -51,17 +55,23 @@ jobs:
         with:
           name: recommendation-model-gate
           path: scripts/recommendations/android-gate/src/main/assets
+          run-id: ${{ needs.export.result == 'success' && github.run_id || env.MODEL_GATE_RUN_ID }}
+          github-token: ${{ github.token }}
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
+      - name: Verify native transform against independent FFT oracle
+        run: |
+          python -m pip install 'numpy==2.4.6'
+          python scripts/recommendations/test_preprocessing.py
       - name: Build independent CPU model harness
         run: |
           gradle -p scripts/recommendations/android-gate assembleDebug --no-daemon
