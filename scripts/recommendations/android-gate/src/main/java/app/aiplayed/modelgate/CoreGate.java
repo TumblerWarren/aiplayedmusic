@@ -60,6 +60,7 @@ public final class CoreGate extends Instrumentation {
   }
   playbackSessions(context);
   analysisLifecycle(context);
+  concurrentResets(context);
   JSONObject report=new JSONObject().put("passed",true).put("checks",checks).put("sdk",android.os.Build.VERSION.SDK_INT).put("device",android.os.Build.MODEL).put("model_sha256",ModelRuntime.MODEL_SHA);
   try(FileOutputStream out=context.openFileOutput("core-gate.json",0)){out.write(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
   result.putString("stream",report.toString());finish(-1,result);
@@ -133,6 +134,23 @@ public final class CoreGate extends Instrumentation {
  }
  private void command(String value)throws Exception{
   try(android.os.ParcelFileDescriptor descriptor=getUiAutomation().executeShellCommand(value);InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}
+ }
+ private void concurrentResets(Context context)throws Exception{
+  RecommendationEngine engine=RecommendationEngine.get(context);float[] vector=new float[960];vector[0]=1;
+  java.util.List<TasteRanker.Mix> oldProfile=TasteRanker.mixes(Collections.singletonList(new TasteRanker.Track(1,"Old taste","Album","old",vector,true,1,0,0)));
+  java.util.concurrent.Future<?> reset;
+  // An already-running mix generation owns this monitor until it commits its snapshot.
+  // Request each public reset during that generation, then let the older cache write finish.
+  synchronized(engine){
+   reset=engine.clearHistory();Thread.sleep(200);engine.store.cache("old-history","[]",oldProfile);
+  }
+  reset.get(10,java.util.concurrent.TimeUnit.SECONDS);
+  check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM profiles"))&&"0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM snapshots")),"History reset wins over an older in-flight profile cache write");
+  synchronized(engine){
+   reset=engine.clearAnalysis();Thread.sleep(200);engine.store.cache("old-analysis","[]",oldProfile);
+  }
+  reset.get(10,java.util.concurrent.TimeUnit.SECONDS);
+  check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM profiles"))&&"0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM snapshots")),"Analysis deletion wins over an older in-flight profile cache write");
  }
  private void onMain(Runnable action){
   java.util.concurrent.atomic.AtomicReference<Throwable> failure=new java.util.concurrent.atomic.AtomicReference<>();

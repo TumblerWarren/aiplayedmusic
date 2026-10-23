@@ -64,9 +64,12 @@ as a prerelease with latest disabled. The bundle SHA-256 is
 `d182eab57b78249da4529448d7aac29717c22b6c4930a8906ed064abab84753b`.
 Its exported FP32 model is **11,979,512 bytes**. Python/export minimum cosine was
 0.99999988; Android native preprocessing/runtime minimum cosine exceeded
-0.999999997 across 29 inputs. An independent Android 35 native run passed 42 checks covering SQLite,
+0.999999997 across 29 inputs. An independent Android 35 native run passed 44 checks covering SQLite,
 content-URI inference, real playback-service sessions, charging constraints,
-manual playback priority, cancellation and battery-temperature recovery. The Java behavior
+manual playback priority, cancellation, battery-temperature recovery and
+concurrent history/analysis reset. Cache deletion and snapshot removal share
+the mix-generation lock, so an older in-flight calculation cannot restore
+profiles after a reset completes. The Java behavior
 suite passed 107 checks, and the real Expo Kotlin/Java bridge compiled with
 LiteRT 2.3.0 isolated in a Java library to avoid incompatible Kotlin metadata. Physical-phone measurements remain pending.
 

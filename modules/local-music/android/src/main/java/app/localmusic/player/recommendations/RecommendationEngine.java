@@ -179,8 +179,8 @@ public final class RecommendationEngine {
         }if(songs.isEmpty())throw new IllegalArgumentException("These songs are no longer available. Refresh the mix.");return songs;
     }
     public void saveMix(String id,String name)throws Exception{String chosen=name.trim();if(chosen.isEmpty()||chosen.length()>100)throw new IllegalArgumentException("Use a playlist name between 1 and 100 characters");if(library.playlists().has(chosen))throw new IllegalArgumentException("Choose a new playlist name");List<Song> songs=songsForMix(id);library.createPlaylist(chosen);for(Song song:songs)library.addToPlaylist(chosen,song);}
-    public Future<?> clearHistory(){historyGeneration.incrementAndGet();return events.submit(()->{store.clearHistory();synchronized(this){snapshots.clear();}emit();});}
-    public Future<?> clearAnalysis(){setEnabled(false);return events.submit(()->{analysis.lock();try{store.clearAnalysis();synchronized(this){snapshots.clear();}counts=store.counts();}finally{analysis.unlock();}emit();});}
+    public Future<?> clearHistory(){historyGeneration.incrementAndGet();return events.submit(()->{synchronized(this){store.clearHistory();snapshots.clear();}emit();});}
+    public Future<?> clearAnalysis(){setEnabled(false);return events.submit(()->{analysis.lock();try{synchronized(this){store.clearAnalysis();snapshots.clear();counts=store.counts();}}finally{analysis.unlock();}emit();});}
     private static final class InferenceFailure extends Exception { InferenceFailure(Throwable cause){super(cause);} }
     private static String digest(String input){try{MessageDigest hash=MessageDigest.getInstance("SHA-256");StringBuilder value=new StringBuilder();for(byte b:hash.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)))value.append(String.format(Locale.ROOT,"%02x",b&255));return value.toString();}catch(Exception impossible){throw new IllegalStateException(impossible);}}
 }
