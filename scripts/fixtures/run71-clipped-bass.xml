@@ -1,9 +1,0 @@
-<hierarchy>
-  <node package="app.localmusic.player" text="Sound studio" bounds="[152,105][928,193]" />
-  <node package="app.localmusic.player" class="android.widget.ScrollView" scrollable="true" bounds="[0,378][1080,1484]">
-    <node package="app.localmusic.player" resource-id="knob-bass" content-desc="Bass, +2.5 dB" range-current="2.0" bounds="[126,1106][462,1442]" />
-    <node package="app.localmusic.player" content-desc="Decrease Bass" clickable="true" enabled="true" bounds="[147,1531][273,1484]" />
-    <node package="app.localmusic.player" content-desc="Increase Bass" clickable="true" enabled="true" bounds="[315,1531][441,1484]" />
-  </node>
-  <node package="app.localmusic.player" content-desc="Open now playing" clickable="true" bounds="[74,1513][686,1639]" />
-</hierarchy>

@@ -1,9 +1,0 @@
-# CPU torch/torchvision/torchaudio are installed from the official PyTorch CPU index.
-litert-torch==0.10.0
-ai-edge-litert==2.3.0
-litert-converter==0.5.0
-torchao==0.18.0
-einops==0.8.1
-timm==1.0.22
-huggingface-hub==2.2.0
-soundfile==0.13.1
