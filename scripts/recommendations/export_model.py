@@ -38,6 +38,7 @@ def main():
     import numpy as np
     import torch
     import torchaudio
+    import soundfile as sf
     torch.set_num_threads(2)
     source = Path('.model-tools/ssondo').resolve()
     assert subprocess.check_output(['git', '-C', str(source), 'rev-parse', 'HEAD'], text=True).strip() == SOURCE
@@ -124,9 +125,9 @@ def main():
             base = 'https://librosa.org/data/audio/' + urllib.parse.quote(fixture['path'])
             audio = download(base + '.ogg', fixture_dir / (fixture['id'] + '.ogg'), fixture['sha256'])
             download(base + '.toml', OUT / (fixture['id'] + '-licence.toml'), fixture['licence_sha256'])
-            # Decode only with ffmpeg; resample with the reference torchaudio sinc filter.
-            raw = subprocess.check_output(['ffmpeg', '-v', 'error', '-i', str(audio), '-f', 'f32le', '-ac', '1', '-ar', '44100', '-'])
-            signal = torchaudio.functional.resample(torch.from_numpy(np.frombuffer(raw, dtype='<f4').copy()), 44100, mel.sample_rate)
+            # Decode at the original rate; no codec backend or resampling hidden in inference.
+            decoded, source_rate = sf.read(str(audio), dtype='float32', always_2d=True)
+            signal = torchaudio.functional.resample(torch.from_numpy(decoded.mean(axis=1)), source_rate, mel.sample_rate)
             starts = sorted(set([0, max(0, (len(signal) - samples) // 2), max(0, len(signal) - samples)]))
             for section, offset in enumerate(starts):
                 pcm = signal[offset:offset + samples]
