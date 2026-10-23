@@ -11,7 +11,7 @@ const PRELUDE = { prelude: true };
 export default function IndexedSongList({ data, c, indexed = false, field = 'title', contentContainerStyle, header, prelude, focused = false, sessionKey = '', rowHeight = 0, renderItem, keyExtractor = item => String(item.id), ListEmptyComponent, ...props }) {
   const list = useRef(null), rail = useAnimatedRef();
   const y = useSharedValue(scrollMemory.get(sessionKey) || 0);
-  const headerSize = useSharedValue(0), scrollable = useSharedValue(false);
+  const scrollable = useSharedValue(false);
   const dimensions = useRef({ content: 0, viewport: 0 });
   const pending = useRef(null), retries = useRef(0), lastLetter = useRef(null);
   const retryTimer = useRef(null), bubbleTimer = useRef(null), restoreFrame = useRef(null);
@@ -41,12 +41,14 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const saveScroll = useCallback(offset => { if (!restoring.current.pending) rememberScroll(sessionKey, offset); }, [sessionKey]);
   const scrollHandler = useAnimatedScrollHandler({ onScroll: event => { y.value = Math.max(0, event.contentOffset.y); runOnJS(saveScroll)(y.value); } });
   const headerStyle = useAnimatedStyle(() => {
-    const remaining = headerRemaining(y.value, headerSize.value, focused, scrollable.value);
+    const remaining = headerRemaining(y.value, headerHeight, focused, scrollable.value);
+    // Share the committed intrinsic measurement with both worklets and the list spacer.
+    // A separate shared height can leave the rail at its initial zero-height inset.
     // Measure intrinsic content before moving it. Giving this measuring container
     // an animated height (initially zero) constrains Yoga and hides the search.
-    return { transform: [{ translateY: remaining - headerSize.value }], opacity: headerSize.value ? remaining / headerSize.value : 1 };
-  }, [focused]);
-  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerSize.value, focused, scrollable.value) + 4 }), [focused]);
+    return { transform: [{ translateY: remaining - headerHeight }], opacity: headerHeight ? remaining / headerHeight : 1 };
+  }, [focused, headerHeight]);
+  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerHeight, focused, scrollable.value) + 4 }), [focused, headerHeight]);
   const jump = next => {
     if (!next || targets[next] === undefined) return;
     setLetter(next); clearTimeout(bubbleTimer.current); bubbleTimer.current = setTimeout(() => setLetter(null), 700);
@@ -82,7 +84,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
       onScrollBeginDrag: () => { cancelAnimationFrame(restoreFrame.current); restoring.current.pending = false; lastLetter.current = null; pending.current = null; clearTimeout(retryTimer.current); },
       initialNumToRender: 12, maxToRenderPerBatch: 8, windowSize: 9, showsVerticalScrollIndicator: false, keyboardDismissMode: 'on-drag', keyboardShouldPersistTaps: 'handled',
       contentContainerStyle: [contentContainerStyle, showIndex && { paddingRight: 48 }] }),
-    header && h(Animated.View, { onLayout: e => { headerSize.value = e.nativeEvent.layout.height; setHeaderHeight(e.nativeEvent.layout.height); }, style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 8, backgroundColor: c.bg }, headerStyle] }, header),
+    header && h(Animated.View, { onLayout: e => setHeaderHeight(e.nativeEvent.layout.height), style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 8, backgroundColor: c.bg }, headerStyle] }, header),
     showIndex && h(GestureDetector, { gesture: pan }, h(Animated.View, { ref: rail, collapsable: false, onLayout: e => setHeight(e.nativeEvent.layout.height), testID: 'alphabet-rail', style: [{ position: 'absolute', bottom: 4, right: 2, width: 40, minHeight: 40, borderRadius: 20, backgroundColor: c.lavender, paddingVertical: 4 }, railStyle] },
       ...alphabet.map(value => h(Pressable, { key: value, onPress: () => { lastLetter.current = null; jump(value); }, accessibilityRole: 'button', accessibilityLabel: `Jump to ${value === '#' ? 'numbers and other titles' : value}`, accessibilityState: { disabled: targets[value] === undefined }, disabled: targets[value] === undefined, style: { flex: 1, alignItems: 'center', justifyContent: 'center' } }, h(Text, { allowFontScaling: false, style: { color: letter === value ? c.onAccent : c.purpleInk, backgroundColor: letter === value ? c.accent : 'transparent', borderRadius: 8, minWidth: 16, textAlign: 'center', fontSize: Math.min(12, Math.max(7, (height - 8) / 34)), fontWeight: '700', opacity: targets[value] === undefined ? 0.32 : 1 } }, value))))),
     showIndex && letter && h(View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', right: 50, top: '40%', width: 64, height: 64, borderRadius: 24, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' } }, h(Text, { style: { fontSize: 32, fontWeight: '700', color: c.onAccent } }, letter)));

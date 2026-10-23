@@ -17,6 +17,9 @@ Personal mixes settings control opt-in, analysis and deletion. Clear listening
 history also resets recommendation listening signals and taste profiles while
 retaining favourites, playlists and audio embeddings.
 
+The folder alphabet rail now stays below expanded search and grows when search
+collapses, using the same measured header height as the list.
+
 The embedding-only FP32 model passed the 20 MB ceiling and Python / LiteRT /
 Android parity checks on 29 inputs. Model-assets provenance and reports:
 https://github.com/TumblerWarren/aiplayedmusic/releases/tag/model-assets-ssondo-fp32-v1

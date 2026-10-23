@@ -215,3 +215,29 @@ test('fixture folder navigation opens every ancestor, restores the route and fol
   }
   assert.deepEqual(commands.map(command => command.action), ['includeSubfolders', 'includeSubfolders']);
 });
+
+test('intrinsic header layout commits preserve the rail inset before the first scroll', async () => {
+  const { palette } = await import('../src/design.js');
+  const { alphabet, alphabetTargets, nearestLetter } = await import('../src/alphabet.js');
+  const { headerRemaining, railFraction } = await import('../src/scrollGeometry.js');
+  let ui;
+  const pan = { minDistance() { return this; }, maxPointers() { return this; }, onBegin() { return this; }, onUpdate() { return this; }, onFinalize() { return this; } };
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], {
+    Animated: { FlatList: 'Animated.FlatList', View: 'Animated.View' }, Gesture: { Pan: () => pan }, GestureDetector: 'GestureDetector',
+    alphabet, alphabetTargets, nearestLetter, headerRemaining, railFraction, scrollMemory: new Map(), rememberScroll() {}, measure: () => null, runOnJS: fn => fn,
+    useSharedValue(value) { const ref = ui.context.useRef(null); return ref.current ||= { value }; },
+    useAnimatedRef() { return ui.context.useRef(null); }, useAnimatedScrollHandler: handlers => handlers,
+    // A React layout commit reapplies this initial style snapshot. Worklet updates
+    // must not be the only source of the newly measured header inset.
+    useAnimatedStyle(updater, deps) { return ui.context.useMemo(updater, deps); },
+  });
+  const props = { data: [{ id: 1, title: 'A song' }], c: palette(false), indexed: true, header: 'Search', renderItem: () => null };
+  let tree = ui.render('IndexedSongList', props);
+  const list = nodes(tree).find(n => n.type === 'Animated.FlatList');
+  list.props.onLayout({ nativeEvent: { layout: { height: 400 } } });
+  list.props.onContentSizeChange(400, 1200);
+  nodes(tree).find(n => n.type === 'Animated.View' && n.props.onLayout && !n.props.testID).props.onLayout({ nativeEvent: { layout: { height: 50 } } });
+  tree = ui.render('IndexedSongList', props);
+  const rail = nodes(tree).find(n => n.props.testID === 'alphabet-rail');
+  assert.equal(rail.props.style.at(-1).top, 54, 'the expanded rail begins below the measured search header');
+});

@@ -143,3 +143,15 @@ are uncompressed APK entries. See
 `verification/recommendations/apk-size-initial-candidate.json`; the final build
 produces its own exact size report. The 20 MB ceiling applies to the model file,
 not to the complete application or all runtime ABIs combined.
+
+## Existing folder-header regression
+
+The combined interaction run also exposed an existing layout bug: the alphabet
+rail overlapped the expanded folder search and therefore could not grow when
+search collapsed. Both animation worklets and the list spacer now use one
+committed intrinsic header measurement. The failing layout-commit regression
+passes with the fix, and an Android 35 JavaScript-only diagnostic APK passed both
+expanded and collapsed geometry checks. Native, model and resource entry bytes
+were held unchanged for that focused test. Evidence and limits are recorded in
+`verification/recommendations/header-layout.json`. The final candidate is built
+normally through Gradle.
