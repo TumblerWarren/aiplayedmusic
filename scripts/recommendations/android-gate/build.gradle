@@ -2,11 +2,16 @@ plugins { id 'com.android.application' version '8.13.2' }
 android {
     namespace 'app.aiplayed.modelgate'
     compileSdk 36
+    sourceSets.main.java {
+        srcDir '../../../modules/local-music/android/src/main/java'
+        include 'app/aiplayed/modelgate/**', 'app/localmusic/player/recommendations/**', 'app/localmusic/player/Song.java', 'app/localmusic/player/Library.java'
+    }
     defaultConfig { applicationId 'app.aiplayed.modelgate'; minSdk 26; targetSdk 35; versionCode 1; versionName 'gate' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     androidResources { noCompress 'tflite', 'f32' }
 }
 dependencies {
+    implementation 'androidx.work:work-runtime:2.11.0'
     implementation('com.google.ai.edge.litert:litert:2.3.0') {
         // The bundled CPU Interpreter does not use Play model delivery.
         exclude group: 'com.google.android.play', module: 'ai-delivery'

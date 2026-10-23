@@ -1,0 +1,158 @@
+{
+  "gate": "python-export",
+  "passed": true,
+  "clips": [
+    {
+      "clip": "vibeace-0",
+      "cosine": 1,
+      "inference_ms": 6.241224999996575
+    },
+    {
+      "clip": "vibeace-1",
+      "cosine": 1,
+      "inference_ms": 6.141780999996627
+    },
+    {
+      "clip": "vibeace-2",
+      "cosine": 1,
+      "inference_ms": 6.056542999999692
+    },
+    {
+      "clip": "choice-0",
+      "cosine": 1,
+      "inference_ms": 6.162278999994442
+    },
+    {
+      "clip": "choice-1",
+      "cosine": 1,
+      "inference_ms": 6.011828999987756
+    },
+    {
+      "clip": "choice-2",
+      "cosine": 0.9999999403953552,
+      "inference_ms": 5.970371999993063
+    },
+    {
+      "clip": "nutcracker-0",
+      "cosine": 1,
+      "inference_ms": 6.182134999988875
+    },
+    {
+      "clip": "nutcracker-1",
+      "cosine": 1,
+      "inference_ms": 6.0582859999982475
+    },
+    {
+      "clip": "nutcracker-2",
+      "cosine": 0.9999998807907104,
+      "inference_ms": 5.962848000010013
+    },
+    {
+      "clip": "brahms-0",
+      "cosine": 0.9999999403953552,
+      "inference_ms": 6.1213030000004665
+    },
+    {
+      "clip": "brahms-1",
+      "cosine": 1,
+      "inference_ms": 6.119869000002609
+    },
+    {
+      "clip": "brahms-2",
+      "cosine": 1,
+      "inference_ms": 6.098389000001703
+    },
+    {
+      "clip": "trumpet-0",
+      "cosine": 1.0000001192092896,
+      "inference_ms": 6.209635999994134
+    },
+    {
+      "clip": "fishin-0",
+      "cosine": 1.0000001192092896,
+      "inference_ms": 6.093551000006414
+    },
+    {
+      "clip": "fishin-1",
+      "cosine": 1.0000001192092896,
+      "inference_ms": 6.075506999991376
+    },
+    {
+      "clip": "fishin-2",
+      "cosine": 1.000000238418579,
+      "inference_ms": 5.994767000004231
+    },
+    {
+      "clip": "sweetwaltz-0",
+      "cosine": 1,
+      "inference_ms": 6.1347369999964485
+    },
+    {
+      "clip": "sweetwaltz-1",
+      "cosine": 0.9999999403953552,
+      "inference_ms": 6.021216000007712
+    },
+    {
+      "clip": "sweetwaltz-2",
+      "cosine": 1,
+      "inference_ms": 6.02082600001097
+    },
+    {
+      "clip": "pistachio-0",
+      "cosine": 0.9999999403953552,
+      "inference_ms": 6.063495000006469
+    },
+    {
+      "clip": "pistachio-1",
+      "cosine": 1,
+      "inference_ms": 6.158761999998319
+    },
+    {
+      "clip": "pistachio-2",
+      "cosine": 1.0000001192092896,
+      "inference_ms": 5.9153489999914655
+    },
+    {
+      "clip": "short-16000",
+      "cosine": 1,
+      "inference_ms": 5.964099999999917
+    },
+    {
+      "clip": "short-22050",
+      "cosine": 1,
+      "inference_ms": 5.945947000000729
+    },
+    {
+      "clip": "short-32000",
+      "cosine": 1,
+      "inference_ms": 5.885915000007458
+    },
+    {
+      "clip": "short-44100",
+      "cosine": 1,
+      "inference_ms": 5.976273000001697
+    },
+    {
+      "clip": "short-48000",
+      "cosine": 1,
+      "inference_ms": 5.8723500000041895
+    },
+    {
+      "clip": "silence",
+      "cosine": 0.9999998807907104,
+      "inference_ms": 5.941669000009142
+    },
+    {
+      "clip": "one-sample",
+      "cosine": 0.9999998807907104,
+      "inference_ms": 5.952247999999827
+    }
+  ],
+  "retrieval_comparisons": 10144,
+  "minimum_cosine": 0.9999998807907104,
+  "model_bytes": 11979512,
+  "host_peak_rss_kib": 875408,
+  "measurement_device": "GitHub hosted Linux x86_64 CPU; not a physical Android phone",
+  "physical_phone_measurements": "pending",
+  "run_url": "https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39904828659"
+}

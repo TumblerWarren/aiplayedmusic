@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Aiplayed model gate" android:debuggable="true" android:allowBackup="false" />
+    <application android:label="Aiplayed model gate" android:debuggable="true" android:allowBackup="false">
+      <provider android:name="app.aiplayed.modelgate.FixtureProvider" android:authorities="app.aiplayed.modelgate.audio" android:exported="false" />
+    </application>
+    <instrumentation android:name="app.aiplayed.modelgate.CoreGate" android:targetPackage="app.aiplayed.modelgate" />
     <instrumentation android:name="app.aiplayed.modelgate.ModelGate" android:targetPackage="app.aiplayed.modelgate" />
 </manifest>

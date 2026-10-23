@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import numpy as np
 
-SOURCE = Path(__file__).parent / 'android-gate/src/main/java/app/aiplayed/modelgate'
+SOURCE = Path(__file__).resolve().parents[2] / 'modules/local-music/android/src/main/java/app/localmusic/player/recommendations'
 
 
 class TransformTests(unittest.TestCase):
@@ -25,7 +25,7 @@ class TransformTests(unittest.TestCase):
             helper.write_text('''
 import java.nio.*;
 import java.nio.file.*;
-import app.aiplayed.modelgate.LogMel;
+import app.localmusic.player.recommendations.LogMel;
 public class Probe {
  static float[] read(String path) throws Exception {
   byte[] bytes=Files.readAllBytes(Path.of(path)); float[] f=new float[bytes.length/4];

@@ -1,4 +1,4 @@
-package app.aiplayed.modelgate;
+package app.localmusic.player.recommendations;
 
 /** Matches torchaudio's default sinc_interp_hann (width 6, rolloff .99). */
 public final class SincResampler {

@@ -57,6 +57,8 @@ jobs:
           python scripts/android-theme-driver.test.py
       - name: Verify Expo dependency compatibility
         run: npx expo install --check
+      - name: Fetch and verify bundled FP32 model
+        run: python scripts/recommendations/fetch_model.py
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
       - name: Restore native compilation cache

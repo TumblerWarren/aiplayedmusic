@@ -1,4 +1,4 @@
-package app.aiplayed.modelgate;
+package app.localmusic.player.recommendations;
 
 /** CPU log-power Slaney mel transform using checkpoint-pinned FP32 filter tables. */
 public final class LogMel {

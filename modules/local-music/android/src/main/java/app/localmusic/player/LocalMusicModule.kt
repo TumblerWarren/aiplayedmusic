@@ -1,6 +1,7 @@
 package app.localmusic.player
 
 import android.content.*
+import app.localmusic.player.recommendations.RecommendationEngine
 import android.app.Activity
 import android.os.*
 import expo.modules.kotlin.Promise
@@ -24,6 +25,7 @@ class LocalMusicModule : Module() {
   private val lyricsWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
   private val context: Context get() = requireNotNull(appContext.reactContext) { "React context unavailable" }
   private val library: Library get() = Library(context)
+  private val recommendations: RecommendationEngine get() = RecommendationEngine.get(context)
   private val connection = object : ServiceConnection {
     override fun onServiceConnected(name: ComponentName, binder: IBinder) {
       playback = (binder as PlaybackService.LocalBinder).service()
@@ -34,6 +36,10 @@ class LocalMusicModule : Module() {
   }
   private val receiver = object : BroadcastReceiver() {
     override fun onReceive(ctx: Context, intent: Intent) {
+      if (intent.action == RecommendationEngine.CHANGED) {
+        intent.getStringExtra("json")?.let { sendEvent("onRecommendationProgress", mapOf("json" to it)) }
+        return
+      }
       intent.getStringExtra("error")?.let { sendEvent("onError", mapOf("message" to it)) }
       if (playback != null) sendEvent("onChange", mapOf("json" to snapshot()))
     }
@@ -41,15 +47,16 @@ class LocalMusicModule : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("LocalMusic")
-    Events("onChange", "onError")
+    Events("onChange", "onError", "onRecommendationProgress")
     Function("getThemePreference") { ThemePreferences.get(context) }
     AsyncFunction("setWindowAppearance") { dark: Boolean ->
       appContext.currentActivity?.let { ThemePreferences.applyWindow(it, dark) }
       Unit
     }.runOnQueue(Queues.MAIN)
     AsyncFunction("initialize") { promise: Promise ->
+      recommendations.foreground(previewAllowed)
       if (!registered) {
-        val filter = IntentFilter(PlaybackService.CHANGED)
+        val filter = IntentFilter(PlaybackService.CHANGED).apply { addAction(RecommendationEngine.CHANGED) }
         if (Build.VERSION.SDK_INT >= 33) context.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
         else context.registerReceiver(receiver, filter)
         registered = true
@@ -66,7 +73,7 @@ class LocalMusicModule : Module() {
     }.runOnQueue(Queues.MAIN)
 
     AsyncFunction("scan") {
-      JSONArray().also { result -> library.scan(context).forEach { result.put(it.json()) } }.toString()
+      JSONArray().also { result -> library.scan(context).forEach { result.put(it.json()) } }.toString().also { recommendations.libraryChanged() }
     }
     AsyncFunction("musicFolders") { library.musicFolders(context).toString() }
     AsyncFunction("snapshot") { snapshot() }.runOnQueue(Queues.MAIN)
@@ -86,9 +93,10 @@ class LocalMusicModule : Module() {
       requireNotNull(playback) { "Initialize music playback first" }.previewSound(JSONObject(raw))
     }.runOnQueue(Queues.MAIN)
     AsyncFunction("cancelSoundPreview") { playback?.cancelSoundPreview(); Unit }.runOnQueue(Queues.MAIN)
-    OnActivityEntersBackground { handler.post { previewAllowed = false; playback?.cancelSoundPreview() } }
+    OnActivityEntersBackground { handler.post { previewAllowed = false; recommendations.foreground(false); playback?.cancelSoundPreview() } }
     OnActivityEntersForeground { handler.post {
       previewAllowed = true
+      recommendations.foreground(true)
       appContext.currentActivity?.let { ThemePreferences.applyWindow(it) }
     } }
     AsyncFunction("command") { action: String, raw: String ->
@@ -156,12 +164,39 @@ class LocalMusicModule : Module() {
         "removeFromPlaylist" -> lib.removeFromPlaylist(data.getString("name"), Song.from(data.getJSONObject("song")))
         "theme" -> ThemePreferences.select(context, data.getString("value"))
         "sort" -> lib.prefs().edit().putString("sort", data.getString("value")).apply()
-        "clearHistory" -> lib.prefs().edit().remove("recent").apply()
+        "clearHistory" -> { lib.prefs().edit().remove("recent").apply(); recommendations.clearHistory() }
         "pauseDisconnect" -> service.setPauseDisconnect(data.getBoolean("value"))
         else -> throw IllegalArgumentException("Unknown music action: $action")
       }
       snapshot()
     }.runOnQueue(Queues.MAIN)
+
+    // Background bridge functions keep SQLite, decoding and inference off the playback thread.
+    AsyncFunction("recommendationStatus") { recommendations.status().toString() }
+    AsyncFunction("recommendationEnable") { value: Boolean -> recommendations.setEnabled(value); recommendations.status().toString() }
+    AsyncFunction("recommendationAnalyse") { retryFailed: Boolean -> recommendations.analyse(retryFailed); recommendations.status().toString() }
+    AsyncFunction("recommendationPause") { recommendations.pause(); recommendations.status().toString() }
+    AsyncFunction("recommendationMixes") { refresh: Boolean -> recommendations.mixes(refresh) }
+    AsyncFunction("recommendationSave") { id: String, name: String -> recommendations.saveMix(id, validName(name)); true }
+    AsyncFunction("recommendationDeleteAnalysis") { recommendations.clearAnalysis().get(); recommendations.status().toString() }
+    AsyncFunction("clearListeningHistory") {
+      recommendations.clearHistory().get()
+      check(library.prefs().edit().remove("recent").commit()) { "Couldn't clear listening history" }
+      true
+    }
+    AsyncFunction("recommendationPlay") { id: String, promise: Promise ->
+      val songs = recommendations.songsForMix(id)
+      handler.post {
+        try {
+          check(previewAllowed) { "Open the app to play this mix" }
+          val service = requireNotNull(playback) { "Initialize music playback first" }
+          context.startForegroundService(Intent(context, PlaybackService::class.java).setAction("foreground"))
+          service.setShuffle(false)
+          service.play(songs, 0)
+          promise.resolve(true)
+        } catch (error: Exception) { promise.reject("E_MIX_PLAY", error.message, error) }
+      }
+    }
 
     AsyncFunction("getLyrics") { songId: String -> library.prefs().getString(lyricsKey(songId), "") ?: "" }
     AsyncFunction("removeLyrics") { songId: String ->

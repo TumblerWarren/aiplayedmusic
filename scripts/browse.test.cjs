@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { harness, nodes } = require('./ui-harness.cjs');
 
-test('all seven Browse destinations select, dismiss and independently restore search/scroll without playback commands', async () => {
+test('Browse destinations and For You select, dismiss and independently restore search/scroll without playback commands', async () => {
   const browse = await import('../src/browse.js'), navigation = await import('../src/navigation.js');
   const { createLibraryIndex } = await import('../src/libraryIndex.js');
   const { formatTime } = await import('../src/music.js');
@@ -19,12 +19,12 @@ test('all seven Browse destinations select, dismiss and independently restore se
   const open = () => { button('+ Browse').props.onPress(); render(); return nodes(tree).find(n => n.type === 'Sheet' && n.props.visible); };
   const choose = title => { const sheet = open(); nodes(sheet).find(n => n.props.accessibilityLabel === title).props.onPress(); render(); };
   const sessions = {};
-  for (const [i, [title]] of browse.destinations.entries()) {
+  for (const [i, [title]] of browse.destinations.filter(([title]) => title !== 'For You').entries()) {
     choose(title); assert(!nodes(tree).find(n => n.type === 'Sheet').props.visible);
     input().props.onChangeText('query-' + i); render();
     sessions[title] = list().props.sessionKey; navigation.rememberScroll(sessions[title], 200 + i * 72);
     const sheet = open(), options = nodes(sheet).filter(n => n.props.accessibilityState?.selected !== undefined);
-    assert.equal(options.length, 7); assert.equal(options.filter(n => n.props.accessibilityState.selected).length, 1);
+    assert.equal(options.length, 8); assert.equal(options.filter(n => n.props.accessibilityState.selected).length, 1);
     assert.equal(options.find(n => n.props.accessibilityState.selected).props.accessibilityLabel, title);
     options.find(n => n.props.accessibilityLabel === title).props.onPress(); render();
     assert.equal(list().props.sessionKey, sessions[title]);
@@ -33,10 +33,13 @@ test('all seven Browse destinations select, dismiss and independently restore se
     assert(nodes(tree).some(n => n.props.accessibilityLabel === 'Open now playing'));
     assert.equal(nodes(tree).filter(n => n.props.accessibilityRole === 'tab').length, 4, 'only the bottom navbar remains');
   }
-  for (const [i, [title]] of browse.destinations.entries()) {
+  for (const [i, [title]] of browse.destinations.filter(([title]) => title !== 'For You').entries()) {
     choose(title); assert.equal(input().props.value, 'query-' + i); assert.equal(list().props.sessionKey, sessions[title]);
     assert.equal(navigation.scrollMemory.get(sessions[title]), 200 + i * 72);
   }
+  choose('For You');
+  assert(nodes(tree).some(n => n.type === 'ForYou'), 'For You opens its own analysis/mix surface');
+  assert.equal(nodes(tree).filter(n => n.props.accessibilityRole === 'tab').length, 4, 'For You preserves the bottom navigation');
   assert.deepEqual(commands, []);
   choose('Playlists'); input().props.onChangeText(''); render();
   const creates = () => [list().props.header, list().props.data.length ? list().props.prelude : list().props.ListEmptyComponent].flatMap(nodes).filter(n => n.type==='Pressable' && nodes(n).some(x=>x.type==='Text' && x.children.includes('New playlist')));

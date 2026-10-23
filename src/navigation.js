@@ -1,6 +1,6 @@
 export function activeDestination(page, tab, selection) {
   if (page === 'sound') return 'Sound';
-  if (page === 'settings' || page === 'filters') return 'Settings';
+  if (page === 'settings' || page === 'filters' || page === 'recommendations-settings') return 'Settings';
   if (selection?.kind === 'playlist' || (page === 'library' && tab === 'Playlists')) return 'Playlists';
   return 'Library';
 }

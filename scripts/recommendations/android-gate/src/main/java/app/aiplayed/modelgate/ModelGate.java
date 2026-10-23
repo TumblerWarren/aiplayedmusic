@@ -1,6 +1,8 @@
 package app.aiplayed.modelgate;
 
 import android.app.Instrumentation;
+import app.localmusic.player.recommendations.LogMel;
+import app.localmusic.player.recommendations.SincResampler;
 import android.os.Bundle;
 import android.os.SystemClock;
 import org.json.JSONArray;

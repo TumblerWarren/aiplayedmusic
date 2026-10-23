@@ -1,6 +1,8 @@
 package app.localmusic.player;
 
 import app.localmusic.engine.R;
+import app.localmusic.player.recommendations.RecommendationEngine;
+import app.localmusic.player.recommendations.ListeningRecorder;
 import android.app.*;
 import android.content.*;
 import android.content.res.Configuration;
@@ -26,6 +28,8 @@ public class PlaybackService extends Service {
     private ExoPlayer player;
     private MediaSession session;
     private Library library;
+    private RecommendationEngine recommendations;
+    private ListeningRecorder listening;
     private SoundSettings sound,previewSound;
     private Float previewSpeed,previewPitch;
     private boolean queueDirty=false;
@@ -40,12 +44,13 @@ public class PlaybackService extends Service {
         if("theme".equals(key))handler.post(this::refreshNotificationAppearance);
     };
     private final Runnable tick=new Runnable(){public void run(){
+        listening.update(current(),position(),playing(),listeningSpeed());
         if(sleepAt>0){long remaining=sleepRemaining();if(remaining==0){sleepAt=0;pause();}else player.setVolume(library.prefs().getBoolean("sleepFade",true)?Math.min(1,remaining/15000f):1);}
         if(playing()&&SystemClock.elapsedRealtime()-lastSave>5000){save();lastSave=SystemClock.elapsedRealtime();}
         handler.postDelayed(this,500);
     }};
     @Override public void onCreate(){
-        super.onCreate();library=new Library(this);
+        super.onCreate();library=new Library(this);recommendations=RecommendationEngine.get(this);listening=new ListeningRecorder(recommendations);
         library.prefs().registerOnSharedPreferenceChangeListener(notificationPreferences);
         try{sound=new SoundSettings(new JSONObject(library.prefs().getString("soundV2","{}")));}catch(JSONException e){sound=new SoundSettings();}
         processor.update(sound.parameters());
@@ -73,10 +78,17 @@ public class PlaybackService extends Service {
         });session.setActive(true);
         player.addListener(new Player.Listener(){
             @Override public void onMediaItemTransition(MediaItem item,int reason){index=queue.isEmpty()?-1:player.getCurrentMediaItemIndex();if(player.getPlayWhenReady()&&current()!=null)library.record(current());save();publish();}
-            @Override public void onPlaybackStateChanged(int state){if(state==Player.STATE_READY){failures=0;error="";}if(state==Player.STATE_ENDED)pause();else publish();}
-            @Override public void onIsPlayingChanged(boolean playing){if(playing){ensureForeground();if(current()!=null)library.record(current());}publish();}
-            @Override public void onPlayWhenReadyChanged(boolean value,int reason){if(!value&&foreground&&!loading()){stopForeground(STOP_FOREGROUND_DETACH);foreground=false;}publish();}
+            @Override public void onPlaybackStateChanged(int state){if(state==Player.STATE_READY){failures=0;error="";}if(state==Player.STATE_ENDED){listening.finish("completion",position(),playing(),listeningSpeed());pause();}else publish();}
+            @Override public void onIsPlayingChanged(boolean playing){listening.update(current(),position(),playing,listeningSpeed());if(playing){ensureForeground();if(current()!=null)library.record(current());}publish();}
+            @Override public void onPlayWhenReadyChanged(boolean value,int reason){if(!value&&(reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_FOCUS_LOSS||reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY))listening.finish("interruption",position(),playing(),listeningSpeed());if(!value&&foreground&&!loading()){stopForeground(STOP_FOREGROUND_DETACH);foreground=false;}publish();}
+            @Override public void onPositionDiscontinuity(Player.PositionInfo oldPosition,Player.PositionInfo newPosition,int reason){
+                long oldId=-1;try{if(oldPosition.mediaItem!=null)oldId=Long.parseLong(oldPosition.mediaItem.mediaId);}catch(NumberFormatException ignored){}
+                Song next=null;if(newPosition.mediaItem!=null)for(Song song:queue)if(Long.toString(song.id).equals(newPosition.mediaItem.mediaId)){next=song;break;}
+                listening.discontinuity(next,oldId,oldPosition.positionMs,newPosition.positionMs,reason==Player.DISCONTINUITY_REASON_AUTO_TRANSITION,playing(),listeningSpeed());
+            }
+            @Override public void onPlaybackSuppressionReasonChanged(int reason){if(reason!=Player.PLAYBACK_SUPPRESSION_REASON_NONE)listening.finish("interruption",position(),playing(),listeningSpeed());}
             @Override public void onPlayerError(PlaybackException e){
+                listening.finish("error",position(),playing(),listeningSpeed());
                 error="Couldn't play this file. It may be missing or unsupported.";
                 sendBroadcast(new Intent(CHANGED).setPackage(getPackageName()).putExtra("error",error));
                 Song failedSong=current();
@@ -102,20 +114,21 @@ public class PlaybackService extends Service {
     public boolean loading(){return player!=null&&player.getPlaybackState()==Player.STATE_BUFFERING;}
     public int position(){return player==null?0:(int)Math.min(Integer.MAX_VALUE,Math.max(0,player.getCurrentPosition()));}
     public int duration(){long d=player==null?C.TIME_UNSET:player.getDuration();return (int)Math.min(Integer.MAX_VALUE,d==C.TIME_UNSET?current()==null?0:current().duration:Math.max(0,d));}
-    public void play(List<Song> songs,int at){if(songs.isEmpty())return;ensureForeground();queueDirty=true;queue.clear();queue.addAll(songs);index=Math.max(0,Math.min(at,queue.size()-1));failures=0;player.setMediaItems(items(queue),index,0);player.prepare();player.play();save();publish();}
+    public void play(List<Song> songs,int at){if(songs.isEmpty())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());ensureForeground();queueDirty=true;queue.clear();queue.addAll(songs);index=Math.max(0,Math.min(at,queue.size()-1));failures=0;player.setMediaItems(items(queue),index,0);player.prepare();player.play();save();publish();}
     public void resume(){if(current()==null)return;ensureForeground();if(player.getPlaybackState()==Player.STATE_ENDED)player.seekTo(0);if(player.getPlaybackState()==Player.STATE_IDLE)player.prepare();player.play();publish();}
     public void pause(){player.pause();player.setVolume(1);save();if(foreground){stopForeground(STOP_FOREGROUND_DETACH);foreground=false;}publish();}
     public void toggle(){if(playing()||(loading()&&player.getPlayWhenReady()))pause();else resume();}
     public void seek(int ms){player.seekTo(Math.max(0,Math.min(ms,duration())));save();publish();}
-    public void next(boolean manual){if(queue.isEmpty())return;ensureForeground();if(player.hasNextMediaItem())player.seekToNextMediaItem();else player.seekToDefaultPosition(0);player.play();publish();}
-    public void previous(){if(queue.isEmpty())return;if(position()>3000)seek(0);else if(player.hasPreviousMediaItem())player.seekToPreviousMediaItem();else player.seekToDefaultPosition(queue.size()-1);resume();}
-    public void jump(int at){if(at<0||at>=queue.size())return;ensureForeground();player.seekToDefaultPosition(at);player.play();publish();}
+    public void next(boolean manual){if(queue.isEmpty())return;listening.finish(manual?"next":"completion",position(),playing(),listeningSpeed());ensureForeground();if(player.hasNextMediaItem())player.seekToNextMediaItem();else player.seekToDefaultPosition(0);player.play();publish();}
+    public void previous(){if(queue.isEmpty())return;listening.finish("replay",position(),playing(),listeningSpeed());if(position()>3000)seek(0);else if(player.hasPreviousMediaItem())player.seekToPreviousMediaItem();else player.seekToDefaultPosition(queue.size()-1);resume();}
+    public void jump(int at){if(at<0||at>=queue.size())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());ensureForeground();player.seekToDefaultPosition(at);player.play();publish();}
     public void enqueue(Song s,boolean next){int at=next?Math.max(0,index+1):queue.size();queueDirty=true;queue.add(at,s);player.addMediaItem(at,item(s));if(index<0){index=0;player.prepare();}save();publish();}
-    public void removeQueue(int at){if(at<0||at>=queue.size())return;queueDirty=true;queue.remove(at);player.removeMediaItem(at);index=queue.isEmpty()?-1:player.getCurrentMediaItemIndex();if(queue.isEmpty()){pause();getSystemService(NotificationManager.class).cancel(7);}save();publish();}
+    public void removeQueue(int at){if(at<0||at>=queue.size())return;if(at==index)listening.finish("queue_replacement",position(),playing(),listeningSpeed());queueDirty=true;queue.remove(at);player.removeMediaItem(at);index=queue.isEmpty()?-1:player.getCurrentMediaItemIndex();if(queue.isEmpty()){pause();getSystemService(NotificationManager.class).cancel(7);}save();publish();}
     public void moveQueue(int from,int to){if(from<0||to<0||from>=queue.size()||to>=queue.size())return;queueDirty=true;Song song=queue.remove(from);queue.add(to,song);player.moveMediaItem(from,to);index=player.getCurrentMediaItemIndex();save();publish();}
     public void setShuffle(boolean v){shuffle=v;player.setShuffleModeEnabled(v);library.prefs().edit().putBoolean("shuffle",v).apply();publish();}
     private void applyRepeat(){player.setRepeatMode(repeat==1?Player.REPEAT_MODE_ALL:repeat==2?Player.REPEAT_MODE_ONE:Player.REPEAT_MODE_OFF);}
     public void setRepeat(int v){repeat=Math.max(0,Math.min(2,v));applyRepeat();library.prefs().edit().putInt("repeat",repeat).apply();publish();}
+    private float listeningSpeed(){return player==null?speed:player.getPlaybackParameters().speed;}
     public float speed(){return speed;}
     public float pitch(){return pitch;}
     public void setSpeed(float v){speed=(float)DspCore.clamp(v,.5,2);library.prefs().edit().putFloat("speed",speed).apply();cancelSoundPreview();applyPlayback();publish();}
@@ -169,10 +182,10 @@ public class PlaybackService extends Service {
             getSystemService(NotificationManager.class).notify(7,notification());
     }
     @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);refreshNotificationAppearance();}
-    private void publish(){if(closing||session==null)return;Song s=current();if(s!=null)session.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,s.title).putString(MediaMetadata.METADATA_KEY_ARTIST,s.artist).putString(MediaMetadata.METADATA_KEY_ALBUM,s.album).putLong(MediaMetadata.METADATA_KEY_DURATION,duration()).build());
+    private void publish(){if(closing||session==null)return;recommendations.playback(current()!=null&&player.getPlayWhenReady()&&player.getPlaybackState()!=Player.STATE_ENDED);Song s=current();if(s!=null)session.setMetadata(new MediaMetadata.Builder().putString(MediaMetadata.METADATA_KEY_TITLE,s.title).putString(MediaMetadata.METADATA_KEY_ARTIST,s.artist).putString(MediaMetadata.METADATA_KEY_ALBUM,s.album).putLong(MediaMetadata.METADATA_KEY_DURATION,duration()).build());
         int state=loading()?PlaybackState.STATE_BUFFERING:playing()?PlaybackState.STATE_PLAYING:PlaybackState.STATE_PAUSED;
         session.setPlaybackState(new PlaybackState.Builder().setActions(PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE|PlaybackState.ACTION_SKIP_TO_NEXT|PlaybackState.ACTION_SKIP_TO_PREVIOUS|PlaybackState.ACTION_SEEK_TO|PlaybackState.ACTION_STOP).setState(state,position(),playing()?speed:0).build());
         if(s!=null&&(foreground||player.getPlaybackState()!=Player.STATE_IDLE))getSystemService(NotificationManager.class).notify(7,notification());sendBroadcast(new Intent(CHANGED).setPackage(getPackageName()));}
-    @Override public void onDestroy(){closing=true;library.prefs().unregisterOnSharedPreferenceChangeListener(notificationPreferences);cancelSoundPreview();save();handler.removeCallbacksAndMessages(null);player.release();session.release();getSystemService(NotificationManager.class).cancel(7);super.onDestroy();}
+    @Override public void onDestroy(){listening.finish("interruption",position(),playing(),listeningSpeed());recommendations.playback(false);closing=true;library.prefs().unregisterOnSharedPreferenceChangeListener(notificationPreferences);cancelSoundPreview();save();handler.removeCallbacksAndMessages(null);player.release();session.release();getSystemService(NotificationManager.class).cancel(7);super.onDestroy();}
 }
 

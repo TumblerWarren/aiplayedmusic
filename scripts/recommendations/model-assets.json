@@ -1,0 +1,13 @@
+{
+  "release": "model-assets-ssondo-fp32-v1",
+  "url": "https://github.com/TumblerWarren/aiplayedmusic/releases/download/model-assets-ssondo-fp32-v1/ssondo-fp32-v1.zip",
+  "bundle_sha256": "d182eab57b78249da4529448d7aac29717c22b6c4930a8906ed064abab84753b",
+  "bundle_bytes": 11092829,
+  "model_sha256": "b71333936779151d44e6b6e90e97af6729bc6f1c7f69a901b1a4d3881abb4723",
+  "model_bytes": 11979512,
+  "source_revision": "231d260cc1be2eb93b060accc8bfa218feff3a74",
+  "checkpoint_revision": "afc946ee816eb2287b62c7cadadd59e507996b23",
+  "runtime": "LiteRT CPU Interpreter",
+  "runtime_version": "2.3.0",
+  "precision": "FP32"
+}

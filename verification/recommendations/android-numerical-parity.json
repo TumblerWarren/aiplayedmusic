@@ -1,0 +1,217 @@
+{
+  "passed": true,
+  "device": "sdk_gphone64_x86_64",
+  "abi": "[x86_64, arm64-v8a]",
+  "sdk": 35,
+  "clips": [
+    {
+      "clip": "vibeace-0",
+      "runtime_cosine": 0.9999999992895157,
+      "preprocessing_and_runtime_cosine": 0.9999999989760758,
+      "mel_max_absolute_error": 0.0005898475646972656,
+      "inference_ms": 63.428534
+    },
+    {
+      "clip": "vibeace-1",
+      "runtime_cosine": 0.9999999998867728,
+      "preprocessing_and_runtime_cosine": 0.9999999992334603,
+      "mel_max_absolute_error": 0.0007872581481933594,
+      "inference_ms": 34.92155
+    },
+    {
+      "clip": "vibeace-2",
+      "runtime_cosine": 0.9999999992708354,
+      "preprocessing_and_runtime_cosine": 0.999999998766035,
+      "mel_max_absolute_error": 0.00023174285888671875,
+      "inference_ms": 23.951777
+    },
+    {
+      "clip": "choice-0",
+      "runtime_cosine": 0.9999999995195163,
+      "preprocessing_and_runtime_cosine": 0.9999999994644612,
+      "mel_max_absolute_error": 0.0003218650817871094,
+      "inference_ms": 46.782112
+    },
+    {
+      "clip": "choice-1",
+      "runtime_cosine": 0.9999999997043262,
+      "preprocessing_and_runtime_cosine": 0.9999999994659506,
+      "mel_max_absolute_error": 0.0003590583801269531,
+      "inference_ms": 47.531701
+    },
+    {
+      "clip": "choice-2",
+      "runtime_cosine": 0.9999999996417094,
+      "preprocessing_and_runtime_cosine": 0.9999999995633917,
+      "mel_max_absolute_error": 0.0005970001220703125,
+      "inference_ms": 38.57239
+    },
+    {
+      "clip": "nutcracker-0",
+      "runtime_cosine": 0.9999999990136268,
+      "preprocessing_and_runtime_cosine": 0.9999999988362063,
+      "mel_max_absolute_error": 0.000042438507080078125,
+      "inference_ms": 41.257845
+    },
+    {
+      "clip": "nutcracker-1",
+      "runtime_cosine": 0.9999999999664166,
+      "preprocessing_and_runtime_cosine": 0.9999999996758858,
+      "mel_max_absolute_error": 0.0004105567932128906,
+      "inference_ms": 60.791886
+    },
+    {
+      "clip": "nutcracker-2",
+      "runtime_cosine": 0.9999999998588893,
+      "preprocessing_and_runtime_cosine": 0.9999999997257313,
+      "mel_max_absolute_error": 0.0002532005310058594,
+      "inference_ms": 91.205985
+    },
+    {
+      "clip": "brahms-0",
+      "runtime_cosine": 0.9999999999869417,
+      "preprocessing_and_runtime_cosine": 0.9999999997705208,
+      "mel_max_absolute_error": 0.000461578369140625,
+      "inference_ms": 29.84491
+    },
+    {
+      "clip": "brahms-1",
+      "runtime_cosine": 0.9999999999801251,
+      "preprocessing_and_runtime_cosine": 0.9999999999410688,
+      "mel_max_absolute_error": 0.0003237724304199219,
+      "inference_ms": 22.265462
+    },
+    {
+      "clip": "brahms-2",
+      "runtime_cosine": 0.9999999987217066,
+      "preprocessing_and_runtime_cosine": 0.9999999986241831,
+      "mel_max_absolute_error": 0.0004878044128417969,
+      "inference_ms": 19.968668
+    },
+    {
+      "clip": "trumpet-0",
+      "runtime_cosine": 0.9999999981068097,
+      "preprocessing_and_runtime_cosine": 0.9999999978183798,
+      "mel_max_absolute_error": 0.00029850006103515625,
+      "inference_ms": 58.935263
+    },
+    {
+      "clip": "fishin-0",
+      "runtime_cosine": 0.9999999999886353,
+      "preprocessing_and_runtime_cosine": 0.9999999998778447,
+      "mel_max_absolute_error": 0.00104522705078125,
+      "inference_ms": 65.193395
+    },
+    {
+      "clip": "fishin-1",
+      "runtime_cosine": 0.9999999999975369,
+      "preprocessing_and_runtime_cosine": 0.9999999999609571,
+      "mel_max_absolute_error": 0.0015659332275390625,
+      "inference_ms": 32.143938
+    },
+    {
+      "clip": "fishin-2",
+      "runtime_cosine": 0.9999999995664303,
+      "preprocessing_and_runtime_cosine": 0.9999999994316426,
+      "mel_max_absolute_error": 0.000614166259765625,
+      "inference_ms": 41.788198
+    },
+    {
+      "clip": "sweetwaltz-0",
+      "runtime_cosine": 0.9999999991987375,
+      "preprocessing_and_runtime_cosine": 0.9999999993306553,
+      "mel_max_absolute_error": 0.00005435943603515625,
+      "inference_ms": 22.889236
+    },
+    {
+      "clip": "sweetwaltz-1",
+      "runtime_cosine": 0.9999999994777883,
+      "preprocessing_and_runtime_cosine": 0.9999999994709203,
+      "mel_max_absolute_error": 0.00013780593872070312,
+      "inference_ms": 16.932294
+    },
+    {
+      "clip": "sweetwaltz-2",
+      "runtime_cosine": 0.9999999997606396,
+      "preprocessing_and_runtime_cosine": 0.9999999997326079,
+      "mel_max_absolute_error": 0.00022029876708984375,
+      "inference_ms": 51.998824
+    },
+    {
+      "clip": "pistachio-0",
+      "runtime_cosine": 0.9999999998953414,
+      "preprocessing_and_runtime_cosine": 0.9999999995015668,
+      "mel_max_absolute_error": 0.0004715919494628906,
+      "inference_ms": 16.924048
+    },
+    {
+      "clip": "pistachio-1",
+      "runtime_cosine": 0.9999999999335116,
+      "preprocessing_and_runtime_cosine": 0.9999999995029051,
+      "mel_max_absolute_error": 0.00072479248046875,
+      "inference_ms": 17.76615
+    },
+    {
+      "clip": "pistachio-2",
+      "runtime_cosine": 0.9999999997062757,
+      "preprocessing_and_runtime_cosine": 0.9999999988360385,
+      "mel_max_absolute_error": 0.0002532005310058594,
+      "inference_ms": 24.331466
+    },
+    {
+      "clip": "short-16000",
+      "runtime_cosine": 0.9999999981365923,
+      "preprocessing_and_runtime_cosine": 0.9999999981505167,
+      "mel_max_absolute_error": 0.000002384185791015625,
+      "inference_ms": 52.996385
+    },
+    {
+      "clip": "short-22050",
+      "runtime_cosine": 0.9999999981432184,
+      "preprocessing_and_runtime_cosine": 0.9999999981215109,
+      "mel_max_absolute_error": 0.000247955322265625,
+      "inference_ms": 20.443944
+    },
+    {
+      "clip": "short-32000",
+      "runtime_cosine": 0.9999999979432769,
+      "preprocessing_and_runtime_cosine": 0.9999999979609623,
+      "mel_max_absolute_error": 0.00000286102294921875,
+      "inference_ms": 25.892478
+    },
+    {
+      "clip": "short-44100",
+      "runtime_cosine": 0.9999999978700603,
+      "preprocessing_and_runtime_cosine": 0.9999999978450526,
+      "mel_max_absolute_error": 0.000059604644775390625,
+      "inference_ms": 44.085483
+    },
+    {
+      "clip": "short-48000",
+      "runtime_cosine": 0.9999999978319577,
+      "preprocessing_and_runtime_cosine": 0.9999999978360306,
+      "mel_max_absolute_error": 0.000002384185791015625,
+      "inference_ms": 34.910388
+    },
+    {
+      "clip": "silence",
+      "runtime_cosine": 0.9999999976863977,
+      "preprocessing_and_runtime_cosine": 0.9999999976863977,
+      "mel_max_absolute_error": 0,
+      "inference_ms": 15.408522
+    },
+    {
+      "clip": "one-sample",
+      "runtime_cosine": 0.9999999976863977,
+      "preprocessing_and_runtime_cosine": 0.9999999976863977,
+      "mel_max_absolute_error": 0,
+      "inference_ms": 63.995831
+    }
+  ],
+  "measurement_kind": "emulator; physical phone measurements pending",
+  "java_heap_bytes": 34299520,
+  "peak_native_heap_bytes": 27517840,
+  "peak_process_pss_kib": 95086,
+  "run_url": "https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39905411730",
+  "wrapper_status": "Numerical checks passed; raw-output checker corrected in subsequent commit."
+}

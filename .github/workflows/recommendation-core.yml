@@ -1,0 +1,63 @@
+name: Verify personal mix core
+on:
+  push:
+    branches: [feat/offline-personal-mixes]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  core:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[verify mixes]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Focused JS and native logic checks
+        run: |
+          npm run check
+          python -m pip install 'numpy==2.4.6'
+          python scripts/recommendations/test_preprocessing.py
+          mkdir -p .model-tools/core-classes
+          javac -d .model-tools/core-classes modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningClock.java modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java scripts/recommendations/tests/EngineLogicTest.java
+          java -cp .model-tools/core-classes EngineLogicTest
+      - name: Bundle the immutable approved FP32 artifact
+        run: |
+          python scripts/recommendations/fetch_model.py
+          mkdir -p scripts/recommendations/android-gate/src/main/assets/recommendations
+          cp modules/local-music/android/src/main/assets/recommendations/* scripts/recommendations/android-gate/src/main/assets/recommendations/
+      - name: Compile native analysis core in the independent harness
+        run: |
+          gradle -p scripts/recommendations/android-gate assembleDebug --no-daemon
+          sudo chmod 666 /dev/kvm
+      - name: Verify private SQLite lifecycle and original content URI inference
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -memory 4096
+          script: python scripts/recommendations/check_core.py
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recommendation-core-evidence
+          path: verification/recommendations/core/
+          retention-days: 30
