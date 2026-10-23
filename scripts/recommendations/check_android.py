@@ -17,7 +17,7 @@ with zipfile.ZipFile(apks[0]) as apk:
     native = [n for n in apk.namelist() if n.startswith('lib/') and n.endswith('.so')]
     (out / 'runtime-packaging.json').write_text(json.dumps({'apk_bytes': apks[0].stat().st_size, 'native_libraries': native}, indent=2))
 run('adb', 'install', '-r', str(apks[0]))
-result = run('adb', 'shell', 'am', 'instrument', '-w', 'app.aiplayed.modelgate/app.aiplayed.modelgate.ModelGate')
+result = run('adb', 'shell', 'am', 'instrument', '-w', '-r', 'app.aiplayed.modelgate/app.aiplayed.modelgate.ModelGate')
 (out / 'instrumentation.txt').write_text(result)
 print(result)
 assert 'INSTRUMENTATION_CODE: -1' in result, 'Android parity instrumentation failed'

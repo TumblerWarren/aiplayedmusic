@@ -43,7 +43,7 @@ jobs:
           retention-days: 30
 
   android-parity:
-    if: always() && (needs.export.result == 'success' || contains(github.event.head_commit.message, '[android gate]'))
+    if: always() && (needs.export.result == 'success' || contains(github.event.head_commit.message, '[android gate]') || contains(github.event.head_commit.message, '[publish model]'))
     env:
       MODEL_GATE_RUN_ID: '39904828659'
     needs: export
@@ -91,3 +91,36 @@ jobs:
           name: recommendation-android-parity
           path: verification/recommendations/
           retention-days: 30
+
+  publish-model:
+    needs: android-parity
+    if: needs.android-parity.result == 'success' && contains(github.event.head_commit.message, '[publish model]')
+    permissions:
+      contents: write
+      actions: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: recommendation-model-gate
+          path: .model-tools/output
+          run-id: 39904828659
+          github-token: ${{ github.token }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: recommendation-android-parity
+          path: .model-tools/android
+      - name: Package approved production model assets
+        run: python scripts/recommendations/package_model.py
+      - name: Publish immutable model-assets release without changing latest APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/$GITHUB_REPOSITORY/git/ref/heads/main --jq .object.sha)" = 'd03acdb41926d2c82e300c32bdda3c4b1d2a35c6'
+          if gh release view model-assets-ssondo-fp32-v1 >/dev/null 2>&1; then
+            echo 'Existing model release is immutable; refusing to replace assets.'
+            exit 1
+          fi
+          gh release create model-assets-ssondo-fp32-v1 .model-tools/ssondo-fp32-v1.zip .model-tools/SHA256SUMS .model-tools/output/python-parity.json .model-tools/android/android-parity.json .model-tools/output/environment.txt --target d03acdb41926d2c82e300c32bdda3c4b1d2a35c6 --title 'Model assets: S-SONDO MobileNetV3 FP32 v1' --notes-file .model-tools/model-release-notes.md --latest=false --prerelease
