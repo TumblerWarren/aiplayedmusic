@@ -3,7 +3,6 @@
   "retained_apk_run": 39956128414,
   "retained_apk_sha256": "43ff84ebb9b2610b2977bf9561db446f708bdbe6f5d6d5b3802390022acfad70",
   "problem": "The expanded folder search ended at pixel 321, while the alphabet A target already began at 277. The rail overlapped search and could not expand when search collapsed.",
-  "fix": "Use the same committed intrinsic headerHeight for both collapse worklets and the FlatList spacer.",
   "unit_before": "Expected rail top 54 after a 50px intrinsic measurement; old initial style remained 4.",
   "focused_run": 39969195735,
   "focused_source": "2e02829fac1fc7e1cbfb3594f7e6b3cf441d9fed",
@@ -13,5 +12,18 @@
     "alphabet_A_top_px": 403
   },
   "measurement_kind": "Android 35 x86_64 emulator, not a physical phone",
-  "final_source_build": "Required; diagnostic APK is not a release artifact."
+  "final_source_build": "Required; diagnostic APK is not a release artifact.",
+  "prior_fix_limit": "The previous committed-height change passed a fresh-state JS-only test but failed the complete interaction run39970794364. Its unit test used useMemo to refresh a style snapshot, unlike Reanimated4.3.1.",
+  "current_fix": "Create the rail animated-style owner only after intrinsic header measurement and viewport layout; key that owner by headerHeight so remeasurement replaces its retained initial style snapshot.",
+  "regression": "Faithful one-time initial snapshot mock. The previous production code fails with actual top4 vs expected54 after delayed rail attachment. The new owner passes attachment and header90/50 remeasurement.",
+  "upstream_behavior_source": "https://github.com/software-mansion/react-native-reanimated/blob/4.3.1/packages/react-native-reanimated/src/hook/useAnimatedStyle.ts",
+  "shortened_baseline_run": 39996288606,
+  "shortened_baseline_limit": "Old APK passed Songs-to-Folders after font/rotation changes. The complete original sequence remains required; a short pass does not establish resolution.",
+  "candidate_focused_run": 39996770074,
+  "candidate_full_interaction_run": 39997009826,
+  "candidate_validation": "Corrected unit regression and two focused emulator repetitions pass. Complete original interaction run39997009826 remains in progress; not release-approved.",
+  "previous_fix": "Use the same committed intrinsic headerHeight for both collapse worklets and the FlatList spacer.",
+  "fix": "Create the rail animated-style owner only after intrinsic header measurement and viewport layout; key that owner by headerHeight so remeasurement replaces its retained initial style snapshot.",
+  "candidate_focused_source": "5f418e285e3c05e56103c7deb79fd7cc63401864",
+  "candidate_focused_result": "Passed two independent fresh-data runs, each checking fonts/rotation, expanded rail below search and expansion on collapse. All native/model/resource entry bytes matched the retained APK."
 }

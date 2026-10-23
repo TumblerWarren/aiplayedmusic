@@ -230,12 +230,18 @@ def verify_folder_header():
         swipe(*scroll_gesture(tree()))
         collapsed,_=rail_bounds()
         if collapsed[1]<expanded[1]-20 or time.monotonic()>=deadline:break
+    print('Folder rail geometry: '+json.dumps({'search':search,'expanded_A':expanded,'collapsed_A':collapsed}),flush=True)
     check('Folder search collapse expands the same alphabet rail',collapsed[1]<expanded[1]-20)
     shot('folders-collapsed-no-gap')
 
 
 def check_folder_header():
-    browse('For You');browse('Folders')
+    # Reproduce reuse of the Songs list, including Activity recreation.
+    for scale,rotation in [('1.6','0'),('1.6','1'),('1.0','0')]:
+        shell('settings','put','system','font_scale',scale)
+        shell('settings','put','system','user_rotation',rotation)
+        time.sleep(1);wait('+ Browse')
+    browse('Folders')
     for path in ['/storage/emulated/0','/storage/emulated/0/Music','/storage/emulated/0/Music/AiplayedChecks']:open_folder(path)
     shot('folders-expanded-compact-controls')
     verify_folder_header()

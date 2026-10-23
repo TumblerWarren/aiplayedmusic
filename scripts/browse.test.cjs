@@ -216,28 +216,46 @@ test('fixture folder navigation opens every ancestor, restores the route and fol
   assert.deepEqual(commands.map(command => command.action), ['includeSubfolders', 'includeSubfolders']);
 });
 
-test('intrinsic header layout commits preserve the rail inset before the first scroll', async () => {
+test('late rail attachment and remeasurement use the real frozen initial animation snapshot', async () => {
   const { palette } = await import('../src/design.js');
   const { alphabet, alphabetTargets, nearestLetter } = await import('../src/alphabet.js');
   const { headerRemaining, railFraction } = await import('../src/scrollGeometry.js');
-  let ui;
   const pan = { minDistance() { return this; }, maxPointers() { return this; }, onBegin() { return this; }, onUpdate() { return this; }, onFinalize() { return this; } };
-  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], {
-    Animated: { FlatList: 'Animated.FlatList', View: 'Animated.View' }, Gesture: { Pan: () => pan }, GestureDetector: 'GestureDetector',
-    alphabet, alphabetTargets, nearestLetter, headerRemaining, railFraction, scrollMemory: new Map(), rememberScroll() {}, measure: () => null, runOnJS: fn => fn,
-    useSharedValue(value) { const ref = ui.context.useRef(null); return ref.current ||= { value }; },
-    useAnimatedRef() { return ui.context.useRef(null); }, useAnimatedScrollHandler: handlers => handlers,
-    // A React layout commit reapplies this initial style snapshot. Worklet updates
-    // must not be the only source of the newly measured header inset.
-    useAnimatedStyle(updater, deps) { return ui.context.useMemo(updater, deps); },
-  });
+  function create(name) {
+    let ui;
+    ui = harness('src/IndexedSongList.js', [name], {
+      Animated: { FlatList: 'Animated.FlatList', View: 'Animated.View' }, Gesture: { Pan: () => pan }, GestureDetector: 'GestureDetector',
+      alphabet, alphabetTargets, nearestLetter, headerRemaining, railFraction, scrollMemory: new Map(), rememberScroll() {}, measure: () => null, runOnJS: fn => fn,
+      useSharedValue(value) { const ref = ui.context.useRef(null); return ref.current ||= { value }; },
+      useAnimatedRef() { return ui.context.useRef(null); }, useAnimatedScrollHandler: handlers => handlers,
+      // Reanimated 4.3.1 creates this snapshot once, even if React dependencies change.
+      useAnimatedStyle(updater) { const ref = ui.context.useRef(null); return ref.current ||= { initial: updater() }; },
+    });
+    return ui;
+  }
+  const ui = create('IndexedSongList');
   const props = { data: [{ id: 1, title: 'A song' }], c: palette(false), indexed: true, header: 'Search', renderItem: () => null };
-  let tree = ui.render('IndexedSongList', props);
+  const render = () => ui.render('IndexedSongList', props);
+  let tree = render();
   const list = nodes(tree).find(n => n.type === 'Animated.FlatList');
+  // Header can finish measuring before the viewport allows the rail to mount.
+  const measureHeader = height => nodes(tree).find(n => n.type === 'Animated.View' && n.props.onLayout && !n.props.testID).props.onLayout({ nativeEvent: { layout: { height } } });
+  measureHeader(50); tree = render();
   list.props.onLayout({ nativeEvent: { layout: { height: 400 } } });
-  list.props.onContentSizeChange(400, 1200);
-  nodes(tree).find(n => n.type === 'Animated.View' && n.props.onLayout && !n.props.testID).props.onLayout({ nativeEvent: { layout: { height: 50 } } });
-  tree = ui.render('IndexedSongList', props);
-  const rail = nodes(tree).find(n => n.props.testID === 'alphabet-rail');
-  assert.equal(rail.props.style.at(-1).top, 54, 'the expanded rail begins below the measured search header');
+  list.props.onContentSizeChange(400, 1200); tree = render();
+  let mounted, ownerKey;
+  function rail() {
+    const inline = nodes(tree).find(n => n.props.testID === 'alphabet-rail');
+    if (inline) return inline;
+    const owner = nodes(tree).find(n => typeof n.type === 'function' && n.type.name === 'AlphabetRail');
+    assert(owner, 'rail mounts after both header and viewport are measured');
+    if (!mounted || ownerKey !== owner.props.key) { mounted = create('AlphabetRail'); ownerKey = owner.props.key; }
+    return nodes(mounted.render('AlphabetRail', owner.props)).find(n => n.props.testID === 'alphabet-rail');
+  }
+  assert.equal(rail().props.style.at(-1).initial.top, 54, 'late attachment must not restore the initial zero-header inset');
+  // Rotation/large text changes the intrinsic header size on an already used list.
+  measureHeader(90); tree = render();
+  assert.equal(rail().props.style.at(-1).initial.top, 94, 'remeasurement owns a fresh initial snapshot');
+  measureHeader(50); tree = render();
+  assert.equal(rail().props.style.at(-1).initial.top, 54, 'returning to the smaller header also refreshes attachment');
 });

@@ -121,6 +121,12 @@ test('UI-thread header and rail share partial collapse geometry, restore scroll 
     useSharedValue: value => ui.context.useRef({ value }).current, useAnimatedRef: () => ui.context.useRef(null),
     useAnimatedStyle: fn => fn(), useAnimatedScrollHandler: handlers => e => handlers.onScroll(e.nativeEvent), runOnJS: fn => fn,
     measure: () => ({ pageY: 104, height: 392 }) });
+  let railUi;
+  railUi = harness('src/IndexedSongList.js', ['AlphabetRail'], { ...alphabet, ...geometry,
+    Animated: { View: 'AnimatedView' }, GestureDetector: 'GestureDetector', Gesture: { Pan: pan },
+    useAnimatedRef: () => railUi.context.useRef(null), useAnimatedStyle: fn => fn(), runOnJS: fn => fn,
+    measure: () => ({ pageY: 104, height: 392 }) });
+  const railTree = () => railUi.render('AlphabetRail', nodes(tree).find(n => typeof n.type === 'function' && n.type.name === 'AlphabetRail').props);
   const data = [{ id: 1, title: 'Alpha' }, { id: 2, title: 'Zebra' }], calls = [];
   const props = { data, indexed: true, c: { bg: '#ffffff' }, header: h('TextInput'), prelude: h('Actions'), sessionKey: 'songs', rowHeight: 72, renderItem: ({ item }) => h('SongRow', { item }) };
   let tree = ui.render('IndexedSongList', props), list = nodes(tree).find(n => n.type === 'FlatList');
@@ -131,19 +137,19 @@ test('UI-thread header and rail share partial collapse geometry, restore scroll 
   nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout).props.onLayout({ nativeEvent: { layout: { height: 200 } } });
   list.props.renderItem({ item: list.props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204, 'short list keeps search visible');
+  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204, 'short list keeps search visible');
   list.props.onContentSizeChange(300, 10000); list.props.onScrollBeginDrag(); list.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
+  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
   const measuredHeader = nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID);
   assert.equal(measuredHeader.props.style[1].transform[0].translateY, -100);
   assert.equal(measuredHeader.props.style[1].height, undefined, 'intrinsic search measurement must not be constrained by its collapsing height');
   assert.equal(tree.props.style.overflow, 'hidden', 'the viewport clips the translated header above the list');
   assert.equal(list.props.getItemLayout(null, 2).offset, 392);
-  nodes(tree).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();
+  nodes(railTree()).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();
   assert.equal(calls.at(-1)[1].index, 2); assert.equal(calls.at(-1)[1].viewOffset, 0);
   tree = ui.render('IndexedSongList', { ...props, focused: true });
-  assert.equal(nodes(tree).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204);
+  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204);
   list.props.onScroll({ nativeEvent: { contentOffset: { y: 222 } } }); assert.equal(scrollMemory.get('songs'), 222);
   tree = ui.render('IndexedSongList', { ...props, prelude: null, sessionKey: 'filtered-songs' });
   list = nodes(tree).find(n => n.type === 'FlatList');

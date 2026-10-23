@@ -9,7 +9,7 @@ const h = React.createElement;
 const PRELUDE = { prelude: true };
 
 export default function IndexedSongList({ data, c, indexed = false, field = 'title', contentContainerStyle, header, prelude, focused = false, sessionKey = '', rowHeight = 0, renderItem, keyExtractor = item => String(item.id), ListEmptyComponent, ...props }) {
-  const list = useRef(null), rail = useAnimatedRef();
+  const list = useRef(null);
   const y = useSharedValue(scrollMemory.get(sessionKey) || 0);
   const scrollable = useSharedValue(false);
   const dimensions = useRef({ content: 0, viewport: 0 });
@@ -17,12 +17,12 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const retryTimer = useRef(null), bubbleTimer = useRef(null), restoreFrame = useRef(null);
   const restoring = useRef({ key: null, pending: true, offset: 0 });
   if (restoring.current.key !== sessionKey) restoring.current = { key: sessionKey, pending: true, offset: scrollMemory.get(sessionKey) || 0 };
-  const [height, setHeight] = useState(400), [letter, setLetter] = useState(null), [viewportHeight, setViewportHeight] = useState(0);
+  const [letter, setLetter] = useState(null), [viewportHeight, setViewportHeight] = useState(0);
   const [headerHeight, setHeaderHeight] = useState(0), [preludeHeight, setPreludeHeight] = useState(prelude ? null : 0);
   const prefix = prelude ? 1 : 0;
   const rows = useMemo(() => prefix ? [PRELUDE, ...data] : data, [data, prefix]);
   const targets = useMemo(() => alphabetTargets(data, field), [data, field]);
-  const showIndex = indexed && data.length > 0 && viewportHeight >= 100;
+  const showIndex = indexed && data.length > 0 && viewportHeight >= 100 && (!header || headerHeight > 0);
   const restore = () => {
     if (!restoring.current.pending) return;
     cancelAnimationFrame(restoreFrame.current);
@@ -42,13 +42,10 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const scrollHandler = useAnimatedScrollHandler({ onScroll: event => { y.value = Math.max(0, event.contentOffset.y); runOnJS(saveScroll)(y.value); } });
   const headerStyle = useAnimatedStyle(() => {
     const remaining = headerRemaining(y.value, headerHeight, focused, scrollable.value);
-    // Share the committed intrinsic measurement with both worklets and the list spacer.
-    // A separate shared height can leave the rail at its initial zero-height inset.
     // Measure intrinsic content before moving it. Giving this measuring container
     // an animated height (initially zero) constrains Yoga and hides the search.
     return { transform: [{ translateY: remaining - headerHeight }], opacity: headerHeight ? remaining / headerHeight : 1 };
   }, [focused, headerHeight]);
-  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerHeight, focused, scrollable.value) + 4 }), [focused, headerHeight]);
   const jump = next => {
     if (!next || targets[next] === undefined) return;
     setLetter(next); clearTimeout(bubbleTimer.current); bubbleTimer.current = setTimeout(() => setLetter(null), 700);
@@ -60,11 +57,6 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   };
   const touchFraction = fraction => jump(nearestLetter(fraction, targets));
   const endTouch = () => { lastLetter.current = null; };
-  const pan = Gesture.Pan().minDistance(0).maxPointers(1).onBegin(event => {
-    const box = measure(rail); if (box) runOnJS(touchFraction)(railFraction(event.absoluteY, box.pageY, box.height));
-  }).onUpdate(event => {
-    const box = measure(rail); if (box) runOnJS(touchFraction)(railFraction(event.absoluteY, box.pageY, box.height));
-  }).onFinalize(() => { runOnJS(endTouch)(); });
   const recover = info => {
     if (pending.current !== info.index) return;
     list.current?.scrollToOffset({ offset: headerHeight + (prefix ? preludeHeight || 0 : 0) + Math.max(1, info.averageItemLength) * Math.max(0, info.index - prefix), animated: false });
@@ -85,7 +77,23 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
       initialNumToRender: 12, maxToRenderPerBatch: 8, windowSize: 9, showsVerticalScrollIndicator: false, keyboardDismissMode: 'on-drag', keyboardShouldPersistTaps: 'handled',
       contentContainerStyle: [contentContainerStyle, showIndex && { paddingRight: 48 }] }),
     header && h(Animated.View, { onLayout: e => setHeaderHeight(e.nativeEvent.layout.height), style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 8, backgroundColor: c.bg }, headerStyle] }, header),
-    showIndex && h(GestureDetector, { gesture: pan }, h(Animated.View, { ref: rail, collapsable: false, onLayout: e => setHeight(e.nativeEvent.layout.height), testID: 'alphabet-rail', style: [{ position: 'absolute', bottom: 4, right: 2, width: 40, minHeight: 40, borderRadius: 20, backgroundColor: c.lavender, paddingVertical: 4 }, railStyle] },
-      ...alphabet.map(value => h(Pressable, { key: value, onPress: () => { lastLetter.current = null; jump(value); }, accessibilityRole: 'button', accessibilityLabel: `Jump to ${value === '#' ? 'numbers and other titles' : value}`, accessibilityState: { disabled: targets[value] === undefined }, disabled: targets[value] === undefined, style: { flex: 1, alignItems: 'center', justifyContent: 'center' } }, h(Text, { allowFontScaling: false, style: { color: letter === value ? c.onAccent : c.purpleInk, backgroundColor: letter === value ? c.accent : 'transparent', borderRadius: 8, minWidth: 16, textAlign: 'center', fontSize: Math.min(12, Math.max(7, (height - 8) / 34)), fontWeight: '700', opacity: targets[value] === undefined ? 0.32 : 1 } }, value))))),
+    showIndex && h(AlphabetRail, { key: headerHeight, headerHeight, y, focused, scrollable, c, targets, letter,
+      onFraction: touchFraction, onEnd: endTouch, onJump: next => { lastLetter.current = null; jump(next); } }),
     showIndex && letter && h(View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', right: 50, top: '40%', width: 64, height: 64, borderRadius: 24, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' } }, h(Text, { style: { fontSize: 32, fontWeight: '700', color: c.onAccent } }, letter)));
+}
+
+// useAnimatedStyle retains its first JS style snapshot. Mount this owner only
+// after measurement, and remount it when that measurement changes, so attaching
+// a rail after a layout/route change cannot restore a zero-height header inset.
+function AlphabetRail({ headerHeight, y, focused, scrollable, c, targets, letter, onFraction, onEnd, onJump }) {
+  const rail = useAnimatedRef();
+  const [height, setHeight] = useState(400);
+  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerHeight, focused, scrollable.value) + 4 }));
+  const pan = Gesture.Pan().minDistance(0).maxPointers(1).onBegin(event => {
+    const box = measure(rail); if (box) runOnJS(onFraction)(railFraction(event.absoluteY, box.pageY, box.height));
+  }).onUpdate(event => {
+    const box = measure(rail); if (box) runOnJS(onFraction)(railFraction(event.absoluteY, box.pageY, box.height));
+  }).onFinalize(() => { runOnJS(onEnd)(); });
+  return h(GestureDetector, { gesture: pan }, h(Animated.View, { ref: rail, collapsable: false, onLayout: e => setHeight(e.nativeEvent.layout.height), testID: 'alphabet-rail', style: [{ position: 'absolute', bottom: 4, right: 2, width: 40, minHeight: 40, borderRadius: 20, backgroundColor: c.lavender, paddingVertical: 4 }, railStyle] },
+    ...alphabet.map(value => h(Pressable, { key: value, onPress: () => onJump(value), accessibilityRole: 'button', accessibilityLabel: `Jump to ${value === '#' ? 'numbers and other titles' : value}`, accessibilityState: { disabled: targets[value] === undefined }, disabled: targets[value] === undefined, style: { flex: 1, alignItems: 'center', justifyContent: 'center' } }, h(Text, { allowFontScaling: false, style: { color: letter === value ? c.onAccent : c.purpleInk, backgroundColor: letter === value ? c.accent : 'transparent', borderRadius: 8, minWidth: 16, textAlign: 'center', fontSize: Math.min(12, Math.max(7, (height - 8) / 34)), fontWeight: '700', opacity: targets[value] === undefined ? 0.32 : 1 } }, value)))));
 }
