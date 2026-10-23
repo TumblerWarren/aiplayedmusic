@@ -1,5 +1,7 @@
 # Aiplayed 1.2.3 / Android version code 6
 
+Historical record for the revision described below. Current APK and validation results are in [STATUS.txt](STATUS.txt).
+
 The preparatory merge is `71b3f30d365ad6032c668adf2d2db9813f7e1e98`, with parents `6ccd1296532034b62ae5ae19d5ac04c7167fb64b` and `b9e74d61e38082747d0a18621b7e998b2e1cc0ab`. GitHub comparisons verified that all eight pre-existing feature branch tips are ancestors of main after this merge. The existing behavior and DSP suite passed before release implementation. Audio engine source is unchanged by this release.
 
 Library uses a persistent current-view title and + Browse trigger. Seven destinations have selected state, independent session queries and scroll offsets. The sheet supports a visible Close control, backdrop, Android Back and downward handle gestures. Focus returns after dismissal. Contextual playlist/folder controls stay on their relevant screens; Sound preset choices stay on Sound.

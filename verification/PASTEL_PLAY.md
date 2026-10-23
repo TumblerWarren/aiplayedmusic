@@ -1,5 +1,7 @@
 # Pastel Play interaction update
 
+Historical record for the revision described below. Current APK and validation results are in [STATUS.txt](STATUS.txt).
+
 Implemented on `design/multicolor-ui`:
 
 - Custom two-tone folder, music, playlist, sound, heart, disc and transport icons; utility arrows retain Feather.

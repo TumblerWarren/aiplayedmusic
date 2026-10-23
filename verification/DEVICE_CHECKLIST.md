@@ -1,6 +1,6 @@
 # Android verification
 
-Automated build checks passed for version 1.2; see `STATUS.txt`. Physical-device checks below remain pending.
+The released v1.2.6 APK passed compilation, Lint/package checks, 61 emulator interaction assertions and 63 theme assertions on each of API26/31/35; see [STATUS.txt](STATUS.txt). Physical-device checks below remain pending.
 
 ## Build
 
@@ -28,7 +28,7 @@ Automated build checks passed for version 1.2; see `STATUS.txt`. Physical-device
 - Pause during initial file loading; audio must remain paused when preparation finishes.
 - Change playback speed while paused; it must stay paused.
 - Test sleep timer expiry with screen off, background playback, and equalizer availability.
-- Open Sound from the player and Settings; confirm Tone, Output and Playback use the copper theme.
+- Open Sound from the player and Settings; confirm Tone, Output and Playback follow the selected System/Light/Dark palette.
 - Change presets while a song plays, pause, change EQ/speed/pitch, then confirm playback stays paused.
 - Save a named sound profile; restart the app and restore it. Verify all settings, rename conflicts and deletion.
 - Compare bypass with a level-matched reference; transition from 300% boost to bypass without a clipped transient.
@@ -49,8 +49,8 @@ Automated build checks passed for version 1.2; see `STATUS.txt`. Physical-device
 - Load large libraries, long song titles and embedded album art.
 - Test local plain-text/LRC lyrics import and file sharing.
 - Test theme changes, rotation, status/navigation insets, font scaling and TalkBack.
-- Compare requested Mi Music version screenshots; record remaining parity gaps.
-- Choose a Music root using Android's directory picker, restart and confirm persistence.
+- Check Pulse/Wave/Orbit artwork, pause/resume, background and Reduce Motion; confirm no animation picker exists.
+- Choose a Music root in Settings using the in-app folder browser; restart and confirm persistence.
 - Verify Electronic/Ambient and Electronic/House stay inside Electronic; test breadcrumbs and system Back.
-- Play a folder with Include subfolders on/off, and exclude/re-include a parent without leaking sibling paths.
+- Set Include subfolders in Settings, then play a folder with it on/off, and exclude/re-include a parent without leaking sibling paths.
 - Select internal and SD-card roots, remove one and remove the final restriction; recover from picker cancellation.

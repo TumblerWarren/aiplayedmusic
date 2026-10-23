@@ -1,21 +1,24 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const api = import('../src/music.js');
+const indexApi = import('../src/libraryIndex.js');
 const songs = [
   { id: 1, title: 'Zebra', artist: 'One', album: 'A', folder: '/Music/A', duration: 30000, added: 10 },
   { id: 2, title: 'Alpha', artist: 'Two', album: 'B', folder: '/Music/B', duration: 90000, added: 30 },
   { id: 3, title: 'Beta', artist: 'One', album: 'A', folder: '/Music/A', duration: 60000, added: 20 }
 ];
 test('playlist order survives missing files and search', async () => {
-  const { selectSongs } = await api;
+  const { createLibraryIndex } = await indexApi;
+  const select = createLibraryIndex(songs).select;
   const state = { playlists: { Mix: [3, 99, 1, 2] } };
-  assert.deepEqual(selectSongs(songs, state, { kind: 'playlist', name: 'Mix' }).map(s => s.id), [3, 1, 2]);
-  assert.deepEqual(selectSongs(songs, state, { kind: 'playlist', name: 'Mix' }, 'ONE').map(s => s.id), [3, 1]);
+  assert.deepEqual(select(state, { kind: 'playlist', name: 'Mix' }).map(s => s.id), [3, 1, 2]);
+  assert.deepEqual(select(state, { kind: 'playlist', name: 'Mix' }, 'ONE').map(s => s.id), [3, 1]);
 });
 test('favourites match persisted string IDs and collection scope', async () => {
-  const { selectSongs } = await api;
-  assert.deepEqual(selectSongs(songs, { favorites: ['2'] }, { kind: 'favorites' }).map(s => s.id), [2]);
-  assert.deepEqual(selectSongs(songs, {}, { kind: 'Folders', name: '/Music/A' }).map(s => s.id), [1, 3]);
+  const { createLibraryIndex } = await indexApi;
+  const select = createLibraryIndex(songs).select;
+  assert.deepEqual(select({ favorites: ['2'] }, { kind: 'favorites' }).map(s => s.id), [2]);
+  assert.deepEqual(select({}, { kind: 'Folders', name: '/Music/A' }).map(s => s.id), [3, 1]);
 });
 test('sorts do not mutate the scanner result', async () => {
   const { sortSongs } = await api;
@@ -25,8 +28,9 @@ test('sorts do not mutate the scanner result', async () => {
   assert.deepEqual(songs.map(s => s.id), [1, 2, 3]);
 });
 test('recently played keeps newest-first order', async () => {
-  const { selectSongs } = await api;
-  assert.deepEqual(selectSongs(songs, { recent: [2, 3, 1] }, { kind: 'recent' }).map(s => s.id), [2, 3, 1]);
+  const { createLibraryIndex } = await indexApi;
+  const select = createLibraryIndex(songs).select;
+  assert.deepEqual(select({ recent: [2, 3, 1] }, { kind: 'recent' }).map(s => s.id), [2, 3, 1]);
 });
 test('album grouping counts tracks and filters names', async () => {
   const { groupsFor } = await api;
@@ -40,7 +44,8 @@ test('durations remain valid for long songs and invalid values', async () => {
   assert.equal(formatTime(undefined), '0:00');
 });
 test('folder browsing shows immediate children, not flattened descendants', async () => {
-  const { folderChildren, folderRoots, selectSongs } = await api;
+  const { folderChildren, folderRoots } = await api;
+  const { createLibraryIndex } = await indexApi;
   const nested = [
     { id: 1, folder: '/storage/emulated/0/Music/Electronic/Ambient', title: 'One' },
     { id: 2, folder: '/storage/emulated/0/Music/Electronic/House', title: 'Two' },
@@ -50,8 +55,9 @@ test('folder browsing shows immediate children, not flattened descendants', asyn
   ];
   assert.deepEqual(folderChildren(nested, '/storage/emulated/0/Music').map(g => [g.name.split('/').pop(), g.count]), [['Electronic', 2], ['Jazz', 1]]);
   assert.deepEqual(folderChildren(nested, '/storage/emulated/0/Music/Electronic').map(g => g.name.split('/').pop()), ['Ambient', 'House']);
-  assert.deepEqual(selectSongs(nested, {}, { kind: 'Folders', name: '/storage/emulated/0/Music' }).map(s => s.id), [4]);
-  assert.deepEqual(selectSongs(nested, {}, { kind: 'Folders', name: '/storage/emulated/0/Music', recursive: true }).map(s => s.id), [1, 2, 3, 4]);
+  const select = createLibraryIndex(nested).select;
+  assert.deepEqual(select({}, { kind: 'Folders', name: '/storage/emulated/0/Music' }).map(s => s.id), [4]);
+  assert.deepEqual(select({}, { kind: 'Folders', name: '/storage/emulated/0/Music', recursive: true }).map(s => s.id), [4, 1, 3, 2]);
   assert.deepEqual(folderRoots(nested), [{ name: '/storage/emulated/0', count: 5 }]);
   assert.deepEqual(folderRoots(nested, ['/storage/emulated/0/Music', '/storage/SD/Music']).map(g => g.count), [4, 0]);
 });

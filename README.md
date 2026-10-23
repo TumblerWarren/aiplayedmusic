@@ -2,9 +2,11 @@
 
 A local music player inspired by Mi Music, built with **Expo SDK 56 and React Native**. Android 8.0+; application ID `app.localmusic.player`.
 
-**Stable APK:** [Aiplayed v1.2.5](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.5/Aiplayed-v1.2.5.apk), Android version code **8**. Source v1.2.6 (code 9) adds soft charcoal dark mode, the music-note icon and Settings-only folder selection. Its APK is published after native, package and emulator validation passes.
+**Current release:** [Aiplayed v1.2.6 APK](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk), Android version code **9**. [Release notes and checksum](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.6). The previous stable [v1.2.5](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.5) is retained.
 
-Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and device measurements](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
+Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. There is no animation style setting.
+
+Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and measurement plan](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
 
 Release builds run in GitHub Actions. Local behavior and DSP checks can run without generating an Android project.
 
@@ -22,7 +24,9 @@ This needs a **development build or standalone APK**, not Expo Go, because the c
 
 The `Build Expo Android APK` workflow builds manually from Actions or after a push/merge to `main` whose commit message contains `[build apk]`. Other pushes skip packaging. It installs the compatible Expo dependencies, runs the selector tests and Expo compatibility checks, generates Android with Expo prebuild, and runs Gradle compilation and Android Lint.
 
-After a successful run, download the `aiplayedmusic-apk` artifact. The GitHub phone APK includes 32-bit and 64-bit ARM; local development builds can also target x86 Android emulators. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. A failed build is not an installable artifact; inspect the uploaded diagnostics.
+After a successful run, download the `aiplayedmusic-apk` artifact. The GitHub APK includes 32-bit ARM, 64-bit ARM and x86_64 for the configured emulators. The standalone release-mode APK bundles JavaScript and runs without Metro. Expo's generated Android template uses the development signing configuration unless private release signing is added; this artifact is for sideloading and testing, not a production store release. Only candidates that pass every gate are promoted for installation; inspect diagnostics for a failed run. `unverified-candidate-apk` is diagnostic evidence, not a validated release.
+
+New releases derive their tag, APK name and evidence directory from `package.json`. Update its version, `app.config.js` version/versionCode and `verification/RELEASE_NOTES_<version>.md` together before requesting a new release. Rebuilding an already released version preserves the published tag and assets. Keep workflow changes off main while a release for its current source is finishing; see the [release validation record](verification/TEST_VALIDITY_AUDIT.md).
 
 ## Development
 
@@ -62,7 +66,16 @@ No Expo account or EAS project has been linked, and no EAS build has been starte
 
 Run `npm run check` with Node and a JDK. It runs library, navigation, preview scheduling, scroll restoration and playback-state tests, plus actual Java signal-processing tests. It does not build an APK.
 
-JavaScript, native Java, JSON and Android XML were also checked offline. The successful GitHub build additionally verified native module autolinking, Kotlin/Java compilation, Android Lint, APK signing and removal of internet permission. Physical-device playback, background behaviour, headset controls and UI still require the checks in `verification/DEVICE_CHECKLIST.md`.
+Run the test-driver regressions separately:
 
-The supplied Play Store listing was inspected. REA was not installed, and no original binary/settings screenshots were available, so this is an independent implementation rather than a verified exact replica.
+```sh
+python scripts/media-session.test.py
+python scripts/android-ui-geometry.test.py
+python scripts/android-theme-driver.test.py
+```
 
+The released v1.2.6 APK passed native compilation, Android Lint, signing/branding/offline checks, 61 interaction assertions and 63 theme assertions on each of API26/31/35. Its formerly failing Sound path also passed three fresh-data repetitions. See [current verification status](verification/STATUS.txt) and [the test validity audit](verification/TEST_VALIDITY_AUDIT.md).
+
+To check an existing APK on a configured emulator, build the independent inspector with `python scripts/build-ui-helper.py`, then run `python scripts/android-ui-checks.py --apk /path/to/app.apk`. For the isolated Sound path, append `--scenario sound --repeat 3`; this clears app data and is emulator-only. The scripts require Android SDK tools, Java, FFmpeg/FFprobe and Python; theme checks also require Pillow. The API35 interaction fixture is calibrated to a 1080×1920, density-420 emulator. Theme checks use `python scripts/android-theme-checks.py --apk /path/to/app.apk` on API26/31/35. Neither script compiles the application.
+
+Physical-device playback, Bluetooth/headset controls, listening quality and performance measurements remain pending in [the device checklist](verification/DEVICE_CHECKLIST.md). [Verification records](verification/README.md) distinguish current evidence from historical reviews.

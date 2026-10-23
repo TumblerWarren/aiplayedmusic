@@ -1,6 +1,8 @@
 # Version 1.2 — review before build
 
-This records the pre-build review. The user subsequently authorized the build; current Android build evidence will be recorded in STATUS.txt after verification.
+Historical record for the revision described below. Current APK and validation results are in [STATUS.txt](STATUS.txt).
+
+This records the pre-build review. The user subsequently authorized the build; current Android build evidence will be recorded in history/STATUS_1.2.0.txt after verification.
 
 ## Review decisions
 
@@ -24,7 +26,7 @@ This records the pre-build review. The user subsequently authorized the build; c
 
 ## Post-build status
 
-Automated compilation, packaging, Lint, signing and offline checks passed for build 39222538168. See `STATUS.txt` for the exact source and artifact. Physical-device checks remain pending.
+Automated compilation, packaging, Lint, signing and offline checks passed for build 39222538168. See `history/STATUS_1.2.0.txt` for the exact source and artifact. Physical-device checks remain pending.
 
 ## Original verification plan
 

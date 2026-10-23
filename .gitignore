@@ -13,3 +13,7 @@ local.properties
 !.env.example
 .idea/
 *.iml
+
+# Python emulator/test-driver caches
+__pycache__/
+*.py[cod]

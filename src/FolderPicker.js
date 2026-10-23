@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Native from './native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';

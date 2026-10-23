@@ -1,5 +1,7 @@
 # Folder spacing and theme-test corrections
 
+Historical investigation log. For the published APK and final results, start with [STATUS.txt](STATUS.txt) and [the test validity audit](TEST_VALIDITY_AUDIT.md).
+
 The nested folder screenshot showed excessive separation between the fading search area and folder playback controls. The folder header now contains only search. Sort and play-folder controls share a compact prelude in normal list flow, without stacked header/row margins. Include subfolders is available only under Settings → Library; removing its folder-browser row leaves no placeholder. Search, alphabetical indexing and session restoration remain available.
 
 Run 39605146635 passed native compilation, Lint, package/signature checks and the existing interaction suite. Publication was correctly blocked by the three theme matrix failures:

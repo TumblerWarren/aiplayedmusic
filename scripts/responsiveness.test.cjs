@@ -110,13 +110,22 @@ test('a rejected old commit cannot cancel the next gesture', async () => {
 
 test('cached selectors preserve playlist/recent ordering, sorting, search and folder boundaries at 10k tracks', async () => {
   const { createLibraryIndex } = await import('../src/libraryIndex.js');
-  const { selectSongs, sortSongs, groupsFor, folderChildren } = await import('../src/music.js');
+  const { sortSongs, groupsFor, folderChildren } = await import('../src/music.js');
   const songs = Array.from({ length: 10000 }, (_, id) => song(id, `${id % 2 ? 'Alpha' : 'Zebra'} ${id}`, `/storage/emulated/0/Music${id % 3 ? '/Rock' : '2'}`));
   const index = createLibraryIndex(songs);
   const state = { favorites: ['1', '2'], recent: [2, 99999, 1], playlists: { Mix: [8, 99999, 3, 1] } };
-  for (const sort of ['Title', 'Artist', 'Duration', 'Date added']) for (const selection of [null, { kind: 'favorites' }, { kind: 'recent' }, { kind: 'playlist', name: 'Mix' }, { kind: 'Folders', name: '/storage/emulated/0/Music', recursive: true }]) for (const query of ['', 'infra', 'alpha']) {
-    const expected = selectSongs(songs, state, selection, query);
-    assert.deepEqual(index.select({ ...state, sort }, selection, query), ['recent', 'playlist'].includes(selection?.kind) ? expected : sortSongs(expected, sort));
+  // Explicit fixture scopes avoid comparing the live index with a retired selector.
+  const cases = [
+    [null, songs],
+    [{ kind: 'favorites' }, [songs[1], songs[2]]],
+    [{ kind: 'recent' }, [songs[2], songs[1]]],
+    [{ kind: 'playlist', name: 'Mix' }, [songs[8], songs[3], songs[1]]],
+    [{ kind: 'Folders', name: '/storage/emulated/0/Music', recursive: true }, songs.filter(item => item.id % 3 !== 0)],
+  ];
+  for (const sort of ['Title', 'Artist', 'Duration', 'Date added']) for (const [selection, scope] of cases) for (const query of ['', 'infra', 'alpha']) {
+    const matching = scope.filter(item => [item.title, item.artist, item.album].some(value => value.toLowerCase().includes(query)));
+    const expected = ['recent', 'playlist'].includes(selection?.kind) ? matching : sortSongs(matching, sort);
+    assert.deepEqual(index.select({ ...state, sort }, selection, query), expected);
   }
   assert.deepEqual(index.groups('Artists', 'infra'), groupsFor(songs, 'Artists', 'infra'));
   assert.deepEqual(index.folders('/storage/emulated/0/Music'), folderChildren(songs, '/storage/emulated/0/Music'));

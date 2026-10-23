@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import { PlayingBars, PlayingArtwork, PlaybackRipple, MotionProvider, useAppActive } from './src/PlaybackMotion';

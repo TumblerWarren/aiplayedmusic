@@ -1,5 +1,7 @@
 # Aiplayed 1.2.4 / Android version code 7
 
+Historical record for the revision described below. Current APK and validation results are in [STATUS.txt](STATUS.txt).
+
 This update responds to device screenshots showing rectangular navbar press feedback, duplicate playlist creation actions and crowded search controls. The navbar uses explicitly clipped patterned backgrounds rather than platform ripple masks. Empty and populated Playlists each expose one centered creation action; list controls have a 12-point search gap.
 
 Sound adjustments use circular gesture controls, not horizontal faders. Reanimated shared values drive the indicator on the UI thread; circular angle deltas cross the wrap boundary without jumps. One gesture previews through the existing serialized DSP controller, commits once on release, and cancels without saving on termination or multitouch. Precision buttons and adjustable accessibility actions use the same limits and step sizes. Sound preset choices stay on Sound. Song-position seeking stays on the player timeline.

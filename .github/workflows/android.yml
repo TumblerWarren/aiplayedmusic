@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main, design/multicolor-ui, release/v1.2.6]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
@@ -10,14 +10,14 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.6') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
       - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
   build:
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v1.2.6') && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -41,6 +41,14 @@ jobs:
           log-accepted-android-sdk-licenses: false
       - name: Install Expo dependencies
         run: npm install --no-audit --no-fund
+      - name: Read release version
+        id: version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$version" = "$(node -p "require('./app.config').expo.version")"
+          test -f "verification/RELEASE_NOTES_$version.md"
+          echo "value=$version" >> "$GITHUB_OUTPUT"
       - name: Verify library and audio signal processing
         run: |
           npm run check
@@ -176,9 +184,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-interaction-evidence-v1.2.6
+          name: android-interaction-evidence-v${{ steps.version.outputs.value }}
           retention-days: 30
-          path: verification/android-v1.2.6/
+          path: verification/android-v${{ steps.version.outputs.value }}/
           if-no-files-found: warn
       - name: Require every release validation to pass
         run: |
@@ -235,10 +243,20 @@ jobs:
         with:
           name: aiplayedmusic-apk
           path: verified-apk
-      - name: Publish verified v1.2.6 APK
+      - name: Publish verified APK
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          cp verified-apk/app-release.apk Aiplayed-v1.2.6.apk
-          sha256sum Aiplayed-v1.2.6.apk > Aiplayed-v1.2.6.apk.sha256
-          gh release create v1.2.6 Aiplayed-v1.2.6.apk Aiplayed-v1.2.6.apk.sha256 --target "$GITHUB_SHA" --title "Aiplayed v1.2.6" --notes-file verification/RELEASE_NOTES_1.2.6.md
+          version=$(node -p "require('./package.json').version")
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          tag="v$version"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "::notice::Release $tag already exists; preserving its published APK and tag."
+            exit 0
+          fi
+          notes="verification/RELEASE_NOTES_$version.md"
+          test -f "$notes"
+          apk="Aiplayed-$tag.apk"
+          cp verified-apk/app-release.apk "$apk"
+          sha256sum "$apk" > "$apk.sha256"
+          gh release create "$tag" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Aiplayed $tag" --notes-file "$notes"

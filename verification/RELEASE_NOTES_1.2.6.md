@@ -9,6 +9,6 @@ Aiplayed v1.2.6 (Android version code 9)
 - Replace full-player disc rotation with a random Pulse, Wave or Orbit animation per track, respecting pause, background and Reduce Motion.
 - Correct Expo's battery-based automatic appearance on Android 8 so System follows the phone's night mode.
 
-Built from merged main. Publication requires behavior/DSP tests, native compilation, Android Lint, signature/branding/offline-permission checks, existing interaction checks and theme verification on Android API26,31,35. Screenshots, startup recordings and diagnostics are retained in GitHub Actions artifacts.
+Released from merged main after behavior/DSP tests, native compilation, Android Lint, signature/branding/offline-permission checks, all 61 interaction assertions and 63 theme assertions on each of Android API26,31,35 passed. Screenshots, startup recordings and diagnostics are retained in GitHub Actions artifacts.
 
 Offline standalone APK, using the same signing certificate as v1.2.5 for installation as an update. A SHA-256 checksum is attached.

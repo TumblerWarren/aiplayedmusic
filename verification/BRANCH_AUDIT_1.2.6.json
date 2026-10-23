@@ -1,8 +1,14 @@
 {
-  "main_after_merging_outstanding_branches": "2f1fbf81db1db69ed0cc2a02ba132b290071f426",
-  "branch_count": 28,
-  "method": "GitHub compare confirmed all 26 other non-main branch tips were ancestors of 851124897590fd158670d38eec163453a89580b0; PR26 merged the remaining branch into main, and GitHub compare confirmed it is an ancestor of merged main.",
+  "checked_on": "2026-10-23",
+  "main_after_merging_outstanding_branches": "f75a3b1b7797bcb34808c56d86add5149f919211",
+  "branch_count": 33,
+  "method": "GitHub compare confirmed every non-main branch tip is an ancestor of the checked main revision; all comparisons reported ahead_by = 0. Documentation/cleanup commits after this snapshot preserve that ancestry.",
   "branches": [
+    {
+      "name": "ci/verify-android12-only-20261022",
+      "sha": "0fba05dba9ea1a97a128bd372b50df85c9821e6a",
+      "included": true
+    },
     {
       "name": "design/multicolor-ui",
       "sha": "ec8fe8a71b0caf7eb3ebe513561bfdafe7098693",
@@ -26,6 +32,11 @@
     {
       "name": "fix/android-validation-tools",
       "sha": "23fa3663865dde40acea089cba514899b5d846c9",
+      "included": true
+    },
+    {
+      "name": "fix/folder-header-and-theme-checks",
+      "sha": "67876af10be45adcd04debd5ea253be2b3a65f5f",
       "included": true
     },
     {
@@ -99,6 +110,11 @@
       "included": true
     },
     {
+      "name": "fix/settings-subfolders-and-browse-checks",
+      "sha": "9dfe8b27d7e01d5ae3e7b18b5a66464b378d131b",
+      "included": true
+    },
+    {
       "name": "fix/sheet-handle-responder",
       "sha": "ea0929d2d7ba0d406d12b59bcc11114ff3b6012a",
       "included": true
@@ -124,8 +140,8 @@
       "included": true
     },
     {
-      "name": "main",
-      "sha": "2f1fbf81db1db69ed0cc2a02ba132b290071f426",
+      "name": "fix/themed-media-notification",
+      "sha": "a509c4e3e18d9c860ce272197a19c5030b32c141",
       "included": true
     },
     {
@@ -141,6 +157,11 @@
     {
       "name": "release/v1.2.3",
       "sha": "8d4f380864a90cea333b0b0da7f79838b2f49652",
+      "included": true
+    },
+    {
+      "name": "release/v1.2.6",
+      "sha": "7a24ddfc90a34844c4db7feeee5236ec0fd4a849",
       "included": true
     }
   ]

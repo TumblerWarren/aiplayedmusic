@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1254 1254" role="img" aria-labelledby="title desc">
-<title id="title">Aiplayed animated music icon</title><desc id="desc">A plum vinyl record with a cream music note rotates slowly on a pastel lavender background.</desc>
-<style>.record{transform-origin:627px 627px;animation:spin 12s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){.record{animation:none}}</style>
-<defs><clipPath id="record"><circle cx="627" cy="627" r="497"/></clipPath></defs>
-<image width="1254" height="1254" xlink:href="aiplayed-icon.png"/>
-<circle cx="627" cy="627" r="500" fill="#DED0FC"/>
-<g class="record"><g clip-path="url(#record)"><image width="1254" height="1254" xlink:href="aiplayed-icon.png"/></g></g>
-</svg>
