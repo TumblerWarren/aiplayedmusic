@@ -69,6 +69,7 @@ public final class RecommendationEngine {
         int token=generation.get();boolean acquired=false;
         try{
             analysis.lockInterruptibly();acquired=true;
+            if(!isManual&&prefs.contains("modelFailure"))return true;
             if(!allowed(isManual,token,stopped))return false;
             running=true;activeManual=isManual;List<Song> songs=synchronize();emit();
             Set<Long> pending=store.pending();
@@ -85,24 +86,25 @@ public final class RecommendationEngine {
                         for(long start:starts){
                             if(!allowed(isManual,token,stopped))throw new CancellationException();
                             AudioDecoder.Decoded decoded=AudioDecoder.section(context,song.uri(),start,()->allowed(isManual,token,stopped));
-                            float[] vector=runtime.embed(decoded);segments.add(vector);
+                            float[] vector;try{vector=runtime.embed(decoded);}catch(java.io.IOException invalidAudio){throw invalidAudio;}catch(RuntimeException inference){throw new InferenceFailure(inference);}segments.add(vector);
                             for(int i=0;i<960;i++)pooled[i]+=vector[i]/starts.length;
                         }
                         if(!allowed(isManual,token,stopped))return false;
                         // Revalidate the file identity after decode, before committing any embedding.
                         Song current=findEligible(song.id);
                         if(current!=null&&fingerprint.equals(fingerprint(current)))store.analysed(song.id,fingerprint,starts,segments,pooled);
-                    }catch(CancellationException cancelled){return false;}
+                    }catch(InferenceFailure inference){throw inference;}
+                    catch(CancellationException cancelled){return false;}
                     catch(Exception unreadable){store.failed(song.id,fingerprint,"Unreadable or unsupported audio");}
                     counts=store.counts();emit();
                 }
             }catch(Exception|LinkageError unavailable){
-                prefs.edit().putString("modelFailure",ModelRuntime.MODEL_SHA).apply();error="Audio analysis couldn't start. Try Analyse now again.";return true;
+                manualRequested=false;prefs.edit().putString("modelFailure",ModelRuntime.MODEL_SHA).apply();error="Audio analysis couldn't start. Try Analyse now again.";return true;
             }
             manualRequested=false;return true;
         }catch(InterruptedException interrupted){Thread.currentThread().interrupt();return false;}
-        catch(Exception unavailable){error="Couldn't access your music. Check audio access and try again.";return true;}
-        finally{if(acquired){running=false;activeManual=false;counts=store.counts();analysis.unlock();}if(isManual&&enabled())schedule();emit();}
+        catch(Exception unavailable){manualRequested=false;error="Couldn't access your music. Check audio access and try again.";return true;}
+        finally{if(acquired){running=false;activeManual=false;counts=store.counts();analysis.unlock();}if(isManual&&enabled())schedule();resumeManual();emit();}
     }
     private boolean allowed(boolean manualMode,int token,BooleanSupplier stopped){
         if(stopped.getAsBoolean()||Thread.currentThread().isInterrupted()||token!=generation.get())return false;
@@ -172,5 +174,6 @@ public final class RecommendationEngine {
     public void saveMix(String id,String name)throws Exception{String chosen=name.trim();if(chosen.isEmpty()||chosen.length()>100)throw new IllegalArgumentException("Use a playlist name between 1 and 100 characters");if(library.playlists().has(chosen))throw new IllegalArgumentException("Choose a new playlist name");List<Song> songs=songsForMix(id);library.createPlaylist(chosen);for(Song song:songs)library.addToPlaylist(chosen,song);}
     public Future<?> clearHistory(){historyGeneration.incrementAndGet();return events.submit(()->{store.clearHistory();synchronized(this){snapshots.clear();}emit();});}
     public Future<?> clearAnalysis(){setEnabled(false);return events.submit(()->{analysis.lock();try{store.clearAnalysis();synchronized(this){snapshots.clear();}counts=store.counts();}finally{analysis.unlock();}emit();});}
+    private static final class InferenceFailure extends Exception { InferenceFailure(Throwable cause){super(cause);} }
     private static String digest(String input){try{MessageDigest hash=MessageDigest.getInstance("SHA-256");StringBuilder value=new StringBuilder();for(byte b:hash.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)))value.append(String.format(Locale.ROOT,"%02x",b&255));return value.toString();}catch(Exception impossible){throw new IllegalStateException(impossible);}}
 }
