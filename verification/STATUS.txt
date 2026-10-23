@@ -1,0 +1,44 @@
+Current published APK: Aiplayed v1.2.6 / Android versionCode 9
+Application: app.localmusic.player / Android 8.0+
+Published: 2026-10-22T17:59:40Z (23:29 IST)
+Release: https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.6
+APK: https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk
+Checksum: https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk.sha256
+APK SHA-256: 9bc9d5ad631df0dbc285c263be926849ac81ce5171d09bfcba69c62441181ee0
+Validated application source: f9c7d92ab29b7bb9c007ca89723c30a8949c3283
+APK build: https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39809400056
+Validation and publication: https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39822236303
+
+Build 71 compiled the candidate successfully, but its original UI driver failed
+on an offscreen Bass precision button. Validation-only run 39822236303 reused
+that exact APK, verified its original checksum/compiler/Lint evidence and ran
+the corrected tests. A new app build was not required for the driver repair.
+
+Original behavior/DSP and Expo compatibility checks: PASS
+Native music engine and source-patched Expo SystemUI compilation: PASS
+Standalone release APK packaging and Android Lint: PASS
+Certificate, version, launcher/splash branding and offline permissions: PASS
+Audited Python driver regressions: 28 PASS
+Isolated API35 Sound scenario: 3 fresh-data repetitions / 21 checks PASS
+Full API35 interaction suite: 61 assertions PASS
+API26 / Android 8 theme suite: 63 assertions PASS
+API31 / Android 12 theme suite: 63 assertions PASS
+API35 / Android 15 theme suite: 63 assertions PASS
+Release tag/source and published APK checksum: MATCH
+
+Expo SDK 56 / React Native 0.85.3 / React 19.2.3 / Media3 1.11.1
+Architectures: armeabi-v7a, arm64-v8a, x86_64
+Signing: development configuration for sideloading, not a production store key
+Certificate SHA-256: fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c
+Offline APK: no INTERNET, ACCESS_NETWORK_STATE or microphone permission
+Previous stable APK v1.2.5: retained
+Older APK assets/artifacts: removed at the user's request; historical links may expire
+
+These results apply to the released APK/source above. Subsequent documentation
+and dead-code cleanup on main has local verification, not a new APK/device run.
+Physical-device listening, Bluetooth/headset behavior, frame timing and upgrade
+visual review remain pending. Screenshots/recordings are supporting evidence;
+the device suite does not assert every rendered animation frame.
+
+Current evidence/limits: TEST_VALIDITY_AUDIT.md and DEVICE_CHECKLIST.md
+Historical version 1.2.0 build record: history/STATUS_1.2.0.txt
