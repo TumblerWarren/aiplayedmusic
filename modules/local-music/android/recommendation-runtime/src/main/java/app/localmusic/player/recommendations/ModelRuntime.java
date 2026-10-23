@@ -34,8 +34,8 @@ public final class ModelRuntime implements AutoCloseable {
         transform=new LogMel(p.getInt("n_fft"),p.getInt("hop_length"),p.getInt("n_mels"),p.getInt("segment_samples"),
             (float)p.getDouble("log_offset"),floats(context,"window.f32"),floats(context,"mel-filters.f32"));
     }
-    public float[] embed(AudioDecoder.Decoded decoded)throws IOException{
-        float[] input=transform.apply(SincResampler.apply(decoded.mono,decoded.sampleRate,32000));
+    public float[] embed(float[] mono,int sampleRate)throws IOException{
+        float[] input=transform.apply(SincResampler.apply(mono,sampleRate,32000));
         for(float value:input)if(!Float.isFinite(value))throw new IOException("Invalid decoded audio amplitude");
         ByteBuffer tensor=ByteBuffer.allocateDirect(input.length*4).order(ByteOrder.nativeOrder());tensor.asFloatBuffer().put(input);
         float[][] output=new float[1][960];interpreter.run(tensor,output);

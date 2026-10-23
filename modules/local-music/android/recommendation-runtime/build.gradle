@@ -1,0 +1,14 @@
+// Keep LiteRT's newer Kotlin implementation metadata off Expo's Kotlin compile path.
+// The public surface is Java/Android-only; LiteRT remains a private runtime dependency.
+plugins { id 'com.android.library' }
+android {
+    namespace 'app.localmusic.recommendations.runtime'
+    compileSdkVersion 36
+    defaultConfig { minSdkVersion 26 }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+    implementation('com.google.ai.edge.litert:litert:2.3.0') {
+        exclude group: 'com.google.android.play', module: 'ai-delivery'
+    }
+}

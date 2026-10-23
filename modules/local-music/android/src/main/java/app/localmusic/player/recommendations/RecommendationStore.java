@@ -85,7 +85,7 @@ public final class RecommendationStore extends SQLiteOpenHelper {
     /** Capped per-day signals prevent a repeated song from dominating a profile. */
     public synchronized Map<Long,double[]> affinity(long now){
         Map<Long,double[]> out=new HashMap<>();
-        String query="SELECT track_id,started/86400000,MIN(3,SUM(CASE WHEN covered>=MIN(duration*0.7,120000) AND played>=10000 THEN 1 ELSE 0 END)),MIN(2,SUM(early_next)),MAX(ended) FROM sessions WHERE started>=? AND reason!='open' GROUP BY track_id,started/86400000";
+        String query="SELECT track_id,started/86400000,MIN(3,SUM(CASE WHEN reason!='open' AND covered>=MIN(duration*0.7,120000) AND played>=10000 THEN 1 ELSE 0 END)),MIN(2,SUM(early_next)),MAX(ended) FROM sessions WHERE started>=? AND played>0 GROUP BY track_id,started/86400000";
         try(Cursor c=getReadableDatabase().rawQuery(query,new String[]{""+(now-180L*86400000)})){
             while(c.moveToNext()){
                 double[] a=out.computeIfAbsent(c.getLong(0),key->new double[3]);

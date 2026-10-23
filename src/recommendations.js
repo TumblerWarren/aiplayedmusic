@@ -26,7 +26,7 @@ export function createRecommendationStore(api) {
   const accept = raw => {
     const status = parse(raw);
     if (!status.enabled) { generation++; update({ status, mixes: [], loaded: true }); }
-    else { update({ status, loaded: true }); if (status.mixesAvailable && !value.mixes.length && !loadingMixes) loadMixes(false).catch(error => update({ error: error.message })); }
+    else { if (!status.mixesAvailable) { generation++; update({ mixes: [] }); } update({ status, loaded: true }); if (status.mixesAvailable && !value.mixes.length && !loadingMixes) loadMixes(false).catch(error => update({ error: error.message })); }
   };
   const perform = async action => {
     if (value.busy) return false;

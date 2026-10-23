@@ -19,6 +19,8 @@ public final class EngineLogicTest {
         check(clock.playedMs==3000&&clock.coveredMs==3000,"Seek jumps are excluded");
         check(!clock.earlyNext(180000),"Skipping after seeking past the early threshold is not early dislike");
         clock.update(14000,0,true,1);check(clock.playedMs==3000,"Backward discontinuity adds no duration");
+        ListeningClock unheard=new ListeningClock();unheard.update(0,0,false,1);unheard.update(2000,0,false,1);
+        check(!unheard.earlyNext(180000),"An unheard paused selection is neutral");
         ListeningClock fast=new ListeningClock();fast.update(0,0,true,2);fast.update(1000,2000,true,2);
         check(fast.playedMs==1000&&fast.coveredMs==2000,"Heard wall time and covered media time stay distinct");
         check(fast.earlyNext(180000),"Deliberate early next can be weak negative evidence");

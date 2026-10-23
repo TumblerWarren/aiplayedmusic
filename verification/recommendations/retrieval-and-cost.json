@@ -1,0 +1,555 @@
+{
+  "study": "small licensed public corpus",
+  "model_sha256": "b71333936779151d44e6b6e90e97af6729bc6f1c7f69a901b1a4d3881abb4723",
+  "records": [
+    {
+      "id": "vibeace",
+      "category": "jazz",
+      "duration_seconds": 61.45886621315193,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/Kevin_MacLeod_-_Vibe_Ace.toml",
+      "author": null,
+      "sha256": "6c23aed3dd5aa57f2b1652ecab68d15d9b82ad257f54e639eb2880ca09bc118a",
+      "source_bytes": 380332,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 28.57403000000147,
+          "inference_ms": 10.399041999988867
+        },
+        {
+          "start_seconds": 25.729433106575964,
+          "decode_preprocess_inference_ms": 24.554537999989634,
+          "inference_ms": 10.289155999998911
+        },
+        {
+          "start_seconds": 51.45886621315193,
+          "decode_preprocess_inference_ms": 22.45500300000458,
+          "inference_ms": 10.360513000009064
+        }
+      ],
+      "nearest": [
+        {
+          "id": "sweetwaltz",
+          "cosine": 0.5390815138816833,
+          "category": "piano"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.49741846323013306,
+          "category": "classical"
+        },
+        {
+          "id": "choice",
+          "cosine": 0.49039652943611145,
+          "category": "electronic"
+        }
+      ]
+    },
+    {
+      "id": "choice",
+      "category": "electronic",
+      "duration_seconds": 25.025986394557822,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/admiralbob77_-_Choice_-_Drum-bass.toml",
+      "author": null,
+      "sha256": "ac644f9645e7c15174e4a4f8561e4d1448d7f6e59ff6b0556b310ebbced879bc",
+      "source_bytes": 137526,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 23.638758000004145,
+          "inference_ms": 10.34021399999574
+        },
+        {
+          "start_seconds": 7.512993197278911,
+          "decode_preprocess_inference_ms": 22.755717000009668,
+          "inference_ms": 10.30445900001098
+        },
+        {
+          "start_seconds": 15.025986394557822,
+          "decode_preprocess_inference_ms": 23.41222599999071,
+          "inference_ms": 10.361684999992349
+        }
+      ],
+      "nearest": [
+        {
+          "id": "vibeace",
+          "cosine": 0.49039652943611145,
+          "category": "jazz"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.3232300579547882,
+          "category": "classical"
+        },
+        {
+          "id": "sweetwaltz",
+          "cosine": 0.3194045424461365,
+          "category": "piano"
+        }
+      ]
+    },
+    {
+      "id": "nutcracker",
+      "category": "classical",
+      "duration_seconds": 119.87591836734694,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/Kevin_MacLeod_-_P_I_Tchaikovsky_Dance_of_the_Sugar_Plum_Fairy.toml",
+      "author": null,
+      "sha256": "b5c1a3e26310e6618d3c124f458654cd235650fcb9db7d711302644566600484",
+      "source_bytes": 597254,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 22.888467000001356,
+          "inference_ms": 10.32137500000374
+        },
+        {
+          "start_seconds": 54.93795918367347,
+          "decode_preprocess_inference_ms": 21.840295999993486,
+          "inference_ms": 10.3434380000067
+        },
+        {
+          "start_seconds": 109.87591836734694,
+          "decode_preprocess_inference_ms": 23.226336000007564,
+          "inference_ms": 10.343367999993802
+        }
+      ],
+      "nearest": [
+        {
+          "id": "sweetwaltz",
+          "cosine": 0.5717052817344666,
+          "category": "piano"
+        },
+        {
+          "id": "brahms",
+          "cosine": 0.5467890501022339,
+          "category": "classical"
+        },
+        {
+          "id": "vibeace",
+          "cosine": 0.49741846323013306,
+          "category": "jazz"
+        }
+      ]
+    },
+    {
+      "id": "brahms",
+      "category": "classical",
+      "duration_seconds": 45.844897959183676,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/Hungarian_Dance_number_5_-_Allegro_in_F_sharp_minor_%28string_orchestra%29.toml",
+      "author": null,
+      "sha256": "919b48aa4cc66a0357d2cd5728664c5ab8f15c4b3469460df4b59470d35d3e49",
+      "source_bytes": 242853,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 24.12031400000103,
+          "inference_ms": 10.382756999987919
+        },
+        {
+          "start_seconds": 17.922448979591838,
+          "decode_preprocess_inference_ms": 23.727902999993944,
+          "inference_ms": 10.322927000004256
+        },
+        {
+          "start_seconds": 35.844897959183676,
+          "decode_preprocess_inference_ms": 23.035247999999342,
+          "inference_ms": 10.364550000005579
+        }
+      ],
+      "nearest": [
+        {
+          "id": "nutcracker",
+          "cosine": 0.5467890501022339,
+          "category": "classical"
+        },
+        {
+          "id": "pistachio",
+          "cosine": 0.42607349157333374,
+          "category": "piano"
+        },
+        {
+          "id": "sweetwaltz",
+          "cosine": 0.34253793954849243,
+          "category": "piano"
+        }
+      ]
+    },
+    {
+      "id": "trumpet",
+      "category": "jazz",
+      "duration_seconds": 5.333378684807256,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/sorohanro_-_solo-trumpet-06.toml",
+      "author": null,
+      "sha256": "8374466fd3951d24509da6e799b132a0db0bdeda69d99c69d989a6888d3d727d",
+      "source_bytes": 27019,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 20.057086999997864,
+          "inference_ms": 10.324490000002129
+        }
+      ],
+      "nearest": [
+        {
+          "id": "long-kirtana-and-speech",
+          "cosine": 0.480579137802124,
+          "category": "devotional-mixed"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.3995105028152466,
+          "category": "classical"
+        },
+        {
+          "id": "brahms",
+          "cosine": 0.33365949988365173,
+          "category": "classical"
+        }
+      ]
+    },
+    {
+      "id": "fishin",
+      "category": "vocal",
+      "duration_seconds": 132.98902494331065,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/Karissa_Hobbs_-_Lets_Go_Fishin.toml",
+      "author": null,
+      "sha256": "27b3667c396c1831511aa3c415fcf582b6e8be560cafb844c5b67b76b72c1cb3",
+      "source_bytes": 734402,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 23.748863999998093,
+          "inference_ms": 10.346853000001488
+        },
+        {
+          "start_seconds": 61.49451247165533,
+          "decode_preprocess_inference_ms": 23.58658899999,
+          "inference_ms": 10.351040000003309
+        },
+        {
+          "start_seconds": 122.98902494331065,
+          "decode_preprocess_inference_ms": 23.938090000001466,
+          "inference_ms": 10.35444400000074
+        }
+      ],
+      "nearest": [
+        {
+          "id": "bengali-bhajan",
+          "cosine": 0.49419963359832764,
+          "category": "devotional"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.38665372133255005,
+          "category": "classical"
+        },
+        {
+          "id": "long-kirtana-and-speech",
+          "cosine": 0.37637677788734436,
+          "category": "devotional-mixed"
+        }
+      ]
+    },
+    {
+      "id": "sweetwaltz",
+      "category": "piano",
+      "duration_seconds": 49.2,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/147793__setuniman__sweet-waltz-0i-22mi.toml",
+      "author": null,
+      "sha256": "4baff8ebf1771c33618b58aa12ac3fbac1e0462894ae74247f2fb8e649d1c63b",
+      "source_bytes": 228926,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 23.941241000002833,
+          "inference_ms": 10.338903999993931
+        },
+        {
+          "start_seconds": 19.6,
+          "decode_preprocess_inference_ms": 22.871057000003248,
+          "inference_ms": 10.332704999996167
+        },
+        {
+          "start_seconds": 39.2,
+          "decode_preprocess_inference_ms": 22.71194600000115,
+          "inference_ms": 10.327376999995863
+        }
+      ],
+      "nearest": [
+        {
+          "id": "nutcracker",
+          "cosine": 0.5717052817344666,
+          "category": "classical"
+        },
+        {
+          "id": "pistachio",
+          "cosine": 0.5466760396957397,
+          "category": "piano"
+        },
+        {
+          "id": "vibeace",
+          "cosine": 0.5390815138816833,
+          "category": "jazz"
+        }
+      ]
+    },
+    {
+      "id": "pistachio",
+      "category": "piano",
+      "duration_seconds": 70.76571428571428,
+      "source": "https://librosa.org/doc/latest/recordings.html",
+      "licence_url": "https://librosa.org/data/audio/442789__lena-orsa__happy-music-pistachio-ice-cream-ragtime.toml",
+      "author": null,
+      "sha256": "9617c9be55c128177b13c20fbc52178ed482e3545094517efb30a7db2798991e",
+      "source_bytes": 347949,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 22.02301799999873,
+          "inference_ms": 10.298304000002645
+        },
+        {
+          "start_seconds": 30.38285714285714,
+          "decode_preprocess_inference_ms": 21.839920999994433,
+          "inference_ms": 10.344382999988966
+        },
+        {
+          "start_seconds": 60.76571428571428,
+          "decode_preprocess_inference_ms": 22.99560400000189,
+          "inference_ms": 10.359554999993748
+        }
+      ],
+      "nearest": [
+        {
+          "id": "sweetwaltz",
+          "cosine": 0.5466760396957397,
+          "category": "piano"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.4354061484336853,
+          "category": "classical"
+        },
+        {
+          "id": "brahms",
+          "cosine": 0.42607349157333374,
+          "category": "classical"
+        }
+      ]
+    },
+    {
+      "id": "bengali-bhajan",
+      "category": "devotional",
+      "duration_seconds": 701.0409070294785,
+      "source": "https://commons.wikimedia.org/wiki/File:Yasomati-nandana_%28Sri_Nama-kirtana%29.ogg",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "A. C. Bhaktivedanta Swami",
+      "sha256": "8e692e6cd3642513b3be0a69fff1cebbd1de1465bd16b679fc60c612252d6f4f",
+      "source_bytes": 11371314,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 42.49879099999987,
+          "inference_ms": 10.328858999997692
+        },
+        {
+          "start_seconds": 345.52045351473924,
+          "decode_preprocess_inference_ms": 42.57395500000882,
+          "inference_ms": 10.370191999996337
+        },
+        {
+          "start_seconds": 691.0409070294785,
+          "decode_preprocess_inference_ms": 42.399941999988755,
+          "inference_ms": 10.310140999990836
+        }
+      ],
+      "nearest": [
+        {
+          "id": "long-kirtana-and-speech",
+          "cosine": 0.5884031653404236,
+          "category": "devotional-mixed"
+        },
+        {
+          "id": "fishin",
+          "cosine": 0.49419963359832764,
+          "category": "vocal"
+        },
+        {
+          "id": "nutcracker",
+          "cosine": 0.4089943766593933,
+          "category": "classical"
+        }
+      ]
+    },
+    {
+      "id": "hindi-kirtana",
+      "category": "devotional",
+      "duration_seconds": 88.88598639455782,
+      "source": "https://commons.wikimedia.org/wiki/File:Kirtana_in_Hindi.ogg",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Subhashish Panigrahi (field recording)",
+      "sha256": "cb5b558078bc07c3c9015cd38a7ce0711e2cc3b0be379e8a0f87606406c56f25",
+      "source_bytes": 2656706,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 32.89380400001107,
+          "inference_ms": 10.37010100000657
+        },
+        {
+          "start_seconds": 39.44299319727891,
+          "decode_preprocess_inference_ms": 33.15800699999727,
+          "inference_ms": 10.315578999993136
+        },
+        {
+          "start_seconds": 78.88598639455782,
+          "decode_preprocess_inference_ms": 32.92260699998906,
+          "inference_ms": 10.346235000000092
+        }
+      ],
+      "nearest": [
+        {
+          "id": "assam-bhajan",
+          "cosine": 0.4706461429595947,
+          "category": "devotional"
+        },
+        {
+          "id": "bengali-bhajan",
+          "cosine": 0.3751458525657654,
+          "category": "devotional"
+        },
+        {
+          "id": "long-kirtana-and-speech",
+          "cosine": 0.37491917610168457,
+          "category": "devotional-mixed"
+        }
+      ]
+    },
+    {
+      "id": "assam-bhajan",
+      "category": "devotional",
+      "duration_seconds": 342.75265306122446,
+      "source": "https://commons.wikimedia.org/wiki/File:Local_musicians_singing_bhajan_at_Kamakhya_temple%2C_Guwahati%2C_Assam%2C_India.ogg",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "Subhashish Panigrahi (field recording)",
+      "sha256": "932dceaf78c7de1e5f233621184136c6a1bec4c57574067dc573f070bf2cb52b",
+      "source_bytes": 14525269,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 50.441141000007406,
+          "inference_ms": 6.429887999999551
+        },
+        {
+          "start_seconds": 166.37632653061223,
+          "decode_preprocess_inference_ms": 52.70955199999605,
+          "inference_ms": 6.346131999990234
+        },
+        {
+          "start_seconds": 332.75265306122446,
+          "decode_preprocess_inference_ms": 48.749058000012724,
+          "inference_ms": 6.355897000005939
+        }
+      ],
+      "nearest": [
+        {
+          "id": "hindi-kirtana",
+          "cosine": 0.4706461429595947,
+          "category": "devotional"
+        },
+        {
+          "id": "long-kirtana-and-speech",
+          "cosine": 0.3801337480545044,
+          "category": "devotional-mixed"
+        },
+        {
+          "id": "bengali-bhajan",
+          "cosine": 0.35947316884994507,
+          "category": "devotional"
+        }
+      ]
+    },
+    {
+      "id": "long-kirtana-and-speech",
+      "category": "devotional-mixed",
+      "duration_seconds": 1271.7975510204083,
+      "source": "https://commons.wikimedia.org/wiki/File:Hare_K%E1%B9%9B%E1%B9%A3%E1%B9%87a_K%C4%ABrtana_and_purport.ogg",
+      "licence_url": "https://creativecommons.org/licenses/by-sa/3.0/",
+      "author": "A. C. Bhaktivedanta Swami",
+      "sha256": "ee07ddc0b8bad31a7df2e8ba7ddeff318394141a7b071a7553d72eb532900283",
+      "source_bytes": 50744263,
+      "segments": [
+        {
+          "start_seconds": 0,
+          "decode_preprocess_inference_ms": 45.90627100000688,
+          "inference_ms": 6.347504000004278
+        },
+        {
+          "start_seconds": 630.8987755102041,
+          "decode_preprocess_inference_ms": 46.04877600000634,
+          "inference_ms": 6.33980300000303
+        },
+        {
+          "start_seconds": 1261.7975510204083,
+          "decode_preprocess_inference_ms": 42.584331000000475,
+          "inference_ms": 6.370539000002395
+        }
+      ],
+      "nearest": [
+        {
+          "id": "bengali-bhajan",
+          "cosine": 0.5884031653404236,
+          "category": "devotional"
+        },
+        {
+          "id": "trumpet",
+          "cosine": 0.480579137802124,
+          "category": "jazz"
+        },
+        {
+          "id": "assam-bhajan",
+          "cosine": 0.3801337480545044,
+          "category": "devotional"
+        }
+      ]
+    }
+  ],
+  "taste_snapshots": [
+    {
+      "profile": 1,
+      "tracks": [
+        "choice",
+        "vibeace",
+        "trumpet",
+        "pistachio"
+      ]
+    },
+    {
+      "profile": 2,
+      "tracks": [
+        "bengali-bhajan",
+        "long-kirtana-and-speech",
+        "fishin",
+        "nutcracker",
+        "sweetwaltz",
+        "hindi-kirtana",
+        "assam-bhajan",
+        "trumpet",
+        "brahms"
+      ]
+    }
+  ],
+  "host_peak_rss_kib": 378012,
+  "measurement_device": "GitHub hosted Linux x86_64 CPU, includes Python/torch overhead",
+  "physical_phone_measurements": "pending",
+  "human_relevance_evaluation": "pending; coarse source categories are descriptive, not ground-truth personal preference",
+  "limitation": "Twelve recordings are a smoke evaluation, not a broad ranking-quality claim. The long recording includes speech; three-section pooling can mix different content.",
+  "run_url": "https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39923699617"
+}

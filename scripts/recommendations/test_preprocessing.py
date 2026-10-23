@@ -7,7 +7,7 @@ import tempfile
 import unittest
 import numpy as np
 
-SOURCE = Path(__file__).resolve().parents[2] / 'modules/local-music/android/src/main/java/app/localmusic/player/recommendations'
+SOURCE = Path(__file__).resolve().parents[2] / 'modules/local-music/android/recommendation-runtime/src/main/java/app/localmusic/player/recommendations'
 
 
 class TransformTests(unittest.TestCase):

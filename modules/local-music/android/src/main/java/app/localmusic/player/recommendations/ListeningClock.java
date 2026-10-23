@@ -34,6 +34,6 @@ public final class ListeningClock {
 
     public boolean earlyNext(long duration) {
         long threshold = Math.min(30000, Math.max(0, duration) / 5);
-        return threshold > 0 && playedMs < threshold && coveredMs < threshold && maximumPosition < threshold;
+        return threshold > 0 && playedMs > 0 && playedMs < threshold && coveredMs < threshold && maximumPosition < threshold;
     }
 }

@@ -55,17 +55,69 @@ public final class CoreGate extends Instrumentation {
   double maximum=0;for(int i=0;i<Math.min(pcm.length,decoded.mono.length);i++)maximum=Math.max(maximum,Math.abs(pcm[i]-decoded.mono[i]));
   check(maximum<.001,"Decoded PCM agrees with the original source, without playback DSP");
   try(ModelRuntime runtime=new ModelRuntime(context)){
-   float[] actual=runtime.embed(decoded),expected=runtime.embed(new AudioDecoder.Decoded(pcm,44100));
+   float[] actual=runtime.embed(decoded.mono,decoded.sampleRate),expected=runtime.embed(pcm,44100);
    check(TasteRanker.cosine(TasteRanker.normalize(actual),TasteRanker.normalize(expected))>=.999,"Content URI decode through native preprocessing and FP32 runtime preserves embeddings");
   }
+  playbackSessions(context);
   JSONObject report=new JSONObject().put("passed",true).put("checks",checks).put("sdk",android.os.Build.VERSION.SDK_INT).put("device",android.os.Build.MODEL).put("model_sha256",ModelRuntime.MODEL_SHA);
   try(FileOutputStream out=context.openFileOutput("core-gate.json",0)){out.write(report.toString(2).getBytes(java.nio.charset.StandardCharsets.UTF_8));}
   result.putString("stream",report.toString());finish(-1,result);
  }catch(Throwable error){result.putString("stream",android.util.Log.getStackTraceString(error));finish(1,result);}}
+ private void playbackSessions(Context context)throws Exception{
+  startActivitySync(new Intent(context,GateActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));waitForIdleSync();
+  // Exercise the actual Media3 service and its callbacks, rather than fabricated session rows.
+  wave(context,30);java.util.List<Song> songs=new java.util.ArrayList<>();
+  for(int i=0;i<2;i++){
+   ContentValues values=new ContentValues();values.put(android.provider.MediaStore.Audio.Media.DISPLAY_NAME,"AiplayedCore"+i+".wav");values.put(android.provider.MediaStore.Audio.Media.MIME_TYPE,"audio/wav");values.put(android.provider.MediaStore.Audio.Media.RELATIVE_PATH,"Music/AiplayedCore");
+   Uri uri=context.getContentResolver().insert(android.provider.MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,values);
+   try(InputStream input=new FileInputStream(new File(context.getFilesDir(),"fixture.wav"));OutputStream output=context.getContentResolver().openOutputStream(uri)){
+    byte[] bytes=new byte[16384];int n;while((n=input.read(bytes))!=-1)output.write(bytes,0,n);
+   }
+   Song song=new Song();song.id=ContentUris.parseId(uri);song.title="Core "+i;song.artist="Core artist";song.album="Core album";song.path="core"+i;song.folder="Core";song.duration=30000;songs.add(song);
+  }
+  java.util.concurrent.CountDownLatch bound=new java.util.concurrent.CountDownLatch(1);final PlaybackService[] holder=new PlaybackService[1];
+  ServiceConnection connection=new ServiceConnection(){public void onServiceConnected(ComponentName name,android.os.IBinder binder){holder[0]=((PlaybackService.LocalBinder)binder).service();bound.countDown();}public void onServiceDisconnected(ComponentName name){}};
+  onMain(()->{context.startForegroundService(new Intent(context,PlaybackService.class).setAction("foreground"));context.bindService(new Intent(context,PlaybackService.class),connection,Context.BIND_AUTO_CREATE);});
+  check(bound.await(10,java.util.concurrent.TimeUnit.SECONDS),"Native playback service binds");
+  PlaybackService service=holder[0];RecommendationEngine engine=RecommendationEngine.get(context);engine.setEnabled(true);engine.pause();engine.clearHistory().get();
+  try{
+   onMain(()->service.play(songs,0));playing(service);Thread.sleep(1000);
+   onMain(()->service.seek(15000));Thread.sleep(600);onMain(()->service.next(true));drain(engine);
+   check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT early_next FROM sessions WHERE reason='next' ORDER BY ended DESC LIMIT 1")),"Seeking into a track before Next is not early dislike");
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT played FROM sessions WHERE reason='next' ORDER BY ended DESC LIMIT 1"))<5000,"Seeking jumps never become heard duration");
+   onMain(()->service.play(songs,0));playing(service);Thread.sleep(1000);onMain(()->service.next(true));drain(engine);
+   check("1".equals(scalar(engine.store.getReadableDatabase(),"SELECT early_next FROM sessions WHERE reason='next' ORDER BY ended DESC LIMIT 1")),"An actual deliberately skipped early listen is weak negative evidence");
+   onMain(()->service.play(songs,0));playing(service);Thread.sleep(700);onMain(service::pause);Thread.sleep(1600);onMain(service::resume);playing(service);Thread.sleep(700);onMain(()->service.play(songs,1));drain(engine);
+   long heard=Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT played FROM sessions WHERE reason='queue_replacement' AND track_id="+songs.get(0).id+" ORDER BY ended DESC LIMIT 1"));
+   check(heard>=900&&heard<2600,"Pause and resume account for heard time, excluding the pause");
+   onMain(()->{service.play(songs,0);service.seek(5000);service.previous();});Thread.sleep(300);onMain(()->service.next(true));drain(engine);
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='replay'"))>0,"Explicit previous/replay is recorded independently");
+   onMain(()->{service.setRepeat(0);service.play(Collections.singletonList(songs.get(0)),0);});playing(service);onMain(()->service.seek(29500));Thread.sleep(1200);drain(engine);
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='completion'"))>0,"Natural completion has its own terminal reason");
+   onMain(()->{service.setRepeat(2);service.play(Collections.singletonList(songs.get(0)),0);});playing(service);onMain(()->service.seek(29700));Thread.sleep(900);onMain(()->service.next(true));drain(engine);
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE entry_reason='replay'"))>0,"Repeat starts a fresh replay session");
+   onMain(()->{service.setRepeat(0);service.play(songs,0);service.pause();});Thread.sleep(300);onMain(()->service.next(true));drain(engine);
+   check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='next' AND played=0 AND early_next=1")),"An unheard paused selection is not interpreted as dislike");
+   Song missing=new Song();missing.id=Long.MAX_VALUE/2;missing.duration=30000;missing.title="Missing";missing.artist="Unknown artist";missing.album="Unknown album";
+   onMain(()->service.play(Collections.singletonList(missing),0));Thread.sleep(1500);drain(engine);
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='error' AND early_next=0"))>0,"Playback failure is recorded without dislike");
+  }finally{onMain(service::pause);engine.setEnabled(false);context.unbindService(connection);context.stopService(new Intent(context,PlaybackService.class));}
+ }
+ private void onMain(Runnable action){
+  java.util.concurrent.atomic.AtomicReference<Throwable> failure=new java.util.concurrent.atomic.AtomicReference<>();
+  runOnMainSync(()->{try{action.run();}catch(Throwable error){failure.set(error);}});
+  if(failure.get()!=null)throw new AssertionError("Native service main-thread action failed",failure.get());
+ }
+ private void drain(RecommendationEngine engine)throws Exception{Thread.sleep(100);engine.events.submit(()->{}).get();}
+ private void playing(PlaybackService service)throws Exception{
+  long end=android.os.SystemClock.elapsedRealtime()+10000;java.util.concurrent.atomic.AtomicBoolean active=new java.util.concurrent.atomic.AtomicBoolean();
+  while(android.os.SystemClock.elapsedRealtime()<end){onMain(()->active.set(service.playing()));if(active.get())return;Thread.sleep(50);}throw new AssertionError("Media3 fixture did not start");
+ }
  private void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
  private String scalar(SQLiteDatabase db,String query){try(Cursor cursor=db.rawQuery(query,null)){if(!cursor.moveToFirst())return "";return cursor.getString(0);}}
- private float[] wave(Context context)throws Exception{
-  float[] pcm=new float[44100];ByteArrayOutputStream data=new ByteArrayOutputStream();DataOutputStream bytes=new DataOutputStream(data);
+ private float[] wave(Context context)throws Exception{return wave(context,1);}
+ private float[] wave(Context context,int seconds)throws Exception{
+  float[] pcm=new float[44100*seconds];ByteArrayOutputStream data=new ByteArrayOutputStream();DataOutputStream bytes=new DataOutputStream(data);
   bytes.writeBytes("RIFF");le32(bytes,36+pcm.length*2);bytes.writeBytes("WAVEfmt ");le32(bytes,16);le16(bytes,1);le16(bytes,1);le32(bytes,44100);le32(bytes,88200);le16(bytes,2);le16(bytes,16);bytes.writeBytes("data");le32(bytes,pcm.length*2);
   for(int i=0;i<pcm.length;i++){short sample=(short)(Math.sin(i*2*Math.PI*440/44100)*12000);pcm[i]=sample/32768f;le16(bytes,sample);}
   try(FileOutputStream out=new FileOutputStream(new File(context.getFilesDir(),"fixture.wav"))){out.write(data.toByteArray());}return pcm;

@@ -64,8 +64,10 @@ as a prerelease with latest disabled. The bundle SHA-256 is
 `d182eab57b78249da4529448d7aac29717c22b6c4930a8906ed064abab84753b`.
 Its exported FP32 model is **11,979,512 bytes**. Python/export minimum cosine was
 0.99999988; Android native preprocessing/runtime minimum cosine exceeded
-0.999999997 across 29 inputs. An independent native core run passed twenty
-SQLite/content-URI/runtime checks. Physical-phone measurements remain pending.
+0.999999997 across 29 inputs. An independent Android 35 native run passed 35 checks covering SQLite,
+content-URI inference and real playback-service sessions. The Java behavior
+suite passed 107 checks, and the real Expo Kotlin/Java bridge compiled with
+LiteRT 2.3.0 isolated in a Java library to avoid incompatible Kotlin metadata. Physical-phone measurements remain pending.
 
 Only after all model gates pass may a new model be uploaded to a versioned
 `model-assets` GitHub release with `make_latest=false`. Application builds must
@@ -91,3 +93,31 @@ runtime model download and no production INTERNET permission.
 - Async native APIs and a separate throttled progress event; never bridge embeddings.
 - Prepare Android version 1.3.0 / code 10 only after the integration gate passes;
   freeze final candidate source throughout full validation and publication.
+
+## Retrieval and indexing evaluation
+
+The twelve-recording evaluation includes Bengali, Hindi and Assamese devotional
+music and a 21-minute kirtana/medley. Pinned source URLs, licences, file hashes,
+nearest neighbors and measured host CPU timings are recorded in
+`verification/recommendations/retrieval-and-cost.json`. Ten-second segments took
+roughly 20–53 ms for decoding, preprocessing and inference on the hosted CPU.
+These timings do not describe phone performance.
+
+Two devotional pairs retrieved each other, and seeded favorites formed distinct
+taste profiles. Some cross-genre matches remained, including instrumental music
+matched to a long recording containing speech. This smoke evaluation establishes
+working retrieval and bounded sampling, not human-rated recommendation quality.
+Physical-phone relevance, heat, battery and indexing measurements remain pending.
+
+## Runtime and privacy boundaries
+
+The production LiteRT dependency is contained in
+`modules/local-music/android/recommendation-runtime`, a Java library exposing only
+FP32 arrays to the Expo module. Android preprocessing and inference use this same
+module in the independent validation harness. No runtime Kotlin version checks
+are suppressed, and the shipped inference runtime remains pinned to 2.3.0.
+
+Embeddings remain in private native SQLite. React receives status and fixed mix
+metadata only. Paused selections with zero played duration carry no negative or
+recency signal. Open sessions can affect recency only after actual playback;
+positive contributions require a closed session with sustained listening.

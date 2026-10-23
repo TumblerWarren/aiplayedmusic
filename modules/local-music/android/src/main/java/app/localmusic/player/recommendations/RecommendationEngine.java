@@ -86,7 +86,7 @@ public final class RecommendationEngine {
                         for(long start:starts){
                             if(!allowed(isManual,token,stopped))throw new CancellationException();
                             AudioDecoder.Decoded decoded=AudioDecoder.section(context,song.uri(),start,()->allowed(isManual,token,stopped));
-                            float[] vector;try{vector=runtime.embed(decoded);}catch(java.io.IOException invalidAudio){throw invalidAudio;}catch(RuntimeException inference){throw new InferenceFailure(inference);}segments.add(vector);
+                            float[] vector;try{vector=runtime.embed(decoded.mono,decoded.sampleRate);}catch(java.io.IOException invalidAudio){throw invalidAudio;}catch(RuntimeException inference){throw new InferenceFailure(inference);}segments.add(vector);
                             for(int i=0;i<960;i++)pooled[i]+=vector[i]/starts.length;
                         }
                         if(!allowed(isManual,token,stopped))return false;

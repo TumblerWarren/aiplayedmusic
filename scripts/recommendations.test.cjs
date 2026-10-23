@@ -27,6 +27,8 @@ test('local recommendation state stays separate and refresh never starts playbac
   await store.refresh(); assert.equal(refreshes, 1); assert.equal(plays, 0);
   await store.save(mix.id, 'Saved mix'); assert.equal(plays, 0, 'saving does not replace the queue');
   await store.play(mix.id); assert.equal(plays, 1, 'only explicit Play starts the fixed snapshot');
+  listener({ json: JSON.stringify({ enabled: true, analysed: 0, eligible: 0, mixesAvailable: false }) });
+  assert.equal(store.getSnapshot().mixes.length, 0, 'ineligible libraries clear visible suggestions');
   await store.deleteAnalysis(); assert.equal(store.getSnapshot().mixes.length, 0); assert.equal(store.getSnapshot().status.enabled, false);
   assert.equal(analysisMessage({ state: 'paused_playback' }), 'Paused while music plays');
   assert.equal(analysisMessage({ state: 'paused_thermal' }), 'Paused while your phone cools down');

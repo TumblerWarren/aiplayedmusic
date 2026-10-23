@@ -1,7 +1,7 @@
 name: Verify personal mix core
 on:
   push:
-    branches: [feat/offline-personal-mixes]
+    branches: [feat/offline-personal-mixes, qa/offline-personal-mixes]
   workflow_dispatch:
   workflow_call:
     inputs:
@@ -41,6 +41,7 @@ jobs:
           npm run check
           python -m pip install 'numpy==2.4.6'
           python scripts/recommendations/test_preprocessing.py
+          python scripts/recommendations/test_listening_signals.py
           mkdir -p .model-tools/core-classes
           javac -d .model-tools/core-classes modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningClock.java modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java scripts/recommendations/tests/EngineLogicTest.java
           java -cp .model-tools/core-classes EngineLogicTest

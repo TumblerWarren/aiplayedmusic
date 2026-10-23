@@ -18,9 +18,12 @@ with zipfile.ZipFile(apks[0]) as apk:
     (out / 'packaging.json').write_text(json.dumps(report, indent=2))
     print(json.dumps(report))
 run('adb', 'install', '-r', str(apks[0]))
+for permission in ['READ_MEDIA_AUDIO', 'POST_NOTIFICATIONS']:
+    run('adb', 'shell', 'pm', 'grant', 'app.aiplayed.modelgate', 'android.permission.' + permission)
 result = run('adb', 'shell', 'am', 'instrument', '-r', '-w', 'app.aiplayed.modelgate/app.aiplayed.modelgate.CoreGate')
 (out / 'instrumentation.txt').write_text(result)
 print(result)
+(out / 'logcat.txt').write_text(run('adb', 'logcat', '-d'))
 assert 'INSTRUMENTATION_CODE: -1' in result
 report = run('adb', 'exec-out', 'run-as', 'app.aiplayed.modelgate', 'cat', 'files/core-gate.json')
 (out / 'core-gate.json').write_text(report)
