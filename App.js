@@ -1,5 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Alert, AppState, BackHandler, FlatList, KeyboardAvoidingView, Keyboard, Linking, Modal, PermissionsAndroid, Platform, ScrollView, StatusBar, StyleSheet, Switch, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import Feather from './src/Icons';
 import { PlayingBars, PlayingArtwork, PlaybackRipple, MotionProvider, useAppActive } from './src/PlaybackMotion';
@@ -60,6 +60,8 @@ function MusicApp() {
   const [selection, setSelection] = useState(null);
   const [query, setQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
+  const searchInput = useRef(null);
+  const dismissSearch = useStableCallback(() => { searchInput.current?.blur(); setSearchFocused(false); Keyboard.dismiss(); });
   useEffect(() => setSearchFocused(false), [page, tab, selection?.name]);
   const deferredQuery = useDeferredValue(query);
   const [browseOrders, setBrowseOrders] = useState({});
@@ -170,7 +172,7 @@ function MusicApp() {
   const openBrowse = () => { overlayReturn.current = browseTrigger.current; setSheet({ title: 'Browse', browse: true }); };
   const searchField = (placeholder, label = placeholder) => h(View, { testID: 'library-search-bar', style: styles.searchBar },
     h(Feather, { name: 'search', size: 19, color: c.muted }),
-    h(TextInput, { style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder, placeholderTextColor: c.muted, accessibilityLabel: label, returnKeyType: 'search', autoCorrect: false }),
+    h(TextInput, { ref: searchInput, style: styles.search, value: query, onChangeText: setQuery, onFocus: () => setSearchFocused(true), onBlur: () => setSearchFocused(false), placeholder, placeholderTextColor: c.muted, accessibilityLabel: label, returnKeyType: 'search', autoCorrect: false }),
     !!query && icon('x', () => setQuery(''), c.muted, 18, { label: 'Clear search', style: { width: 40, height: 40 } }));
   const browseHeader = (title, onBack, extra) => h(View, { testID: 'browse-page-header', style: styles.libraryHeader }, h(HeaderOverlay), onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed && !c.dark ? 0.8 : 1 }] }, text('+ Browse', { color: c.onAccent, fontWeight: '700', fontSize: 15 })));
   const navigateRoot = title => {
@@ -306,7 +308,7 @@ function MusicApp() {
       path && h(View, { style: { marginTop: 4, marginBottom: 8 } }, button(`Play folder · ${folderSongs.length} songs`, () => play(folderSongs))));
     content = h(View, { testID: `folder-screen:${path || 'roots'}`, collapsable: false, style: styles.flex },
       browseHeader(path ? displayFolder(path) : 'Folders', path ? backFolder : null),
-      h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,
+      h(ScrollSurface, { color: c.bg }, h(IndexedSongList, { c, sessionKey, focused: searchFocused, onDismissSearch: dismissSearch, header: folderHeader, prelude: actions, indexed: true, field: 'displayName', data: folderRows, keyExtractor: item => item.directory ? `folder:${item.name}` : `track:${item.id}`, contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan,
         renderItem: ({ item }) => item.directory ? groupRow(item.name === '/storage/emulated/0' ? 'Internal storage' : folderName(item.name), `${item.count} songs in this folder tree`, 'folder', () => go('collection', { kind: 'Folders', name: item.name, root: selection?.root || item.name }), () => folderOptions(item.name), `Open folder ${item.name}`) : songRow(item, selectedIndices.get(item.id), selected),
         ListEmptyComponent: h(View, { style: styles.empty }, text('No music here yet', styles.emptyTitle), text('Choose music folders or adjust library filters in Settings.', styles.emptyDetail)) })));
   } else {
@@ -318,8 +320,8 @@ function MusicApp() {
     content = h(View, { style: styles.flex },
       browseHeader(collection ? selection?.name : tab, collection ? () => { setSelection(null); setPage('library'); setQuery(''); } : null, selection?.kind === 'playlist' ? icon('more-vertical', () => playlistOptions(selection.name)) : null),
       h(ScrollSurface, { color: c.bg }, collection || tab === 'Songs'
-        ? h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: listHeader, prelude: listControls, rowHeight: styles.songRow.height, indexed: !['playlist', 'recent'].includes(selection?.kind), field: 'title',  data: selected, renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty })
-        : h(IndexedSongList, { c, sessionKey, focused: searchFocused, header: listHeader, prelude: h(View, null, listControls, tab === 'Playlists' && groupData.length > 0 && h(View, { style: { alignItems: 'center', paddingVertical: 16 } }, button('New playlist', () => createPlaylist()))), indexed: true, field: 'name', data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, renderItem: ({ item }) => groupRow(item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty })));
+        ? h(IndexedSongList, { c, sessionKey, focused: searchFocused, onDismissSearch: dismissSearch, header: listHeader, prelude: listControls, rowHeight: styles.songRow.height, indexed: !['playlist', 'recent'].includes(selection?.kind), field: 'title',  data: selected, renderItem: ({ item, index }) => songRow(item, index, selected), contentContainerStyle: styles.list, refreshing: scanning, onRefresh: scan, ListEmptyComponent: empty })
+        : h(IndexedSongList, { c, sessionKey, focused: searchFocused, onDismissSearch: dismissSearch, header: listHeader, prelude: h(View, null, listControls, tab === 'Playlists' && groupData.length > 0 && h(View, { style: { alignItems: 'center', paddingVertical: 16 } }, button('New playlist', () => createPlaylist()))), indexed: true, field: 'name', data: groupData, keyExtractor: item => item.name, contentContainerStyle: styles.list, renderItem: ({ item }) => groupRow(item.name, `${item.count} songs`, tab === 'Playlists' ? 'list' : tab === 'Artists' ? 'user' : 'disc', () => go('collection', { kind: tab === 'Playlists' ? 'playlist' : tab, name: item.name }), tab === 'Playlists' ? () => playlistOptions(item.name) : undefined), ListEmptyComponent: tab === 'Playlists' ? h(View, { style: styles.empty }, text('Make it a playlist', styles.emptyTitle), text('Your favourite combinations, ready whenever you are.', styles.emptyDetail), button('New playlist', () => createPlaylist())) : empty })));
   }
 
   return h(SafeAreaView, { style: styles.root, onLayout: hideNativeSplash }, h(StatusBar, { barStyle: dark ? 'light-content' : 'dark-content', backgroundColor: c.bg }), content, page !== 'player' && mini, page !== 'player' && h(View, { style: styles.bottomNav }, ...[

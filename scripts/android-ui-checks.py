@@ -221,6 +221,53 @@ def rotate_knob(name,degrees,cancel=False):
     assert 'rotated' in raw, raw
     time.sleep(.6)
 
+def check_search_layout():
+    """Exercise real native layout/hit testing; do not accept a hidden control under search."""
+    def state(name, search_label):
+        root=tree()
+        search=find(search_label,root)
+        rail=find_view(root,'alphabet-rail')
+        slot=find_view(root,'search-layout-slot')
+        viewport=find_view(root,'indexed-list-viewport')
+        value={"search":bounds(search) if search is not None else None,"rail":bounds(rail) if rail is not None else None,"slot":bounds(slot) if slot is not None else None,"viewport":bounds(viewport) if viewport is not None else None}
+        (OUT/(name+'.json')).write_text(json.dumps(value,indent=2));shot(name)
+        return value
+    def direction_cycle(name, search_label):
+        wait(search_label)
+        before=state(name+'-expanded',search_label)
+        swipe(*scroll_gesture(tree()))
+        hidden=wait_absent(search_label)
+        after=state(name+'-down',search_label)
+        check(name+': search hides on downward scroll',hidden)
+        check(name+': rail gains the released search space',after['rail'] is not None and before['rail'] is not None and after['rail'][1]<before['rail'][1]-20)
+        assert not failures,'; '.join(failures)
+        left,top,right,bottom=scroll_bounds(tree())
+        shell('input','swipe',left+25,top+80,left+25,min(bottom-40,top+340),500);time.sleep(.5)
+        wait(search_label)
+        visible=state(name+'-up',search_label)
+        check(name+': returned search occupies space above the list',visible['viewport'] is not None and visible['slot'] is not None and visible['slot'][3]<=visible['viewport'][1]+2)
+        assert not failures,'; '.join(failures)
+    direction_cycle('songs','Search your music')
+    tap('Jump to A');assert wait_absent('Search your music'),'A-Z jump must dismiss the search before tapping a song'
+    root=tree();song=next((n for n in root.iter('node') if label(n).startswith('A00 Song, ')),None);assert song is not None
+    box=bounds(song);search=find_view(root,'library-search-bar')
+    assert search is None or not(bounds(search)[0]<(box[0]+box[2])/2<bounds(search)[2] and bounds(search)[1]<(box[1]+box[3])/2<bounds(search)[3]),'Search covers the actual song tap point'
+    tap(song);wait('Pause');check('Song tap starts playback after A-Z navigation',media_title()=='A00 Song');tap('Pause');wait('Play')
+    # Keyboard Back can hide the IME without blurring TextInput. A-Z must still dismiss editing.
+    swipe(*scroll_gesture(tree(),reverse=True));wait('Search your music');tap('Search your music');shell('input','keyevent','4')
+    tap('Jump to A');assert wait_absent('Search your music'),'Focused search must hide on an alphabet jump'
+    state('songs-after-focused-jump','Search your music')
+    browse('Folders')
+    for path in ['/storage/emulated/0','/storage/emulated/0/Music','/storage/emulated/0/Music/AiplayedChecks']:open_folder(path)
+    direction_cycle('folders','Search folders and tracks')
+    for scale,rotation in [('1.6','0'),('1.6','1'),('1.0','0')]:
+        shell('settings','put','system','font_scale',scale);shell('settings','put','system','user_rotation',rotation);time.sleep(1)
+        wait('+ Browse');browse('Songs');tap('Jump to A')
+        assert wait_absent('Search your music'),'Search overlaps rows after layout change '+scale+'/'+rotation
+        check('Search and rail survive font '+scale+' rotation '+rotation,find('Jump to Z') is not None)
+        state('search-font-'+scale+'-rotation-'+rotation,'Search your music')
+
+
 def check_full_interactions():
     search_bounds = bounds(wait('Search your music'))
     check('Search retains its full intrinsic height before scrolling', search_bounds[3]-search_bounds[1] >= 100)
@@ -279,6 +326,8 @@ def check_full_interactions():
     # Clear the search using the input field; select all and delete.
     tap('Search your music'); shell('input','keycombination','113','29'); shell('input','keyevent','67'); shell('input','keyevent','4')
     tap('Jump to A'); root=tree(); song=next((n for n in root.iter('node') if label(n).startswith('A00 Song, ')),None); assert song is not None
+    search=find_view(root,'library-search-bar'); box=bounds(song)
+    assert search is None or not(bounds(search)[1]<(box[1]+box[3])/2<bounds(search)[3]), 'Search covers the song tap point after A-Z navigation'
     tap(song); wait('Pause'); initial=media_title()
     assert initial == 'A00 Song', 'Playback must start from the known fixture queue'
     for destination in ['Albums','Artists','Folders','Playlists','Favourites','Recently played','Songs']:
@@ -491,11 +540,11 @@ def run_checks(apk, scenario='all'):
         shell('wm', 'density', '420')
         # Indexed metadata covers every alphabet section, album, artist and nested folder.
         fixtures = Path('/tmp/aiplayed-fixtures'); fixtures.mkdir(exist_ok=True)
-        for letter in ('' if scenario == 'recommendations-reset' else 'A' if scenario == 'sound' else 'ABCDEF' if scenario == 'recommendations' else 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'):
+        for letter in ('' if scenario == 'recommendations-reset' else 'A' if scenario == 'sound' else 'ABCDEF' if scenario == 'recommendations' else 'ABCDXYZ' if scenario == 'search' else 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'):
             remote = '/sdcard/Music/AiplayedChecks/'+letter+'Folder/Nested'
             shell('mkdir', '-p', remote)
             for i in range(1 if scenario == 'sound' else 2):
-                if scenario == 'recommendations':
+                if scenario in ['recommendations', 'search']:
                     # This focused UI path needs indexed audio, not an external encoder.
                     import array, math, sys, wave
                     local = fixtures / f'{letter}{i:02} Song.wav'
@@ -503,7 +552,7 @@ def run_checks(apk, scenario='all'):
                     if sys.byteorder!='little':samples.byteswap()
                     with wave.open(str(local),'wb') as output:
                         output.setnchannels(1);output.setsampwidth(2);output.setframerate(8000)
-                        for second in range(900):output.writeframesraw(samples.tobytes())
+                        for second in range(30 if scenario == 'search' else 900):output.writeframesraw(samples.tobytes())
                 else:
                     local = fixtures / f'{letter}{i:02}.mp3'
                     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=900', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
@@ -520,9 +569,11 @@ def run_checks(apk, scenario='all'):
         check('Cold start reaches the Library')
         if scenario == 'all':
             check_full_interactions()
+        elif scenario == 'search':
+            check_search_layout()
         elif scenario != 'recommendations-reset':
             play_sound_fixture()
-        if scenario not in ['recommendations', 'recommendations-reset']: check_sound_controls()
+        if scenario not in ['recommendations', 'recommendations-reset', 'search']: check_sound_controls()
         if scenario in ['all', 'recommendations']: check_personal_mixes()
         if scenario == 'recommendations-reset': check_analysis_reset()
         assert not failures, '; '.join(failures)
@@ -547,11 +598,11 @@ def run_checks(apk, scenario='all'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apk', help='Existing standalone APK; defaults to the local release output')
-    parser.add_argument('--scenario', choices=['all', 'sound', 'recommendations', 'recommendations-reset'], default='all')
+    parser.add_argument('--scenario', choices=['all', 'sound', 'recommendations', 'recommendations-reset', 'search'], default='all')
     parser.add_argument('--repeat', type=int, default=1, help='Repeat a focused scenario with fresh emulator app data')
     args = parser.parse_args()
     if not 1 <= args.repeat <= 5 or (args.scenario == 'all' and args.repeat != 1):
-        parser.error('Use --scenario sound or recommendations for 1 to 5 isolated repeats; the full suite runs once')
+        parser.error('Use a focused --scenario for 1 to 5 isolated repeats; the full suite runs once')
     candidates = [args.apk] if args.apk else glob.glob('android/app/build/outputs/apk/release/*.apk')
     if not candidates or not Path(candidates[0]).is_file():
         parser.error('No release APK found; supply --apk PATH to validate an existing candidate')

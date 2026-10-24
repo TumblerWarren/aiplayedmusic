@@ -1,0 +1,79 @@
+name: Validate search layout only
+on:
+  push:
+    branches: [qa/search-layout-fix]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      MUSIC_OFFLINE_BUILD: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/download-artifact@v4
+        with:
+          name: unverified-candidate-apk
+          run-id: 40113472034
+          github-token: ${{ github.token }}
+          path: candidate
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-diagnostics
+          run-id: 40113472034
+          github-token: ${{ github.token }}
+          path: original-diagnostics
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
+          log-accepted-android-sdk-licenses: false
+      - name: Reproduce native APK dependencies and prepare two JavaScript-only comparisons
+        run: |
+          cp original-diagnostics/package-lock.json package-lock.json
+          npm ci --no-audit --no-fund
+          npm run check
+          npx expo prebuild --platform android --no-install --clean
+          python scripts/prepare-search-apks.py
+          python scripts/build-ui-helper.py
+          sudo chmod 666 /dev/kvm
+      - name: Reproduce the old failure then verify the fix with native screenshots and hit testing
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_2
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
+          script: |
+            adb logcat -G 16M
+            set +e
+            python scripts/android-ui-checks.py --apk /tmp/search-baseline.apk --scenario search
+            baseline_result=$?
+            set -e
+            mkdir -p verification/search-overlay/baseline
+            cp -r verification/android-v1.3.0/search-run-1/. verification/search-overlay/baseline/
+            test "$baseline_result" -ne 0
+            adb logcat -c
+            python scripts/android-ui-checks.py --apk /tmp/search-candidate.apk --scenario search --repeat 2
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: search-layout-comparison
+          retention-days: 14
+          path: |
+            verification/search-overlay/
+            verification/android-v1.3.0/
