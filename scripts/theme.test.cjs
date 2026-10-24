@@ -93,7 +93,7 @@ const contrast = (a, b) => (Math.max(luminance(a), luminance(b)) + .05) / (Math.
 const mix = (front, back, alpha) => '#' + rgb(front).map((v, i) => Math.round(v * alpha + rgb(back)[i] * (1 - alpha)).toString(16).padStart(2, '0')).join('');
 test('charcoal text meets 4.5:1 and essential controls meet 3:1, including patterned pressed states', () => {
   const c = palette(true);
-  for (const bg of [c.bg, c.card, c.sheet, c.lavender, c.mint, c.peach, c.blue, c.lemon, c.rose]) {
+  for (const bg of [c.bg, c.header, c.card, c.sheet, c.lavender, c.mint, c.peach, c.blue, c.lemon, c.rose]) {
     for (const fg of [c.ink, c.muted]) assert(contrast(fg, bg) >= 4.5, `${fg}/${bg}`);
     for (const fg of [c.accent, c.track, c.controlBorder]) assert(contrast(fg, bg) >= 3, `${fg}/${bg}`);
   }
@@ -106,6 +106,22 @@ test('charcoal text meets 4.5:1 and essential controls meet 3:1, including patte
     assert(contrast(ink, mix('#FFFFFF', patterned, 8 / 255)) >= 4.5, name + ' pressed pattern');
   }
   assert(contrast(c.onAccent, c.accent) >= 4.5);
+});
+
+test('header overlays preserve readable text in both themes and cannot intercept controls', () => {
+  for (const dark of [false, true]) {
+    const c = palette(dark);
+    const ui = harness('src/Pastel.js', ['HeaderOverlay'], { useTheme: () => c });
+    const tree = ui.render('HeaderOverlay');
+    assert.equal(tree.props.pointerEvents, 'none');
+    assert.equal(tree.props.importantForAccessibility, 'no-hide-descendants');
+    const wash = mix(c.mintInk, c.header, .09);
+    const overlap = mix(c.accent, wash, .16);
+    for (const bg of [c.header, wash, overlap]) {
+      assert(contrast(c.ink, bg) >= 4.5, `header text ${c.ink}/${bg}`);
+      assert(contrast(c.accent, bg) >= 3, 'header controls remain visible');
+    }
+  }
 });
 
 test('theme bootstrap preserves activity configuration and Expo splash order and is idempotent', () => {

@@ -25,7 +25,7 @@ import ForYou, { PersonalMixesSettings } from './src/ForYou';
 import Lyrics from './src/Lyrics';
 import SleepTimer from './src/SleepTimer';
 import { tones } from './src/design';
-import { Pattern, TabHighlight } from './src/Pastel';
+import { HeaderOverlay, Pattern, TabHighlight } from './src/Pastel';
 import { formatTime } from './src/music';
 
 import Pressable from './src/RoundedPressable';
@@ -40,7 +40,7 @@ function MusicApp() {
   const [artBounds, setArtBounds] = useState({ width: 0, height: 0 });
   const artSize = Math.max(0, Math.min(370, artBounds.width, artBounds.height));
   const state = useMusicSlice('main');
-  const artworkVariant = useMemo(() => ['Pulse', 'Wave', 'Orbit'][Math.floor(Math.random() * 3)], [state.current?.id]);
+  const artworkVariant = useMemo(() => ['Pulse', 'Wave', 'Orbit', 'Equalizer'][Math.floor(Math.random() * 4)], [state.current?.id]);
   const active = useAppActive();
   const [soundTab, setSoundTab] = useState('Tone');
   const soundOffsets = useRef({});
@@ -168,7 +168,7 @@ function MusicApp() {
     restoreRoute(browseRoutes.current[title] || browseRoute(title));
   };
   const openBrowse = () => { overlayReturn.current = browseTrigger.current; setSheet({ title: 'Browse', browse: true }); };
-  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed && !c.dark ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' } }), text('+ Browse', { color: c.purpleInk, fontWeight: '700', fontSize: 15 })));
+  const browseHeader = (title, onBack, extra) => h(View, { style: styles.libraryHeader }, h(HeaderOverlay), onBack && icon('chevron-left', onBack, c.ink, 23, { label: 'Back' }), text(title, [styles.brand, { flex: 1, minWidth: 0 }], { numberOfLines: 2, accessibilityRole: 'header' }), extra, h(Pressable, { ref: browseTrigger, onPress: openBrowse, accessibilityRole: 'button', accessibilityLabel: '+ Browse', accessibilityState: { expanded: !!sheet?.browse }, style: ({ pressed }) => [styles.browseButton, { opacity: pressed && !c.dark ? 0.8 : 1 }] }, h(TabHighlight, { tone: { bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' } }), text('+ Browse', { color: c.purpleInk, fontWeight: '700', fontSize: 15 })));
   const navigateRoot = title => {
     if (activeDestination(page, tab, selection) === title && page !== 'player') return;
     if (title === 'Sound') return openSound();
@@ -250,7 +250,7 @@ function MusicApp() {
       h(View, { style: styles.songLabels }, text(title, styles.songTitle, { numberOfLines: 1 }), text(detail, styles.subtitle, { numberOfLines: 2 })), h(Feather, { name: 'chevron-right', color: c.muted, size: 20 }));
   };
   const empty = () => h(View, { style: styles.empty }, h(Feather, { name: 'music', size: 42, color: c.muted }), text('Your library is quiet', styles.emptyTitle), text('Add music to your phone, then scan for songs.', styles.emptyDetail), button(scanning ? 'Scanning…' : 'Scan for songs', scan));
-  const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
+  const header = (title, extra, onBack = () => go('library')) => h(View, { style: styles.pageHeader }, h(HeaderOverlay), icon('chevron-left', onBack), text(title, styles.pageTitle, { numberOfLines: 1 }), extra);
   const mini = h(View, { style: styles.mini },
     h(SwipeSurface, { enabled: !!state.current && !sheet && !nameDialog, onAction: command, style: { flex: 1 } }, h(Pressable, { onPress: () => go('player'), style: { flex: 1, flexDirection: 'row', alignItems: 'center', minHeight: 48, borderRadius: 24, overflow: 'hidden' }, accessibilityRole: 'button', accessibilityLabel: 'Open now playing' },
       h(Artwork, { song: state.current, size: 46 }), h(View, { style: styles.songLabels }, text(state.current?.title || 'Choose a song', styles.miniTitle, { numberOfLines: 1 }), text(state.current?.artist || 'Your music, offline', styles.subtitle, { numberOfLines: 1 })))),
@@ -266,7 +266,7 @@ function MusicApp() {
     content = h(SoundStudio, { state, command, c, onBack: returnFromSound, onTimer: timerSheet, tab: soundTab, onTab: setSoundTab, offsets: soundOffsets.current, report });
   } else if (page === 'player') {
     const song = state.current;
-    content = h(View, { style: styles.flex }, h(View, { style: [styles.pageHeader, styles.playerHeader] }, icon('chevron-down', () => navigateRoot('Library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
+    content = h(View, { style: styles.flex }, h(View, { style: [styles.pageHeader, styles.playerHeader] }, h(HeaderOverlay), icon('chevron-down', () => navigateRoot('Library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
       h(View, { style: [styles.playerBody, landscape && { flexDirection: 'row', gap: 20 }] },
         h(View, { testID: 'player-artwork-space', style: styles.playerArtSpace, onLayout: ({ nativeEvent: { layout } }) => setArtBounds(previous => previous.width === layout.width && previous.height === layout.height ? previous : { width: layout.width, height: layout.height }) }, artSize > 0 && h(SwipeSurface, { testID: 'player-artwork-swipe', collapsable: false, accessible: true, accessibilityRole: 'image', accessibilityLabel: 'Album artwork', enabled: !!song && !sheet && !nameDialog, onAction: command }, h(PlayingArtwork, { variant: artworkVariant, playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.62 })))),
         h(View, { style: [styles.playerControls, landscape && { flex: 1, justifyContent: 'center' }] },
@@ -344,12 +344,12 @@ function makeStyles(c, compactPlayer = false, fontScale = 1) {
     root: { flex: 1, backgroundColor: c.bg }, flex: { flex: 1 }, text: { color: c.ink, fontSize: 15 }, iconButton: { borderRadius: 24, overflow: 'hidden', width: 48, height: 48, flexShrink: 0, alignItems: 'center', justifyContent: 'center' },
     button: { overflow: 'hidden', backgroundColor: c.peach, borderRadius: 28, minHeight: 50, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 25, paddingVertical: 12 }, buttonText: { color: c.peachInk, fontSize: 15, fontWeight: '600' },
     browseButton: { minHeight: 48, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 28, backgroundColor: c.lavender, overflow: 'hidden', justifyContent: 'center' },
-    libraryHeader: { gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 4 }, brand: { fontSize: 23, fontWeight: '700', letterSpacing: -1 },
+    libraryHeader: { gap: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 8, backgroundColor: c.header, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, overflow: 'hidden', marginBottom: 12, flexShrink: 0 }, brand: { fontSize: 23, fontWeight: '700', letterSpacing: -1 },
     search: { marginHorizontal: 20, backgroundColor: `${c.card}D9`, borderWidth: 1, borderColor: c.dark ? c.controlBorder : c.line, color: c.ink, paddingHorizontal: 18, paddingVertical: 9, minHeight: 42, borderRadius: 16, fontSize: 15 }, listControls: { flexDirection: 'row', alignItems: 'center', marginTop: 12, paddingVertical: 4, paddingLeft: 24, paddingRight: 12, minHeight: 52 }, shuffleAll: { minHeight: 48, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', padding: 10 },
     list: { paddingHorizontal: 16, paddingBottom: 16 }, songRow: { borderRadius: 18, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 9, height: Math.max(72, Math.ceil(36 * fontScale + 24)) }, songLabels: { flex: 1, paddingHorizontal: 13, gap: 6 }, songTitle: { fontSize: 15, lineHeight: 20, fontWeight: '500' }, subtitle: { fontSize: 12, lineHeight: 16, color: c.muted },
     bottomNav: { flexDirection: 'row', backgroundColor: c.card, paddingTop: 6, paddingBottom: 4 }, navSlot: { flex: 1, minWidth: 0, paddingHorizontal: 4 }, navItem: { borderRadius: 999, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', minHeight: 58, paddingVertical: 4, gap: 2 }, navIcon: { width: 58, height: 32, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }, navLabel: { fontSize: 11, color: c.muted }, mini: { overflow: 'hidden', flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginTop: 6, marginBottom: 10, paddingLeft: 12, paddingRight: 6, paddingVertical: 5, backgroundColor: c.lavender, borderRadius: 24 }, miniTitle: { fontSize: 14, fontWeight: '600' },
-    pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.muted, fontSize: 11, letterSpacing: 2 },
-    playerHeader: { minHeight: compactPlayer ? 48 : 60, flexShrink: 0 },
+    pageHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, minHeight: 68, backgroundColor: c.header, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, overflow: 'hidden', marginBottom: 12, flexShrink: 0 }, pageTitle: { flex: 1, fontSize: 24, fontWeight: '600' }, overline: { flex: 1, textAlign: 'center', color: c.ink, fontSize: 11, letterSpacing: 2 },
+    playerHeader: { minHeight: compactPlayer ? 48 : 60, marginBottom: compactPlayer ? 4 : 12, flexShrink: 0 },
     playerBody: { flex: 1, minHeight: 0, paddingHorizontal: 24, paddingTop: 4, paddingBottom: 10 },
     playerArtSpace: { flex: 1, minWidth: 0, minHeight: 0, alignItems: 'center', justifyContent: 'center' },
     playerControls: { flexShrink: 0, alignSelf: 'stretch', minWidth: 0 },

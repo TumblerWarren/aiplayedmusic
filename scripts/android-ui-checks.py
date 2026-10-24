@@ -173,7 +173,7 @@ def rail_bounds():
 def artwork_style():
     root = tree()
     styles = [n.get('resource-id', '').split('artwork-animation-')[-1] for n in root.iter('node') if 'artwork-animation-' in n.get('resource-id', '') and visible_bounds(n)]
-    assert len(styles) == 1 and styles[0] in ['pulse', 'wave', 'orbit'], 'Random artwork style is missing'
+    assert len(styles) == 1 and styles[0] in ['pulse', 'wave', 'orbit', 'equalizer'], 'Random artwork style is missing'
     return styles[0]
 
 def knob_node(name, root=None):
