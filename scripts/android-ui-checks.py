@@ -243,6 +243,10 @@ def check_full_interactions():
     check('A-Z rail expands when search collapses', after[1][3]-after[0][1] > before[1][3]-before[0][1]+20)
     check('+ Browse remains available while search is collapsed', find('+ Browse') is not None)
     shot('songs-collapsed')
+    check('Search hides on downward scrolling',find('Search your music') is None)
+    swipe(400,800,400,1050)
+    check('Search returns on upward scrolling before the top',find('Search your music') is not None)
+    shot('songs-search-returned')
     tap('Jump to Z'); root = tree()
     check('Z jump lands on displayed song names', any('Z00 Song' in label(n) for n in root.iter('node')))
     tap('+ Browse'); shell('input','keyevent','4'); check('Android Back dismisses Browse', wait_absent('Close'))
@@ -397,18 +401,14 @@ def mix_control(value, timeout=60, reverse=False):
 
 
 def check_personal_mixes():
-    # Unplug only the emulator: manual analysis must work without charging.
+    # Automatic analysis must work unplugged, while the current song keeps playing.
     shell('dumpsys','battery','unplug')
     try:
-        tap('Library');browse('For You');wait('Enable personal mixes')
-        initial=media_title();tap('Enable personal mixes')
-        wait('Paused while music plays')
-        check('Enabling local mixes preserves playback',is_playing(shell('dumpsys','media_session')) and media_title()==initial)
-        tap(mix_control('Analyse now'))
-        check('Manual analysis waits for playback priority',find('Paused while music plays') is not None)
-        tap('Pause')
+        initial=media_title();tap('Library');browse('For You')
+        check('Personal mixes start without an opt-in action',find('Enable personal mixes') is None)
         tap(mix_control('Preview your mix 1',timeout=180))
-        check('Partial analysis exposes a mix preview',find('Hide songs') is not None)
+        check('Automatic analysis exposes a mix preview without charging',find('Hide songs') is not None)
+        check('Automatic analysis preserves active playback',is_playing(shell('dumpsys','media_session')) and media_title()==initial)
         shot('for-you-partial-preview')
         tap(mix_control('Play your mix 1',reverse=True));wait('Pause');title=media_title()
         tap(mix_control('Refresh suggestions',reverse=True));time.sleep(.5)
@@ -429,7 +429,7 @@ def check_personal_mixes():
             check('For You refresh remains accessible at font '+scale+' rotation '+rotation,media_title()==title)
         tap('Settings');tap(mix_control('Personal mixes'))
         wait('Enable personal mixes')
-        check('Settings exposes recommendation opt-in and analysis controls',find('Enable personal mixes') is not None)
+        check('Settings retains recommendation enable/disable and analysis controls',find('Enable personal mixes') is not None)
         tap(mix_control('Delete audio analysis'));tap(dialog_button('Delete'));time.sleep(1)
         mix_control('Personal mixes are off',reverse=True)
         check('Deleting analysis switches personal mixes off')

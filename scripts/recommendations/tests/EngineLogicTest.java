@@ -1,4 +1,5 @@
 import app.localmusic.player.recommendations.ListeningClock;
+import app.localmusic.player.recommendations.AnalysisPolicy;
 import app.localmusic.player.recommendations.TasteRanker;
 import java.util.*;
 
@@ -10,6 +11,12 @@ public final class EngineLogicTest {
         return new TasteRanker.Track(id,artist,album,"id:"+id,new float[]{x,y},favorite,favorite?1:0,recent,skips);
     }
     public static void main(String[] args){
+        check(AnalysisPolicy.DEFAULT_ENABLED,"Fresh installs analyse automatically without opt-in");
+        check(AnalysisPolicy.allowed(false,false,false,false),"Automatic analysis runs unplugged and outside the foreground");
+        check(!AnalysisPolicy.allowed(false,true,true,false),"Automatic analysis retains the low-battery guard");
+        check(AnalysisPolicy.allowed(true,true,true,false),"Explicit foreground analysis can run on low battery");
+        check(!AnalysisPolicy.allowed(true,false,false,false),"Manual analysis still requires the foreground");
+        for(boolean manual:new boolean[]{false,true})check(!AnalysisPolicy.allowed(manual,true,false,true),"Elevated temperature pauses both analysis modes");
         ListeningClock clock=new ListeningClock();
         clock.update(0,0,true,1);clock.update(1000,1000,false,1);
         clock.update(10000,1000,false,1);check(clock.playedMs==1000,"Pauses and buffering do not add heard duration");

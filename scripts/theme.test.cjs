@@ -115,8 +115,10 @@ test('header overlays preserve readable text in both themes and cannot intercept
     const tree = ui.render('HeaderOverlay');
     assert.equal(tree.props.pointerEvents, 'none');
     assert.equal(tree.props.importantForAccessibility, 'no-hide-descendants');
+    assert(contrast(c.headerLine, c.header) >= 3, 'header boundary remains visible');
+    assert(contrast(c.onAccent, c.accent) >= 4.5, 'solid Browse text remains readable');
     const wash = mix(c.mintInk, c.header, .09);
-    const overlap = mix(c.accent, wash, .16);
+    const overlap = mix(c.mintInk, wash, .12);
     for (const bg of [c.header, wash, overlap]) {
       assert(contrast(c.ink, bg) >= 4.5, `header text ${c.ink}/${bg}`);
       assert(contrast(c.accent, bg) >= 3, 'header controls remain visible');

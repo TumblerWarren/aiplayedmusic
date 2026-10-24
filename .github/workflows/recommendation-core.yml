@@ -43,7 +43,7 @@ jobs:
           python scripts/recommendations/test_preprocessing.py
           python scripts/recommendations/test_listening_signals.py
           mkdir -p .model-tools/core-classes
-          javac -d .model-tools/core-classes modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningClock.java modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java scripts/recommendations/tests/EngineLogicTest.java
+          javac -d .model-tools/core-classes modules/local-music/android/src/main/java/app/localmusic/player/recommendations/AnalysisPolicy.java modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningClock.java modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java scripts/recommendations/tests/EngineLogicTest.java
           java -cp .model-tools/core-classes EngineLogicTest
       - name: Bundle the immutable approved FP32 artifact
         run: |

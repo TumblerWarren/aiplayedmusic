@@ -6,3 +6,10 @@ export function railFraction(pageY, top, height, padding = 4) {
   'worklet';
   return Math.max(0, Math.min(0.999999, (pageY - top - padding) / Math.max(1, height - 2 * padding)));
 }
+
+// Diff-clamp scroll deltas: reveal search on upward movement at any depth.
+export function nextHeaderHidden(hidden, previous, next, height, focused = false, scrollable = true) {
+  'worklet';
+  if (focused || !scrollable) return 0;
+  return Math.max(0, Math.min(height, hidden + Math.max(0, next) - Math.max(0, previous)));
+}

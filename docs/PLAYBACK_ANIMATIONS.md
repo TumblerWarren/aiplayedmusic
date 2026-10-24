@@ -26,7 +26,7 @@ The Android interaction script accepts all five designs, retains the chosen styl
 
 ## Header treatment
 
-Browse and page headers use a separate lavender surface in both themes, with a low-opacity mint wash and accent arcs behind the controls. The decorative overlay ignores touches and accessibility focus. Headers leave 12 dp before search or content; the compact player uses 4 dp to preserve transport space. Search remains part of the collapsible list header.
+Browse and page headers use a separate muted teal surface in both themes, with a low-opacity mint overlay. Browse uses a solid purple button and the header has a contrasting bottom divider. The decorative overlay ignores touches and accessibility focus. Search has 12 dp of breathing room in its own returning row; counts and list controls remain in normal flow. Search hides on downward scrolling and returns on upward scrolling at any depth. The compact player uses 4 dp to preserve transport space.
 
 The updated JavaScript lifecycle, interaction and theme checks cover these changes. Android recordings and physical-device frame pacing for this revision still require APK validation; prior release results above do not validate the new design.
 

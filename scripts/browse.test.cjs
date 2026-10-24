@@ -18,6 +18,13 @@ test('Browse destinations and For You select, dismiss and independently restore 
   const input = () => nodes(list().props.header).find(n => n.type === 'TextInput');
   const open = () => { button('+ Browse').props.onPress(); render(); return nodes(tree).find(n => n.type === 'Sheet' && n.props.visible); };
   const choose = title => { const sheet = open(); nodes(sheet).find(n => n.props.accessibilityLabel === title).props.onPress(); render(); };
+  const header = nodes(tree).find(n => n.props.testID === 'browse-page-header');
+  const browseStyle = button('+ Browse').props.style({ pressed: false })[0];
+  assert.notEqual(header.props.style.backgroundColor, browseStyle.backgroundColor, 'Browse has a distinct solid surface');
+  assert.equal(header.props.style.borderBottomWidth, 1, 'header has a clear content boundary');
+  input().props.onChangeText('temporary'); render();
+  nodes(list().props.header).find(n => n.props.accessibilityLabel === 'Clear search').props.onPress(); render();
+  assert.equal(input().props.value, '', 'clear action restores the full library without playback commands');
   const sessions = {};
   for (const [i, [title]] of browse.destinations.filter(([title]) => title !== 'For You').entries()) {
     choose(title); assert(!nodes(tree).find(n => n.type === 'Sheet').props.visible);
@@ -57,7 +64,7 @@ test('Browse destinations and For You select, dismiss and independently restore 
   const hasChooseFolder = content => nodes(content).some(n => n.children.includes('Choose folder'));
   assert(!hasChooseFolder(list().props.prelude), 'folder roots have no selection shortcut');
   assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'), 'folder roots have no subfolder toggle');
-  assert.equal(list().props.header.type, 'TextInput', 'only search occupies the collapsing header');
+  assert.equal(nodes(list().props.header).filter(n => n.type === 'TextInput').length, 1, 'only the search field occupies the returning header');
   assert(nodes(list().props.prelude).some(n => n.props.accessibilityLabel === 'Sort by name'), 'folder controls stay in normal list flow');
   assert(!hasChooseFolder(list().props.ListEmptyComponent), 'empty folders direct users to Settings');
   state.musicRoots = ['/storage/emulated/0/Music']; render();
@@ -66,7 +73,7 @@ test('Browse destinations and For You select, dismiss and independently restore 
   assert(!hasChooseFolder(list().props.prelude), 'nested folders keep playback controls without a picker shortcut');
   assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'), 'nested folders have no subfolder toggle or empty row');
   assert(nodes(list().props.prelude).some(n => n.children.includes('Play folder · 0 songs')), 'folder playback remains available');
-  assert.equal(list().props.header.type, 'TextInput', 'nested folders do not reserve header space for playback controls');
+  assert.equal(nodes(list().props.header).filter(n => n.type === 'TextInput').length, 1, 'nested folders keep one search field separate from playback controls');
   nodes(tree).find(n => n.props.accessibilityRole === 'tab' && n.props.key === 'Settings').props.onPress(); render();
   button('Choose folder').props.onPress(); render();
   const picker = nodes(tree).find(n => n.type === 'FolderPicker');
@@ -258,4 +265,17 @@ test('late rail attachment and remeasurement use the real frozen initial animati
   assert.equal(rail().props.style.at(-1).initial.top, 94, 'remeasurement owns a fresh initial snapshot');
   measureHeader(50); tree = render();
   assert.equal(rail().props.style.at(-1).initial.top, 54, 'returning to the smaller header also refreshes attachment');
+});
+
+
+test('search diff-clamp hides on downward scroll and returns on upward scroll at any depth', async () => {
+  const { nextHeaderHidden } = await import('../src/scrollGeometry.js');
+  assert.equal(nextHeaderHidden(0, 0, 35, 72), 35);
+  assert.equal(nextHeaderHidden(35, 35, 900, 72), 72);
+  assert.equal(nextHeaderHidden(72, 900, 875, 72), 47, 'a small upward scroll starts revealing search far from the top');
+  assert.equal(nextHeaderHidden(47, 875, 800, 72), 0, 'search is fully visible while still deep in the list');
+  assert.equal(nextHeaderHidden(0, 800, 810, 72), 10, 'reversing direction starts hiding it again');
+  assert.equal(nextHeaderHidden(72, 900, 910, 72, true), 0, 'focused search stays visible');
+  assert.equal(nextHeaderHidden(72, 900, 910, 72, false, false), 0, 'short lists never hide search');
+  assert.equal(nextHeaderHidden(0, 0, -40, 72), 0, 'top overscroll cannot create a blank gap');
 });
