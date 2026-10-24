@@ -22,6 +22,7 @@ sdkmanager --licenses
 sdkmanager 'platforms;android-36' 'build-tools;36.0.0' 'platform-tools'
 npm install --no-audit --no-fund
 npm run check
+python3 scripts/recommendations/fetch_model.py
 npx expo install --check
 export MUSIC_OFFLINE_BUILD=1
 npx expo prebuild --platform android --no-install --clean

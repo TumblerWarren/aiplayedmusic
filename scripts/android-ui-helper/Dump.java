@@ -25,7 +25,7 @@ public final class Dump extends Instrumentation {
     try {
       if ("scan".equals(options.getString("action"))) {
         CountDownLatch complete = new CountDownLatch(1);
-        MediaScannerConnection.scanFile(getContext(), new String[]{options.getString("path")}, new String[]{"audio/mpeg"}, (path, uri) -> {
+        MediaScannerConnection.scanFile(getContext(), new String[]{options.getString("path")}, new String[]{options.getString("mime", "audio/mpeg")}, (path, uri) -> {
           if (uri != null) result.putString("scanned", uri.toString());
           complete.countDown();
         });

@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { harness, nodes } = require('./ui-harness.cjs');
 
-test('all seven Browse destinations select, dismiss and independently restore search/scroll without playback commands', async () => {
+test('Browse destinations and For You select, dismiss and independently restore search/scroll without playback commands', async () => {
   const browse = await import('../src/browse.js'), navigation = await import('../src/navigation.js');
   const { createLibraryIndex } = await import('../src/libraryIndex.js');
   const { formatTime } = await import('../src/music.js');
@@ -19,12 +19,12 @@ test('all seven Browse destinations select, dismiss and independently restore se
   const open = () => { button('+ Browse').props.onPress(); render(); return nodes(tree).find(n => n.type === 'Sheet' && n.props.visible); };
   const choose = title => { const sheet = open(); nodes(sheet).find(n => n.props.accessibilityLabel === title).props.onPress(); render(); };
   const sessions = {};
-  for (const [i, [title]] of browse.destinations.entries()) {
+  for (const [i, [title]] of browse.destinations.filter(([title]) => title !== 'For You').entries()) {
     choose(title); assert(!nodes(tree).find(n => n.type === 'Sheet').props.visible);
     input().props.onChangeText('query-' + i); render();
     sessions[title] = list().props.sessionKey; navigation.rememberScroll(sessions[title], 200 + i * 72);
     const sheet = open(), options = nodes(sheet).filter(n => n.props.accessibilityState?.selected !== undefined);
-    assert.equal(options.length, 7); assert.equal(options.filter(n => n.props.accessibilityState.selected).length, 1);
+    assert.equal(options.length, 8); assert.equal(options.filter(n => n.props.accessibilityState.selected).length, 1);
     assert.equal(options.find(n => n.props.accessibilityState.selected).props.accessibilityLabel, title);
     options.find(n => n.props.accessibilityLabel === title).props.onPress(); render();
     assert.equal(list().props.sessionKey, sessions[title]);
@@ -33,10 +33,13 @@ test('all seven Browse destinations select, dismiss and independently restore se
     assert(nodes(tree).some(n => n.props.accessibilityLabel === 'Open now playing'));
     assert.equal(nodes(tree).filter(n => n.props.accessibilityRole === 'tab').length, 4, 'only the bottom navbar remains');
   }
-  for (const [i, [title]] of browse.destinations.entries()) {
+  for (const [i, [title]] of browse.destinations.filter(([title]) => title !== 'For You').entries()) {
     choose(title); assert.equal(input().props.value, 'query-' + i); assert.equal(list().props.sessionKey, sessions[title]);
     assert.equal(navigation.scrollMemory.get(sessions[title]), 200 + i * 72);
   }
+  choose('For You');
+  assert(nodes(tree).some(n => n.type === 'ForYou'), 'For You opens its own analysis/mix surface');
+  assert.equal(nodes(tree).filter(n => n.props.accessibilityRole === 'tab').length, 4, 'For You preserves the bottom navigation');
   assert.deepEqual(commands, []);
   choose('Playlists'); input().props.onChangeText(''); render();
   const creates = () => [list().props.header, list().props.data.length ? list().props.prelude : list().props.ListEmptyComponent].flatMap(nodes).filter(n => n.type==='Pressable' && nodes(n).some(x=>x.type==='Text' && x.children.includes('New playlist')));
@@ -211,4 +214,48 @@ test('fixture folder navigation opens every ancestor, restores the route and fol
     assert(!nodes(list().props.prelude).some(n => n.type === 'Switch'));
   }
   assert.deepEqual(commands.map(command => command.action), ['includeSubfolders', 'includeSubfolders']);
+});
+
+test('late rail attachment and remeasurement use the real frozen initial animation snapshot', async () => {
+  const { palette } = await import('../src/design.js');
+  const { alphabet, alphabetTargets, nearestLetter } = await import('../src/alphabet.js');
+  const { headerRemaining, railFraction } = await import('../src/scrollGeometry.js');
+  const pan = { minDistance() { return this; }, maxPointers() { return this; }, onBegin() { return this; }, onUpdate() { return this; }, onFinalize() { return this; } };
+  function create(name) {
+    let ui;
+    ui = harness('src/IndexedSongList.js', [name], {
+      Animated: { FlatList: 'Animated.FlatList', View: 'Animated.View' }, Gesture: { Pan: () => pan }, GestureDetector: 'GestureDetector',
+      alphabet, alphabetTargets, nearestLetter, headerRemaining, railFraction, scrollMemory: new Map(), rememberScroll() {}, measure: () => null, runOnJS: fn => fn,
+      useSharedValue(value) { const ref = ui.context.useRef(null); return ref.current ||= { value }; },
+      useAnimatedRef() { return ui.context.useRef(null); }, useAnimatedScrollHandler: handlers => handlers,
+      // Reanimated 4.3.1 creates this snapshot once, even if React dependencies change.
+      useAnimatedStyle(updater) { const ref = ui.context.useRef(null); return ref.current ||= { initial: updater() }; },
+    });
+    return ui;
+  }
+  const ui = create('IndexedSongList');
+  const props = { data: [{ id: 1, title: 'A song' }], c: palette(false), indexed: true, header: 'Search', renderItem: () => null };
+  const render = () => ui.render('IndexedSongList', props);
+  let tree = render();
+  const list = nodes(tree).find(n => n.type === 'Animated.FlatList');
+  // Header can finish measuring before the viewport allows the rail to mount.
+  const measureHeader = height => nodes(tree).find(n => n.type === 'Animated.View' && n.props.onLayout && !n.props.testID).props.onLayout({ nativeEvent: { layout: { height } } });
+  measureHeader(50); tree = render();
+  list.props.onLayout({ nativeEvent: { layout: { height: 400 } } });
+  list.props.onContentSizeChange(400, 1200); tree = render();
+  let mounted, ownerKey;
+  function rail() {
+    const inline = nodes(tree).find(n => n.props.testID === 'alphabet-rail');
+    if (inline) return inline;
+    const owner = nodes(tree).find(n => typeof n.type === 'function' && n.type.name === 'AlphabetRail');
+    assert(owner, 'rail mounts after both header and viewport are measured');
+    if (!mounted || ownerKey !== owner.props.key) { mounted = create('AlphabetRail'); ownerKey = owner.props.key; }
+    return nodes(mounted.render('AlphabetRail', owner.props)).find(n => n.props.testID === 'alphabet-rail');
+  }
+  assert.equal(rail().props.style.at(-1).initial.top, 54, 'late attachment must not restore the initial zero-header inset');
+  // Rotation/large text changes the intrinsic header size on an already used list.
+  measureHeader(90); tree = render();
+  assert.equal(rail().props.style.at(-1).initial.top, 94, 'remeasurement owns a fresh initial snapshot');
+  measureHeader(50); tree = render();
+  assert.equal(rail().props.style.at(-1).initial.top, 54, 'returning to the smaller header also refreshes attachment');
 });

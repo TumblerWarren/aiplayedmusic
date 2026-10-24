@@ -1,0 +1,45 @@
+{
+  "apk_bytes": 102706569,
+  "v1_2_6_apk_bytes": 71535618,
+  "apk_increase_bytes": 31170951,
+  "model_file_bytes": 11979512,
+  "model_compressed_bytes": 11979512,
+  "runtime_native_compressed_bytes": 18431900,
+  "runtime_native_uncompressed_bytes": 18431900,
+  "runtime_libraries": [
+    {
+      "file": "lib/arm64-v8a/libLiteRt.so",
+      "bytes": 5629696,
+      "compressed_bytes": 5629696
+    },
+    {
+      "file": "lib/arm64-v8a/liblitert_jni.so",
+      "bytes": 529296,
+      "compressed_bytes": 529296
+    },
+    {
+      "file": "lib/armeabi-v7a/libLiteRt.so",
+      "bytes": 3653808,
+      "compressed_bytes": 3653808
+    },
+    {
+      "file": "lib/armeabi-v7a/liblitert_jni.so",
+      "bytes": 323324,
+      "compressed_bytes": 323324
+    },
+    {
+      "file": "lib/x86_64/libLiteRt.so",
+      "bytes": 7784496,
+      "compressed_bytes": 7784496
+    },
+    {
+      "file": "lib/x86_64/liblitert_jni.so",
+      "bytes": 511280,
+      "compressed_bytes": 511280
+    }
+  ],
+  "note": "Total APK increase also includes WorkManager, Java APIs, UI and other dependency/resource changes; native runtime bytes are reported separately.",
+  "run_url": "https://github.com/TumblerWarren/aiplayedmusic/actions/runs/39930754510",
+  "source": "249f1676d404b9f0b1b59db47f11fa7fefee9a1b",
+  "status": "APK packaged; Lint, signing and permissions passed; interaction gate failed on a configuration recreation assumption in the driver"
+}

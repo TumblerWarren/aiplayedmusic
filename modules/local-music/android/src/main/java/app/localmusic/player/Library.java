@@ -11,15 +11,17 @@ public final class Library {
     private final SharedPreferences p;
     public Library(Context c) { p=c.getSharedPreferences("music",Context.MODE_PRIVATE); }
     public SharedPreferences prefs() { return p; }
-    public List<Song> scan(Context c) {
+    public List<Song> scan(Context c) { return scan(c,null); }
+    public Song eligible(Context c,long id) { List<Song> songs=scan(c,id);return songs.isEmpty()?null:songs.get(0); }
+    private List<Song> scan(Context c,Long only) {
         List<Song> out = new ArrayList<>();
-        String[] cols={"_id","title","artist","album","album_id","duration","_size","date_added","_data"};
+        String[] cols={"_id","title","artist","album","album_id","duration","_size","date_added","_data","date_modified"};
         Set<String> excluded=p.getStringSet("excluded",Collections.emptySet());
         Set<String> roots=p.getStringSet("musicRoots",Collections.emptySet());
-        try(Cursor cur=c.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,cols,null,null,"title COLLATE NOCASE ASC")) {
+        try(Cursor cur=c.getContentResolver().query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI,cols,only==null?null:"_id=?",only==null?null:new String[]{Long.toString(only)},"title COLLATE NOCASE ASC")) {
             while(cur!=null && cur.moveToNext()) {
                 Song s=new Song(); s.id=cur.getLong(0); s.title=clean(cur.getString(1),"Untitled"); s.artist=clean(cur.getString(2),"Unknown artist"); s.album=clean(cur.getString(3),"Unknown album");
-                s.albumId=cur.getLong(4); s.duration=cur.getLong(5); s.size=cur.getLong(6); s.added=cur.getLong(7); s.path=clean(cur.getString(8),"");
+                s.albumId=cur.getLong(4); s.duration=cur.getLong(5); s.size=cur.getLong(6); s.added=cur.getLong(7); s.path=clean(cur.getString(8),""); s.modified=cur.getLong(9);
                 int slash=s.path.lastIndexOf('/'); s.folder=slash>0?s.path.substring(0,slash):"Other";
                 if(s.duration < p.getInt("minDuration",0)*1000L || s.size < p.getInt("minSize",0)*1024L || withinAny(s.folder,excluded) || (!roots.isEmpty()&&!withinAny(s.folder,roots))) continue;
                 out.add(s);

@@ -4,6 +4,8 @@ A local music player inspired by Mi Music, built with **Expo SDK 56 and React Na
 
 **Current release:** [Aiplayed v1.2.6 APK](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk), Android version code **9**. [Release notes and checksum](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.6). The previous stable [v1.2.5](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.5) is retained.
 
+The v1.3.0 candidate adds offline personal mixes using a bundled, validated S-SONDO FP32 model. See [implementation and validation](docs/offline-personal-mixes.md). The published v1.2.6 APK remains available.
+
 Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. There is no animation style setting.
 
 Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and measurement plan](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
@@ -30,7 +32,10 @@ New releases derive their tag, APK name and evidence directory from `package.jso
 
 ## Development
 
-Use Node.js 22.13+ and a full JDK 17, plus Android Studio / Android SDK 36:
+Use Node.js 22.13+, Python 3, a full JDK 17 and Android Studio / Android SDK 36.
+Every native build fetches the pinned FP32 model on the build host, checks its
+checksum and bundles it. Subsequent builds verify the cached bundle. The phone
+never downloads it:
 
 ```sh
 npm install
@@ -76,6 +81,6 @@ python scripts/android-theme-driver.test.py
 
 The released v1.2.6 APK passed native compilation, Android Lint, signing/branding/offline checks, 61 interaction assertions and 63 theme assertions on each of API26/31/35. Its formerly failing Sound path also passed three fresh-data repetitions. See [current verification status](verification/STATUS.txt) and [the test validity audit](verification/TEST_VALIDITY_AUDIT.md).
 
-To check an existing APK on a configured emulator, build the independent inspector with `python scripts/build-ui-helper.py`, then run `python scripts/android-ui-checks.py --apk /path/to/app.apk`. For the isolated Sound path, append `--scenario sound --repeat 3`; this clears app data and is emulator-only. The scripts require Android SDK tools, Java, FFmpeg/FFprobe and Python; theme checks also require Pillow. The API35 interaction fixture is calibrated to a 1080×1920, density-420 emulator. Theme checks use `python scripts/android-theme-checks.py --apk /path/to/app.apk` on API26/31/35. Neither script compiles the application.
+To check an existing APK on a configured emulator, build the independent inspector with `python scripts/build-ui-helper.py`, then run `python scripts/android-ui-checks.py --apk /path/to/app.apk`. For the isolated Sound path, append `--scenario sound --repeat 3`; for the personal-mix path use `--scenario recommendations`. Both focused modes clear app data and are emulator-only. The scripts require Android SDK tools, Java, FFmpeg/FFprobe and Python; theme checks also require Pillow. The API35 interaction fixture is calibrated to a 1080×1920, density-420 emulator. Theme checks use `python scripts/android-theme-checks.py --apk /path/to/app.apk` on API26/31/35. Neither script compiles the application.
 
 Physical-device playback, Bluetooth/headset controls, listening quality and performance measurements remain pending in [the device checklist](verification/DEVICE_CHECKLIST.md). [Verification records](verification/README.md) distinguish current evidence from historical reviews.

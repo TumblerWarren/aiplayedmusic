@@ -1,0 +1,50 @@
+name: Verify Expo recommendation bridge compilation
+on:
+  push:
+    branches: [feat/offline-personal-mixes, qa/offline-personal-mixes]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bridge:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[check bridge]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CI: '1'
+      MUSIC_OFFLINE_BUILD: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-36 build-tools;36.0.0
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-read-only: false
+      - name: Generate the real Expo project
+        run: |
+          npm install --no-audit --no-fund
+          npx expo prebuild --platform android --no-install --clean
+      - name: Check private Java runtime boundary and compile Expo bridge
+        working-directory: android
+        run: |
+          ./gradlew :local-music:dependencies --configuration releaseCompileClasspath --no-daemon > ../bridge-compile-classpath.txt
+          if grep -q 'com.google.ai.edge.litert:litert-api' ../bridge-compile-classpath.txt; then
+            echo 'LiteRT implementation leaked onto the Expo Kotlin compilation classpath' >&2
+            exit 1
+          fi
+          ./gradlew :local-music:compileReleaseKotlin :local-music:compileReleaseJavaWithJavac :aiplayed-recommendation-runtime:compileReleaseJavaWithJavac -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: recommendation-bridge-compilation
+          path: bridge-compile-classpath.txt
+          retention-days: 30

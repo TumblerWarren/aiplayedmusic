@@ -17,3 +17,11 @@ local.properties
 # Python emulator/test-driver caches
 __pycache__/
 *.py[cod]
+
+# Pinned upstream model checkout, checkpoints and gate outputs
+.model-tools/
+
+# Generated from the immutable, checksum-pinned model-assets release
+/modules/local-music/android/src/main/assets/recommendations/
+
+/scripts/recommendations/android-gate/src/main/assets/

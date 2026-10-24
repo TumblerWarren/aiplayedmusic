@@ -2,7 +2,7 @@ name: Build Expo Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feat/offline-personal-mixes]
 permissions:
   contents: read
 concurrency:
@@ -10,14 +10,20 @@ concurrency:
   cancel-in-progress: true
 jobs:
   pause:
-    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name != 'workflow_dispatch' && !(github.event_name == 'push' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     steps:
       - run: echo 'APK build skipped. Run manually or merge with [build apk] to request a build.'
+  recommendations:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[build apk]')
+    uses: ./.github/workflows/recommendation-core.yml
+    with:
+      called_for_apk: true
   build:
+    needs: recommendations
     permissions:
       contents: write
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, '[build apk]'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && contains(github.event.head_commit.message, '[build apk]'))
     runs-on: ubuntu-latest
     timeout-minutes: 75
     env:
@@ -57,6 +63,10 @@ jobs:
           python scripts/android-theme-driver.test.py
       - name: Verify Expo dependency compatibility
         run: npx expo install --check
+      - name: Fetch and verify bundled FP32 model
+        run: |
+          python scripts/recommendations/fetch_model.py
+          python scripts/recommendations/test_model_bundle.py
       - name: Generate Android project
         run: npx expo prebuild --platform android --no-install --clean
       - name: Restore native compilation cache
@@ -65,6 +75,7 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           key: native-v2-${{ runner.os }}-${{ hashFiles('package.json', 'modules/**/android/build.gradle', 'modules/**/android/src/main/java/**') }}
+          restore-keys: native-v2-${{ runner.os }}-
           path: |
             node_modules/**/android/.cxx/
             node_modules/**/android/build/intermediates/cxx/
@@ -96,6 +107,8 @@ jobs:
         id: native_build
         working-directory: android
         run: ./gradlew :app:assembleRelease -PreactNativeArchitectures=armeabi-v7a,arm64-v8a,x86_64 --no-daemon
+      - name: Measure bundled model and runtime APK increase
+        run: python scripts/recommendations/report_apk.py
       - name: Save native compilation cache
         continue-on-error: true
         if: always() && steps.native_build.outcome == 'success' && steps.native_cache.outputs.cache-hit != 'true'
@@ -160,7 +173,7 @@ jobs:
         run: |
           if ! command -v ffmpeg >/dev/null || ! command -v ffprobe >/dev/null; then
             if test -f /etc/apt/sources.list.d/ubuntu.sources; then
-              sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
+              sudo sed -i -e 's|http://|https://|g' -e 's|https://azure.archive.ubuntu.com/ubuntu|https://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list.d/ubuntu.sources
             fi
             sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update -qq
             sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install -y --no-install-recommends ffmpeg
@@ -218,6 +231,7 @@ jobs:
             apk-branding.json
             apk-resource-table.txt
             apk-sha256.txt
+            verification/recommendations/apk-size.json
           if-no-files-found: ignore
 
 

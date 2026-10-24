@@ -7,6 +7,35 @@ from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll
 
 
 class GeometryChecks(unittest.TestCase):
+    def test_personal_mix_search_reaches_controls_beyond_three_landscape_swipes(self):
+        source=ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions=[n for n in source.body if isinstance(n,ast.FunctionDef) and n.name in ['label','find','mix_control']]
+        root=ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,220][1920,623]"><node text="Banner" bounds="[110,276][1810,564]"/></node></hierarchy>')
+        for node in root.iter('node'):node.set('package','app.localmusic.player')
+        clock=SimpleNamespace(seconds=0,offset=0);gestures=[]
+        def swipe(x1,y1,x2,y2):
+            self.assertTrue(220<y1<623 and 220<y2<623,'gesture stays inside the compact content viewport')
+            gestures.append(y1>y2)
+            clock.offset=max(0,clock.offset+(100 if y1>y2 else -100))
+            root[0][0].set('bounds',f'[110,{276-clock.offset}][1810,{564-clock.offset}]')
+            if clock.offset>=500 and len(root[0])==1:
+                ET.SubElement(root[0],'node',{'package':'app.localmusic.player','content-desc':'Refresh suggestions','clickable':'true','bounds':'[58,300][1862,427]'})
+        namespace=dict(tree=lambda:root,PKG='app.localmusic.player',find_node=find_node,scroll_bounds=scroll_bounds,scroll_gesture=scroll_gesture,
+            swipe=swipe,re=__import__('re'),time=SimpleNamespace(monotonic=lambda:clock.seconds,sleep=lambda seconds:setattr(clock,'seconds',clock.seconds+seconds)))
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'<personal mix navigation>','exec'),namespace)
+        control=namespace['mix_control']('Refresh suggestions',reverse=True)
+        self.assertEqual(control.get('content-desc'),'Refresh suggestions')
+        self.assertGreaterEqual(sum(gestures),5,'continue scrolling until the hidden control becomes visible')
+        self.assertEqual(gestures[:2],[False,True],'reverse at the boundary instead of oscillating after a fixed count')
+
+    def test_native_confirmation_lookup_accepts_android_uppercase_action_text(self):
+        source=ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions=[n for n in source.body if isinstance(n,ast.FunctionDef) and n.name in ['label','dialog_button']]
+        root=ET.fromstring('<hierarchy><node text="Delete" class="android.widget.TextView" bounds="[70,700][900,824]"/><node text="CANCEL" resource-id="android:id/button2" bounds="[583,1060][785,1202]"/><node text="DELETE" resource-id="android:id/button1" bounds="[785,1060][978,1202]"/></hierarchy>')
+        namespace=dict(tree=lambda:root,visible_bounds=visible_bounds,time=SimpleNamespace(monotonic=lambda:0,sleep=lambda seconds:None))
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'<native dialog action>','exec'),namespace)
+        self.assertIs(namespace['dialog_button']('Delete'),root[2],'select the actual native action rather than the title')
+
     def test_action_lookup_uses_the_app_button_instead_of_a_heading_or_other_package(self):
         source = ast.parse(Path('scripts/android-ui-checks.py').read_text())
         functions = [node for node in source.body if isinstance(node, ast.FunctionDef) and node.name in ['label', 'find']]

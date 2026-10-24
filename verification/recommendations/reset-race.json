@@ -1,0 +1,10 @@
+{
+  "old_source": "ba647240681c11485f3dd38a9ac67f12339233fd",
+  "reproduction_run": 39954828055,
+  "reproduction": "History reset completed with a profile/snapshot restored by an older in-flight cache write. The native assertion failed as expected.",
+  "fixed_source": "c92a5509b961ddf953837f9330a22a4ec7976b3d",
+  "passing_run": 39955354290,
+  "passing_checks": 44,
+  "fix": "Serialize SQLite profile/snapshot deletion with native mix cache commits, for both history and analysis reset. Keep analysis cancellation and its lock for embedding deletion.",
+  "measurement_kind": "Android 35 x86_64 emulator; not a physical phone"
+}

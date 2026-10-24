@@ -1,0 +1,24 @@
+{
+  "apk_source": "249f1676d404b9f0b1b59db47f11fa7fefee9a1b",
+  "apk_run": 39930754510,
+  "measurement_kind": "Android 35 x86_64 emulator; not a physical phone",
+  "checks": [
+    {
+      "run": 39951524644,
+      "test_source": "ef853d508d73fece52e3c3f19ebe7659088fcc92",
+      "result": "Ten interaction assertions passed, including partial mixes, playback priority, refresh, playlist saving, large text and both orientations. The final delete step failed because the driver searched for title case while Android rendered an uppercase native action."
+    },
+    {
+      "run": 39953115256,
+      "test_source": "1e17f632d128c5adff2064a304ec562cfdd787d9",
+      "result": "Focused native delete-confirmation check passed after looking up the actual dialog button independent of display casing."
+    }
+  ],
+  "driver_corrections": [
+    "Reopen For You after an Android font-scale configuration recreates the activity and returns to Songs.",
+    "Scroll toward the hidden control until reaching it or a scroll boundary, rather than reversing after three swipes.",
+    "Match native dialog actions by Android button resource ID and case-insensitive action text."
+  ],
+  "local_regressions": 16,
+  "final_combined_suite": "Required on the frozen final APK candidate; focused results do not replace that gate."
+}

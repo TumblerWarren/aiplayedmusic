@@ -1,0 +1,21 @@
+plugins { id 'com.android.application' version '8.13.2' }
+android {
+    namespace 'app.localmusic.engine'
+    compileSdk 36
+    // Compile the production Java module with its real Media3/AppCompat dependencies.
+    sourceSets.main.java.srcDir '../../../modules/local-music/android/src/main/java'
+    sourceSets.main.java.srcDir '../../../modules/local-music/android/recommendation-runtime/src/main/java'
+    sourceSets.main.res.srcDir '../../../modules/local-music/android/src/main/res'
+    defaultConfig { applicationId 'app.aiplayed.modelgate'; minSdk 26; targetSdk 35; versionCode 1; versionName 'gate' }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    androidResources { noCompress 'tflite', 'f32' }
+}
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.1'
+    implementation 'androidx.media3:media3-exoplayer:1.11.1'
+    implementation 'androidx.work:work-runtime:2.11.0'
+    implementation('com.google.ai.edge.litert:litert:2.3.0') {
+        // The bundled CPU Interpreter does not use Play model delivery.
+        exclude group: 'com.google.android.play', module: 'ai-delivery'
+    }
+}

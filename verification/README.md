@@ -9,6 +9,14 @@
 - [RELEASE_NOTES_1.2.6.md](RELEASE_NOTES_1.2.6.md): released features.
 - [MAINTENANCE_CLEANUP.md](MAINTENANCE_CLEANUP.md): documentation and dead-code cleanup after publication.
 
+## v1.3.0 candidate
+
+[Offline personal mixes](../docs/offline-personal-mixes.md) records the FP32
+model pins, export and Android parity results, native playback checks and retrieval
+study. JSON evidence is in [recommendations/](recommendations/). These records
+distinguish hosted CPU, emulator and physical-phone results. The v1.2.6 release
+remains the published stable APK while the candidate is validated.
+
 ## Historical records
 
 The v1.2/v1.2.3/v1.2.4 reviews, release notes, ICON_AND_GESTURES, PASTEL_PLAY and [folder/theme troubleshooting log](FOLDER_AND_THEME_CHECK_FIX.md) describe their named revision or investigation. Their pending statements and assertion counts are historical, not the current release status. [AUDIO_REVIEW.md](../docs/AUDIO_REVIEW.md) is the dated DSP review; current audio behavior and limits are in [AUDIO_ENGINE.md](../docs/AUDIO_ENGINE.md).

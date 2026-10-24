@@ -1,6 +1,6 @@
 import { indexLetter } from './alphabet.js';
 export const destinations = [
-  ['Songs', 'music'], ['Albums', 'disc'], ['Artists', 'user'], ['Folders', 'folder'],
+  ['Songs', 'music'], ['For You', 'star'], ['Albums', 'disc'], ['Artists', 'user'], ['Folders', 'folder'],
   ['Playlists', 'list'], ['Favourites', 'heart'], ['Recently played', 'clock'],
 ];
 export function browseDestination(tab, selection) {

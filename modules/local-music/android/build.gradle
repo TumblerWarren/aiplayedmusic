@@ -15,5 +15,15 @@ android {
 }
 dependencies {
   implementation 'androidx.appcompat:appcompat:1.7.1'
+  implementation 'androidx.work:work-runtime:2.11.0'
+  implementation project(':aiplayed-recommendation-runtime')
   implementation 'androidx.media3:media3-exoplayer:1.11.1'
 }
+
+// Every build path (Expo run, EAS, Gradle or CI) bundles the same verified artifact.
+// This runs on the build host; the Android application never downloads a model.
+def bundleRecommendationModel = tasks.register('bundleRecommendationModel', Exec) {
+  workingDir new File(projectDir, '../../..')
+  commandLine 'python3', 'scripts/recommendations/fetch_model.py'
+}
+tasks.named('preBuild').configure { dependsOn bundleRecommendationModel }
