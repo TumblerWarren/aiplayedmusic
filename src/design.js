@@ -1,6 +1,6 @@
 // Pastel Play: solid text surfaces, with decorative colour kept behind content.
 export const palette = dark => ({
-  dark, bg: dark ? '#17191E' : '#FFFBF6', card: dark ? '#23262D' : '#FFFFFF',
+  dark, header: dark ? '#29253A' : '#E7DFF5', bg: dark ? '#17191E' : '#FFFBF6', card: dark ? '#23262D' : '#FFFFFF',
   sheet: dark ? '#2D3039' : '#FFFBF6',
   ink: dark ? '#F4F2F7' : '#252331', muted: dark ? '#BBBCC8' : '#686273',
   line: dark ? '#3C414C' : '#EEE8F1', track: dark ? '#818799' : '#D6CCE6',
