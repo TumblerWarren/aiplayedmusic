@@ -29,7 +29,7 @@ public final class RecommendationEngine {
     private final ReentrantLock analysis=new ReentrantLock();
     private final AtomicInteger generation=new AtomicInteger();
     private final LinkedHashMap<String,JSONObject> snapshots=new LinkedHashMap<>();
-    private volatile boolean foreground,playback,manualRequested,running,activeManual;
+    private volatile boolean foreground,manualRequested,running,activeManual;
     public final AtomicInteger historyGeneration=new AtomicInteger();
     private final Object eventLock=new Object();
     private volatile int[] counts=new int[]{0,0,0};
@@ -41,39 +41,48 @@ public final class RecommendationEngine {
         events.execute(()->{store.recoverSessions();counts=store.counts();if(enabled())schedule();emit();});
         if(Build.VERSION.SDK_INT>=29){PowerManager power=(PowerManager)context.getSystemService(Context.POWER_SERVICE);power.addThermalStatusListener(status->{emit();if(status<PowerManager.THERMAL_STATUS_MODERATE)resumeManual();});}
     }
-    public boolean enabled(){return prefs.getBoolean("enabled",false);}
+    public boolean enabled(){return prefs.getBoolean("enabled",AnalysisPolicy.DEFAULT_ENABLED);}
     public void setEnabled(boolean value){
         prefs.edit().putBoolean("enabled",value).putBoolean("paused",false).apply();generation.incrementAndGet();error="";
         if(value){events.execute(()->{synchronize();schedule();emit();});}
-        else{manualRequested=false;events.execute(store::recoverSessions);WorkManager.getInstance(context).cancelUniqueWork(AUTO_WORK);emit();}
+        else{manualRequested=false;events.execute(store::recoverSessions);cancelScheduled();emit();}
     }
-    public void foreground(boolean value){foreground=value;if(!value&&activeManual)generation.incrementAndGet();else if(value)resumeManual();emit();}
-    public void playback(boolean value){boolean changed=playback!=value;playback=value;if(value&&changed)generation.incrementAndGet();if(!value&&changed){resumeManual();if(enabled()&&!prefs.getBoolean("paused",false))schedule();}if(changed)emit();}
-    public void libraryChanged(){if(!enabled())return;events.execute(()->{synchronize();if(enabled())schedule();emit();});}
+    public void foreground(boolean value){foreground=value;if(!value&&activeManual)generation.incrementAndGet();else if(value){resumeManual();schedule();}emit();}
+    public void libraryChanged(){if(!enabled())return;events.execute(()->{synchronize();error="";if(enabled())schedule();emit();});}
     public void analyse(boolean retryFailed){
         if(!foreground)throw new IllegalStateException("Open the app to analyse now");
         if(!enabled())throw new IllegalStateException("Enable personal mixes first");
         prefs.edit().putBoolean("paused",false).remove("modelFailure").apply();error="";manualRequested=true;generation.incrementAndGet();
-        WorkManager.getInstance(context).cancelUniqueWork(AUTO_WORK);
+        cancelScheduled();
         manual.execute(()->{if(retryFailed)store.retryFailed();run(true,()->false);});emit();
     }
-    public void pause(){manualRequested=false;prefs.edit().putBoolean("paused",true).apply();generation.incrementAndGet();WorkManager.getInstance(context).cancelUniqueWork(AUTO_WORK);emit();}
+    public void pause(){manualRequested=false;prefs.edit().putBoolean("paused",true).apply();generation.incrementAndGet();cancelScheduled();emit();}
     private void resumeManual(){
-        if(!manualRequested||!foreground||playback||running||!enabled())return;
+        if(!manualRequested||!foreground||running||!enabled())return;
         if(hot()){
             // Battery-temperature fallback has no PowerManager thermal callback, especially on API 26.
             synchronized(eventLock){if(coolingCheckPending)return;coolingCheckPending=true;}
             handler.postDelayed(()->{synchronized(eventLock){coolingCheckPending=false;}resumeManual();emit();},10000);
         }else manual.execute(()->run(true,()->false));
     }
+    private void cancelScheduled(){
+        WorkManager work=WorkManager.getInstance(context);
+        work.cancelUniqueWork(AUTO_WORK);
+        work.cancelUniqueWork(AUTO_WORK+"-now");
+    }
     private void schedule(){
         if(!enabled()||prefs.getBoolean("paused",false)||prefs.contains("modelFailure"))return;
-        Constraints constraints=new Constraints.Builder().setRequiresCharging(true).setRequiresBatteryNotLow(true).build();
-        PeriodicWorkRequest job=new PeriodicWorkRequest.Builder(AnalysisWorker.class,6,TimeUnit.HOURS).setConstraints(constraints).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.MINUTES).build();
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(AUTO_WORK,ExistingPeriodicWorkPolicy.KEEP,job);
+        Constraints constraints=new Constraints.Builder().setRequiresBatteryNotLow(true).build();
+        WorkManager work=WorkManager.getInstance(context);
+        // UPDATE migrates installed charging-only jobs as well as fresh installs.
+        PeriodicWorkRequest sweep=new PeriodicWorkRequest.Builder(AnalysisWorker.class,6,TimeUnit.HOURS).setConstraints(constraints).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.MINUTES).build();
+        work.enqueueUniquePeriodicWork(AUTO_WORK,ExistingPeriodicWorkPolicy.UPDATE,sweep);
+        OneTimeWorkRequest immediate=new OneTimeWorkRequest.Builder(AnalysisWorker.class).setConstraints(constraints).setBackoffCriteria(BackoffPolicy.EXPONENTIAL,10,TimeUnit.MINUTES).build();
+        work.enqueueUniqueWork(AUTO_WORK+"-now",ExistingWorkPolicy.KEEP,immediate);
     }
     public boolean run(boolean isManual,BooleanSupplier stopped){
-        int token=generation.get();boolean acquired=false;
+        int token=generation.get();boolean acquired=false;int priority=android.os.Process.getThreadPriority(android.os.Process.myTid());
+        android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND);
         try{
             analysis.lockInterruptibly();acquired=true;
             if(!isManual&&prefs.contains("modelFailure"))return true;
@@ -111,16 +120,12 @@ public final class RecommendationEngine {
             manualRequested=false;return true;
         }catch(InterruptedException interrupted){Thread.currentThread().interrupt();return false;}
         catch(Exception unavailable){manualRequested=false;error="Couldn't access your music. Check audio access and try again.";return true;}
-        finally{if(acquired){running=false;activeManual=false;counts=store.counts();analysis.unlock();}if(isManual&&enabled())schedule();resumeManual();emit();}
+        finally{android.os.Process.setThreadPriority(priority);if(acquired){running=false;activeManual=false;counts=store.counts();analysis.unlock();}if(isManual&&enabled())schedule();resumeManual();emit();}
     }
     private boolean allowed(boolean manualMode,int token,BooleanSupplier stopped){
         if(stopped.getAsBoolean()||Thread.currentThread().isInterrupted()||token!=generation.get())return false;
-        if(!enabled()||prefs.getBoolean("paused",false)||playback||hot())return false;
-        return manualMode?foreground:chargingAndBatteryOk();
-    }
-    private boolean chargingAndBatteryOk(){Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));if(battery==null)return false;
-        int status=battery.getIntExtra(BatteryManager.EXTRA_STATUS,-1),level=battery.getIntExtra(BatteryManager.EXTRA_LEVEL,0),scale=battery.getIntExtra(BatteryManager.EXTRA_SCALE,100);
-        return battery.getIntExtra(BatteryManager.EXTRA_PLUGGED,0)>0&&(status==BatteryManager.BATTERY_STATUS_CHARGING||status==BatteryManager.BATTERY_STATUS_FULL)&&level*100/Math.max(1,scale)>15;
+        if(!enabled()||prefs.getBoolean("paused",false))return false;
+        return AnalysisPolicy.allowed(manualMode,foreground,batteryLow(),hot());
     }
     private boolean batteryLow(){Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));return battery!=null&&battery.getIntExtra(BatteryManager.EXTRA_LEVEL,100)*100/Math.max(1,battery.getIntExtra(BatteryManager.EXTRA_SCALE,100))<=15;}
     private boolean hot(){if(Build.VERSION.SDK_INT>=29&&((PowerManager)context.getSystemService(Context.POWER_SERVICE)).getCurrentThermalStatus()>=PowerManager.THERMAL_STATUS_MODERATE)return true;
@@ -136,7 +141,7 @@ public final class RecommendationEngine {
     public static long[] sections(long duration){if(duration<20000)return new long[]{0};if(duration<30000)return new long[]{0,duration-10000};long last=Math.max(0,duration-10000);TreeSet<Long> values=new TreeSet<>(Arrays.asList(0L,last/2,last));return values.stream().mapToLong(Long::longValue).toArray();}
     public JSONObject status(){
         JSONObject out=new JSONObject();int[] c=counts;
-        String reason=!enabled()?"disabled":prefs.getBoolean("paused",false)?"paused_user":!error.isEmpty()?"error":c[0]==0?"empty":c[0]==c[1]+c[2]?"ready":playback?"paused_playback":hot()?"paused_thermal":running?"analysing":manualRequested&&!foreground?"waiting_foreground":c[0]==c[1]+c[2]?"ready":!chargingAndBatteryOk()?(batteryLow()?"waiting_battery":"waiting_charging"):"waiting";
+        String reason=!enabled()?"disabled":prefs.getBoolean("paused",false)?"paused_user":!error.isEmpty()?"error":c[0]==0?"empty":c[0]==c[1]+c[2]?"ready":hot()?"paused_thermal":running?"analysing":manualRequested&&!foreground?"waiting_foreground":!manualRequested&&batteryLow()?"waiting_battery":"waiting";
         try{out.put("enabled",enabled()).put("state",reason).put("eligible",c[0]).put("analysed",c[1]).put("failed",c[2]).put("running",running).put("error",error).put("historyVersion",historyGeneration.get())
             .put("mixesAvailable",c[1]>0&&(c[1]>=10||(c[0]<10&&c[0]==c[1]+c[2])));}catch(JSONException impossible){throw new IllegalStateException(impossible);}return out;
     }

@@ -144,12 +144,22 @@ test('UI-thread header and rail share partial collapse geometry, restore scroll 
   list.props.renderItem({ item: list.props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
   assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204, 'short list keeps search visible');
+  list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } }); ui.effects();
   list.props.onContentSizeChange(300, 10000); list.props.onScrollBeginDrag(); list.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
   tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
   assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
   const measuredHeader = nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID);
   assert.equal(measuredHeader.props.style[1].transform[0].translateY, -100);
   assert.equal(measuredHeader.props.style[1].height, undefined, 'intrinsic search measurement must not be constrained by its collapsing height');
+  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1600 } } });
+  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1550 } } });
+  tree = ui.render('IndexedSongList', props);
+  assert.equal(nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID).props.style[1].transform[0].translateY, -150, 'search returns on upward scroll at depth');
+  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 54, 'rail follows the revealed search');
+  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1300 } } });
+  tree = ui.render('IndexedSongList', props);
+  assert.equal(nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID).props.style[1].transform[0].translateY, 0, 'search becomes fully visible without returning to the top');
+
   assert.equal(tree.props.style.overflow, 'hidden', 'the viewport clips the translated header above the list');
   assert.equal(list.props.getItemLayout(null, 2).offset, 392);
   nodes(railTree()).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();

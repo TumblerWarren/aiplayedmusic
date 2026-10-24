@@ -30,7 +30,7 @@ test('local recommendation state stays separate and refresh never starts playbac
   listener({ json: JSON.stringify({ enabled: true, analysed: 0, eligible: 0, mixesAvailable: false }) });
   assert.equal(store.getSnapshot().mixes.length, 0, 'ineligible libraries clear visible suggestions');
   await store.deleteAnalysis(); assert.equal(store.getSnapshot().mixes.length, 0); assert.equal(store.getSnapshot().status.enabled, false);
-  assert.equal(analysisMessage({ state: 'paused_playback' }), 'Paused while music plays');
+  assert.equal(analysisMessage({ state: 'waiting_battery' }), 'Waiting for enough battery');
   assert.equal(analysisMessage({ state: 'paused_thermal' }), 'Paused while your phone cools down');
   stop();
 });
@@ -44,7 +44,7 @@ test('a result arriving after disabling recommendations cannot restore mixes', a
   assert.equal(store.getSnapshot().mixes.length, 0); stop();
 });
 
-test('For You opt-in, fixed previews, saving and settings fit both themes without changing playback', async () => {
+test('For You re-enable, fixed previews, saving and settings fit both themes without changing playback', async () => {
   const { analysisMessage } = await import('../src/recommendations.js');
   const { tones } = await import('../src/design.js');
   for (const dark of [false, true]) {
@@ -90,5 +90,20 @@ test('clearing listening history replaces stale visible profiles even during mix
   assert.equal(requests, 2, 'a reset starts a fresh retrieval after the stale request finishes');
   assert.deepEqual(store.getSnapshot().mixes, [{ id: 'fresh-profile' }]);
   assert.equal(store.getSnapshot().status.analysed, 12, 'clearing listening signals retains audio analysis');
+  stop();
+});
+
+
+test('first status load shows automatic startup without flashing an opt-in, and honours an explicit disable', async () => {
+  const { createRecommendationStore } = await import('../src/recommendations.js');
+  let resolve;
+  const store = createRecommendationStore({ addListener: () => ({ remove() {} }), recommendationStatus: () => new Promise(done => { resolve = done; }) });
+  const stop = store.start();
+  assert.equal(store.getSnapshot().loaded, false);
+  assert.equal(store.getSnapshot().status.enabled, true);
+  assert.equal(store.getSnapshot().status.state, 'starting');
+  resolve({ enabled: false, state: 'disabled', mixesAvailable: false }); await flush();
+  assert.equal(store.getSnapshot().loaded, true);
+  assert.equal(store.getSnapshot().status.enabled, false, 'persisted disable wins over the startup default');
   stop();
 });

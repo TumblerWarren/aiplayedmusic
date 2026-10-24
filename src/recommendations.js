@@ -3,15 +3,15 @@ export function analysisMessage(status = {}) {
   const messages = {
     disabled: 'Personal mixes are off', empty: 'No eligible music found', analysing: 'Analysing your music',
     ready: 'Audio analysis is up to date', waiting: 'Waiting to analyse', starting: 'Starting analysis',
-    waiting_charging: 'Waiting for your phone to charge', waiting_battery: 'Waiting for enough battery',
+    waiting_battery: 'Waiting for enough battery',
     waiting_foreground: 'Open the app to continue manual analysis', paused_user: 'Analysis paused',
-    paused_playback: 'Paused while music plays', paused_thermal: 'Paused while your phone cools down',
+    paused_thermal: 'Paused while your phone cools down',
     error: status.error || 'Audio analysis needs attention',
   };
   return messages[status.state] || 'Checking audio analysis';
 }
 export function createRecommendationStore(api) {
-  let value = { status: { enabled: false, state: 'disabled', analysed: 0, eligible: 0, failed: 0 }, mixes: [], busy: false, error: '', loaded: false };
+  let value = { status: { enabled: true, state: 'starting', analysed: 0, eligible: 0, failed: 0 }, mixes: [], busy: false, error: '', loaded: false };
   const listeners = new Set();
   let subscription, users = 0, generation = 0, loadingMixes = false;
   const update = patch => { value = { ...value, ...patch }; for (const listener of listeners) listener(); };

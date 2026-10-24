@@ -107,30 +107,34 @@ public final class CoreGate extends Instrumentation {
  }
  private void analysisLifecycle(Context context)throws Exception{
   RecommendationEngine engine=RecommendationEngine.get(context);
+  PlaybackService[] holder=new PlaybackService[1];java.util.concurrent.CountDownLatch bound=new java.util.concurrent.CountDownLatch(1);
+  ServiceConnection connection=new ServiceConnection(){public void onServiceConnected(ComponentName name,android.os.IBinder binder){holder[0]=((PlaybackService.LocalBinder)binder).service();bound.countDown();}public void onServiceDisconnected(ComponentName name){}};
+  boolean connected=false;
   try{
-   command("dumpsys battery unplug");command("dumpsys battery set temp 250");
-   engine.clearAnalysis().get();engine.setEnabled(true);engine.foreground(true);drain(engine);
+   command("dumpsys battery unplug");command("dumpsys battery set level 80");command("dumpsys battery set temp 450");
+   engine.clearAnalysis().get();
+   context.getSharedPreferences("personal-mixes",0).edit().remove("enabled").apply();
+   check(engine.enabled(),"Missing preference defaults personal mixes to enabled");
+   engine.setEnabled(true);engine.foreground(true);drain(engine);
    check(engine.status().getInt("eligible")>=2,"Resumable analysis sees the MediaStore library");
-   check(!engine.run(false,()->false),"Automatic analysis respects the charging constraint");
-   engine.playback(true);engine.analyse(false);Thread.sleep(300);
-   check(engine.status().getInt("analysed")==0&&"paused_playback".equals(engine.status().getString("state")),"Manual analysis gives active playback priority");
-   engine.pause();engine.playback(false);command("dumpsys battery set temp 450");engine.analyse(false);Thread.sleep(300);
+   check(!engine.run(false,()->false),"Automatic analysis retains the temperature guard");
+   engine.analyse(false);Thread.sleep(300);
    check(engine.status().getInt("analysed")==0&&"paused_thermal".equals(engine.status().getString("state")),"Battery temperature pauses manual analysis");
    command("dumpsys battery set temp 250");
    long deadline=android.os.SystemClock.elapsedRealtime()+40000;
    while(engine.status().getInt("analysed")<2&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(200);
-   check(engine.status().getInt("analysed")>=2,"Manual analysis resumes after the battery cools without a foreground or playback transition");
-   engine.clearAnalysis().get();engine.setEnabled(true);drain(engine);command("dumpsys battery set ac 1");command("dumpsys battery set status 2");
-   long chargingDeadline=android.os.SystemClock.elapsedRealtime()+10000;
-   while(android.os.SystemClock.elapsedRealtime()<chargingDeadline){
-    Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-    if(battery!=null&&battery.getIntExtra(android.os.BatteryManager.EXTRA_PLUGGED,0)>0&&battery.getIntExtra(android.os.BatteryManager.EXTRA_STATUS,0)==android.os.BatteryManager.BATTERY_STATUS_CHARGING)break;
-    Thread.sleep(100);
-   }
+   check(engine.status().getInt("analysed")>=2,"Manual analysis resumes after cooling without a charging or playback transition");
+   command("dumpsys battery set temp 450");engine.clearAnalysis().get();engine.setEnabled(true);drain(engine);
    check(!engine.run(false,()->true),"Work cancellation leaves audio pending for recovery");
+   onMain(()->{context.startForegroundService(new Intent(context,PlaybackService.class).setAction("foreground"));context.bindService(new Intent(context,PlaybackService.class),connection,Context.BIND_AUTO_CREATE);});connected=true;
+   check(bound.await(10,java.util.concurrent.TimeUnit.SECONDS),"Concurrent-analysis playback service binds");
+   java.util.List<Song> songs=new Library(context).scan(context);
+   onMain(()->{holder[0].setRepeat(2);holder[0].play(songs,0);});playing(holder[0]);
+   command("dumpsys battery set temp 250");
    boolean completed=engine.run(false,()->false);
-   check(completed&&engine.status().getInt("analysed")>=2,"Charging analysis resumes and completes pending files: completed="+completed+" status="+engine.status());
-  }finally{engine.pause();engine.setEnabled(false);command("dumpsys battery reset");}
+   check(completed&&engine.status().getInt("analysed")>=2,"Automatic analysis completes while unplugged and music plays: "+engine.status());
+   playing(holder[0]);check(true,"Music remains playing after automatic analysis");
+  }finally{if(holder[0]!=null)onMain(holder[0]::pause);if(connected)context.unbindService(connection);context.stopService(new Intent(context,PlaybackService.class));engine.pause();engine.setEnabled(false);command("dumpsys battery reset");}
  }
  private void command(String value)throws Exception{
   try(android.os.ParcelFileDescriptor descriptor=getUiAutomation().executeShellCommand(value);InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}

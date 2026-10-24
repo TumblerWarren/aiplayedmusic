@@ -65,8 +65,8 @@ as a prerelease with latest disabled. The bundle SHA-256 is
 Its exported FP32 model is **11,979,512 bytes**. Python/export minimum cosine was
 0.99999988; Android native preprocessing/runtime minimum cosine exceeded
 0.999999997 across 29 inputs. An independent Android 35 native run passed 44 checks covering SQLite,
-content-URI inference, real playback-service sessions, charging constraints,
-manual playback priority, cancellation, battery-temperature recovery and
+content-URI inference, real playback-service sessions, automatic analysis while unplugged and playing music,
+cancellation, battery-temperature recovery and
 concurrent history/analysis reset. Cache deletion and snapshot removal share
 the mix-generation lock, so an older in-flight calculation cannot restore
 profiles after a reset completes. The Java behavior
@@ -81,9 +81,8 @@ runtime model download and no production INTERNET permission.
 ## Product contract after the gate
 
 - Browse → For You; preserve all four bottom navigation destinations.
-- Explicit opt-in explaining that audio analysis and listening signals stay local.
-- One resumable WorkManager job while charging and battery-not-low, plus foreground
-  manual analysis. Pause on playback or elevated thermal conditions.
+- Enabled by default, with a local-only explanation and Settings controls to disable analysis or delete its data.
+- Automatic analysis is enabled by default and starts after library scans and app opens, including while unplugged or playing music. A unique immediate WorkManager request handles pending work, with a periodic reconciliation request as fallback. One analysis lock prevents concurrent decoding/inference. Automatic work retains the battery-not-low constraint; both modes pause for heat or explicit user pause. Manual analysis stays foreground-only.
 - Up to three distinct ten-second sections per eligible file, private SQLite FP32
   segment and pooled embeddings, and versioned file-identity invalidation.
 - Partial mixes after ten analysed tracks, or the whole eligible library if smaller.
@@ -126,9 +125,7 @@ metadata only. Paused selections with zero played duration carry no negative or
 recency signal. Open sessions can affect recency only after actual playback;
 positive contributions require a closed session with sustained listening.
 
-Charging requires a connected power source as well as charging/full battery
-status. Manual analysis rechecks battery-temperature pauses every ten seconds
-while the app remains foregrounded; it does not depend on a thermal callback.
+Charging and playback do not gate analysis. Existing charging-constrained periodic requests migrate with UPDATE; an immediate unique request prevents waiting for the next periodic window. Explicitly disabled preferences remain disabled. Foreground manual analysis rechecks battery-temperature pauses every ten seconds; it does not depend on a thermal callback. Analysis threads run at Android background priority so playback can retain CPU priority without stopping indexing.
 Every native Gradle build runs the pinned artifact fetch/verification task,
 including direct Expo/EAS builds. This task runs only on the build host.
 
@@ -157,3 +154,7 @@ existing checks. This test-only change does not alter the interface or claim tha
 the previous rail layout attempts fixed the historical failure. Historical
 screenshots and diagnostics remain in
 `verification/recommendations/header-layout.json` and their retained artifacts.
+
+## Header/search revision awaiting review
+
+The header uses a muted teal surface, a solid accent Browse button and a contrasting bottom divider. Search lives in its own inset row, independently of counts/sort/folder actions. It hides by scroll delta on downward movement and returns on upward movement at any list depth. A-Z jumps explicitly collapse it; focused search and non-scrolling lists keep it visible. Header and rail share the same UI-thread collapse value, with clamped overscroll. UI tests cover the new behavior; old charging and playback pause requirements have been replaced. No APK build should run for this revision until the user reviews it.

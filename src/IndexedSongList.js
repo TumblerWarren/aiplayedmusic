@@ -4,13 +4,16 @@ import Animated, { measure, runOnJS, useAnimatedRef, useAnimatedScrollHandler, u
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { alphabet, alphabetTargets, nearestLetter } from './alphabet';
 import { rememberScroll, scrollMemory } from './navigation';
-import { headerRemaining, railFraction } from './scrollGeometry';
+import { headerRemaining, nextHeaderHidden, railFraction } from './scrollGeometry';
 const h = React.createElement;
 const PRELUDE = { prelude: true };
 
 export default function IndexedSongList({ data, c, indexed = false, field = 'title', contentContainerStyle, header, prelude, focused = false, sessionKey = '', rowHeight = 0, renderItem, keyExtractor = item => String(item.id), ListEmptyComponent, ...props }) {
   const list = useRef(null);
   const y = useSharedValue(scrollMemory.get(sessionKey) || 0);
+  const hidden = useSharedValue(0);
+  const forcedHidden = useSharedValue(-1);
+  const maxOffset = useSharedValue(0);
   const scrollable = useSharedValue(false);
   const dimensions = useRef({ content: 0, viewport: 0 });
   const pending = useRef(null), retries = useRef(0), lastLetter = useRef(null);
@@ -29,19 +32,28 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
     const target = restoring.current;
     restoreFrame.current = requestAnimationFrame(() => {
       y.value = target.offset;
+      hidden.value = Math.min(headerHeight, target.offset);
+      forcedHidden.value = hidden.value;
       list.current?.scrollToOffset({ offset: target.offset, animated: false });
       restoreFrame.current = requestAnimationFrame(() => { if (restoring.current === target) target.pending = false; });
     });
   };
-  useEffect(() => { y.value = scrollMemory.get(sessionKey) || 0; restore(); return () => cancelAnimationFrame(restoreFrame.current); }, [sessionKey]);
+  useEffect(() => { hidden.value = Math.min(headerHeight, scrollMemory.get(sessionKey) || 0); y.value = scrollMemory.get(sessionKey) || 0; restore(); return () => cancelAnimationFrame(restoreFrame.current); }, [sessionKey, headerHeight]);
   useEffect(() => {
     pending.current = null; lastLetter.current = null; clearTimeout(retryTimer.current);
     return () => { clearTimeout(retryTimer.current); clearTimeout(bubbleTimer.current); };
   }, [data]);
+  useEffect(() => { if (focused) hidden.value = 0; }, [focused]);
   const saveScroll = useCallback(offset => { if (!restoring.current.pending) rememberScroll(sessionKey, offset); }, [sessionKey]);
-  const scrollHandler = useAnimatedScrollHandler({ onScroll: event => { y.value = Math.max(0, event.contentOffset.y); runOnJS(saveScroll)(y.value); } });
+  const scrollHandler = useAnimatedScrollHandler({ onScroll: event => {
+    const next = Math.max(0, Math.min(maxOffset.value, event.contentOffset.y));
+    hidden.value = forcedHidden.value >= 0 ? forcedHidden.value : nextHeaderHidden(hidden.value, y.value, next, headerHeight, focused, scrollable.value);
+    forcedHidden.value = -1;
+    y.value = next;
+    runOnJS(saveScroll)(next);
+  } }, [focused, headerHeight]);
   const headerStyle = useAnimatedStyle(() => {
-    const remaining = headerRemaining(y.value, headerHeight, focused, scrollable.value);
+    const remaining = headerRemaining(hidden.value, headerHeight, focused, scrollable.value);
     // Measure intrinsic content before moving it. Giving this measuring container
     // an animated height (initially zero) constrains Yoga and hides the search.
     return { transform: [{ translateY: remaining - headerHeight }], opacity: headerHeight ? remaining / headerHeight : 1 };
@@ -52,7 +64,8 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
     if (lastLetter.current === next) return;
     lastLetter.current = next; restoring.current.pending = false;
     pending.current = targets[next] + prefix; retries.current = 0; clearTimeout(retryTimer.current);
-    // Align at the viewport top; the same scroll event collapses the header and expands the rail.
+    // Programmatic A-Z jumps hide search; upward drag reveals it again.
+    forcedHidden.value = focused ? 0 : headerHeight;
     list.current?.scrollToIndex({ index: pending.current, animated: false, viewOffset: focused ? headerHeight : 0 });
   };
   const touchFraction = fraction => jump(nearestLetter(fraction, targets));
@@ -64,7 +77,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   };
   const layoutKnown = rowHeight > 0 && (!header || headerHeight > 0) && (!prefix || preludeHeight !== null);
   const getItemLayout = useCallback((items, index) => ({ index, length: prefix && index === 0 ? preludeHeight : rowHeight, offset: headerHeight + (prefix && index > 0 ? preludeHeight || 0 : 0) + Math.max(0, index - prefix) * rowHeight }), [rowHeight, headerHeight, preludeHeight, prefix]);
-  const updateScrollability = () => { scrollable.value = dimensions.current.content > dimensions.current.viewport + 1; };
+  const updateScrollability = () => { maxOffset.value = Math.max(0, dimensions.current.content - dimensions.current.viewport); scrollable.value = maxOffset.value > 1; if (!scrollable.value) hidden.value = 0; };
   const empty = typeof ListEmptyComponent === 'function' ? h(ListEmptyComponent) : ListEmptyComponent;
   return h(View, { style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
     h(Animated.FlatList, { ...props, ref: list, data: rows, keyExtractor: (item, index) => item === PRELUDE ? 'library-prelude' : keyExtractor(item, index - prefix),
@@ -73,11 +86,11 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
       onLayout: e => { dimensions.current.viewport = e.nativeEvent.layout.height; setViewportHeight(dimensions.current.viewport); updateScrollability(); restore(); },
       onContentSizeChange: (width, content) => { dimensions.current.content = content; updateScrollability(); restore(); },
       onScroll: scrollHandler, scrollEventThrottle: 16, getItemLayout: layoutKnown ? getItemLayout : undefined, onScrollToIndexFailed: recover,
-      onScrollBeginDrag: () => { cancelAnimationFrame(restoreFrame.current); restoring.current.pending = false; lastLetter.current = null; pending.current = null; clearTimeout(retryTimer.current); },
+      onScrollBeginDrag: () => { forcedHidden.value = -1; cancelAnimationFrame(restoreFrame.current); restoring.current.pending = false; lastLetter.current = null; pending.current = null; clearTimeout(retryTimer.current); },
       initialNumToRender: 12, maxToRenderPerBatch: 8, windowSize: 9, showsVerticalScrollIndicator: false, keyboardDismissMode: 'on-drag', keyboardShouldPersistTaps: 'handled',
       contentContainerStyle: [contentContainerStyle, showIndex && { paddingRight: 48 }] }),
-    header && h(Animated.View, { onLayout: e => setHeaderHeight(e.nativeEvent.layout.height), style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingBottom: 8, backgroundColor: c.bg }, headerStyle] }, header),
-    showIndex && h(AlphabetRail, { key: headerHeight, headerHeight, y, focused, scrollable, c, targets, letter,
+    header && h(Animated.View, { onLayout: e => setHeaderHeight(e.nativeEvent.layout.height), style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 12, paddingBottom: 12, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.headerLine }, headerStyle] }, header),
+    showIndex && h(AlphabetRail, { key: headerHeight, headerHeight, hidden, focused, scrollable, c, targets, letter,
       onFraction: touchFraction, onEnd: endTouch, onJump: next => { lastLetter.current = null; jump(next); } }),
     showIndex && letter && h(View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', right: 50, top: '40%', width: 64, height: 64, borderRadius: 24, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' } }, h(Text, { style: { fontSize: 32, fontWeight: '700', color: c.onAccent } }, letter)));
 }
@@ -85,10 +98,10 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
 // useAnimatedStyle retains its first JS style snapshot. Mount this owner only
 // after measurement, and remount it when that measurement changes, so attaching
 // a rail after a layout/route change cannot restore a zero-height header inset.
-function AlphabetRail({ headerHeight, y, focused, scrollable, c, targets, letter, onFraction, onEnd, onJump }) {
+function AlphabetRail({ headerHeight, hidden, focused, scrollable, c, targets, letter, onFraction, onEnd, onJump }) {
   const rail = useAnimatedRef();
   const [height, setHeight] = useState(400);
-  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(y.value, headerHeight, focused, scrollable.value) + 4 }));
+  const railStyle = useAnimatedStyle(() => ({ top: headerRemaining(hidden.value, headerHeight, focused, scrollable.value) + 4 }));
   const pan = Gesture.Pan().minDistance(0).maxPointers(1).onBegin(event => {
     const box = measure(rail); if (box) runOnJS(onFraction)(railFraction(event.absoluteY, box.pageY, box.height));
   }).onUpdate(event => {

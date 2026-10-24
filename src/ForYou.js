@@ -7,7 +7,7 @@ import { tones } from './design';
 import { analysisMessage } from './recommendations';
 import { useRecommendations } from './useRecommendations';
 const h = React.createElement;
-const privacy = 'Your music is analysed on this phone. Audio, listening information and personal mixes stay local. No account or internet connection is needed.';
+const privacy = 'When personal mixes are on, your music is analysed automatically on this phone. Audio, listening information and personal mixes stay local. No account or internet connection is needed.';
 
 function Action({ title, onPress, c, disabled = false }) {
   return h(Pressable, { accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { disabled }, disabled, onPress, style: { minHeight: 48, padding: 14, paddingHorizontal: 20, borderRadius: 24, backgroundColor: c.lavender, alignItems: 'center', justifyContent: 'center', opacity: disabled ? .45 : 1 } }, h(Text, { style: { color: c.purpleInk, fontSize: 15, fontWeight: '700', textAlign: 'center' } }, title));
@@ -24,7 +24,7 @@ export function AnalysisPanel({ value, actions, c }) {
       h(Action, { title: status.state === 'paused_user' ? 'Resume analysis' : 'Analyse now', onPress: () => actions.analyse(false), disabled: busy || status.running, c }),
       !['paused_user', 'ready', 'empty'].includes(status.state) && h(Action, { title: 'Pause analysis', onPress: actions.pause, disabled: busy, c }),
       status.failed > 0 && h(Action, { title: 'Retry failed files', onPress: () => actions.analyse(true), disabled: busy || status.running, c })),
-    text('Automatic analysis runs while charging with enough battery. Music playback takes priority.'));
+    text('Analysis starts automatically on this phone, including while music plays and when unplugged. Your music and listening information stay local. Automatic analysis pauses for low battery or heat; you can pause it here.'));
 }
 
 export default function ForYou({ c, onSaved }) {
@@ -60,14 +60,14 @@ export default function ForYou({ c, onSaved }) {
       !value.status.mixesAvailable && text(value.status.eligible === 0 ? 'Add music to your library or adjust your folder and audio filters.' : 'Mixes appear after ten songs are analysed, or after your whole library if it has fewer than ten.', { color: c.muted }),
       value.mixes.length > 0 && h(Action, { title: 'Refresh suggestions', onPress: actions.refresh, disabled: value.busy, c }), ...cards);
   return h(View, { testID: 'for-you-screen', style: { flex: 1 } },
-    h(ScrollView, { contentContainerStyle: { padding: 22, paddingTop: 4, paddingBottom: 36, gap: 18 } },
+    h(ScrollView, { contentContainerStyle: { padding: 22, paddingTop: 16, paddingBottom: 36, gap: 18 } },
       h(SectionBanner, { title: 'Your music, rediscovered.', detail: 'Personal mixes from the songs already on your phone.', icon: 'star', tone: tones(c)[0] }),
       !value.loaded && text('Checking personal mixes…'), body), dialog);
 }
 
 export function PersonalMixesSettings({ c }) {
   const [value, actions] = useRecommendations();
-  const enable = enabled => enabled ? Alert.alert('Enable personal mixes?', privacy, [{ text: 'Cancel' }, { text: 'Enable', onPress: () => actions.enable(true) }]) : actions.enable(false);
+  const enable = enabled => actions.enable(enabled);
   return h(ScrollView, { testID: 'personal-mixes-settings', contentContainerStyle: { padding: 24, gap: 20, paddingBottom: 40 } },
     h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12 } }, h(Text, { style: { flex: 1, color: c.ink, fontSize: 19, fontWeight: '600' } }, 'Personal mixes'), h(Switch, { value: value.status.enabled, onValueChange: enable, disabled: value.busy || !value.loaded, trackColor: { true: c.accent, false: c.track }, accessibilityLabel: 'Enable personal mixes' })),
     h(Text, { style: { color: c.muted, fontSize: 15, lineHeight: 23 } }, privacy),

@@ -10,7 +10,7 @@ export function HeaderOverlay() {
   const c = useTheme();
   return h(View, { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants', style: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, overflow: 'hidden' } },
     h(View, { style: { position: 'absolute', width: 220, height: 220, borderRadius: 110, right: -52, top: -160, backgroundColor: c.mintInk, opacity: .09 } }),
-    ...[0, 1, 2].map(i => h(View, { key: i, style: { position: 'absolute', width: 190 + i * 42, height: 190 + i * 42, borderRadius: 160, borderWidth: 1, borderColor: c.accent, opacity: .16, right: -60 - i * 21, top: -145 - i * 21 } })));
+    ...[0, 1, 2].map(i => h(View, { key: i, style: { position: 'absolute', width: 190 + i * 42, height: 190 + i * 42, borderRadius: 160, borderWidth: 1, borderColor: c.mintInk, opacity: .12, right: -60 - i * 21, top: -145 - i * 21 } })));
 }
 
 export function TabHighlight({ tone }) {
