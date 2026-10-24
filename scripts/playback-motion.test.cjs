@@ -14,7 +14,7 @@ function setup(delayed = false) {
   const ui = harness('src/PlaybackMotion.js', ['PlayingArtwork'], {
     createContext: () => ({}), useContext: () => motion, useTheme: () => palette(dark),
     Svg: 'Svg', Path: 'Path', Easing: { linear: 'linear' },
-    Animated: { Value, View: 'AnimatedView', timing(value, config) {
+    Animated: { Value, add: (a, b) => ({ get value() { return a.value + b.value; } }), modulo: (a, b) => ({ get value() { return a.value % b; }, interpolate(config) { return { value: this, ...config }; } }), View: 'AnimatedView', timing(value, config) {
         timings.push(config);
         const animation = { value, config, running: false, start(callback) { this.running = true; this.callback = callback; }, stop() { this.running = false; },
           finish() { this.running = false; value.setValue(config.toValue); this.callback?.({ finished: true }); } };
@@ -81,35 +81,41 @@ test('a late native stop callback cannot restart rotation after playback pauses'
 });
 
 
-test('pause freezes the phase and resume completes the remaining cycle before looping', () => {
+function visiblePhase(tree) {
+  let phase;
+  const visit = value => {
+    if (!value || typeof value !== 'object') return;
+    if (value.inputRange) { phase = value.value.value; return; }
+    for (const child of Object.values(value)) visit(child);
+  };
+  for (const node of nodes(tree)) visit(node.props.style);
+  return phase;
+}
+
+test('native loops start immediately, preserve phase across repeated pauses and need no JS completion handoff', () => {
   for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc']) {
     const { ui, animations, values, running, loops } = setup();
     const selected = { ...props, variant };
     ui.render('PlayingArtwork', selected); ui.effects();
-    values[0].setValue(.4); // Stand in for the current value reported by the native driver.
-    ui.render('PlayingArtwork', { ...selected, playing: false }); ui.effects();
-    assert.equal(values[0].value, .4);
-    assert.equal(running().length, 0);
-    ui.render('PlayingArtwork', selected); ui.effects();
-    const resumed = animations.at(-1);
-    assert.equal(resumed.config.duration, animations[0].config.duration * .6);
-    assert.equal(values[0].value, .4, 'resume does not jump to phase zero');
-    resumed.finish();
-    assert.equal(values[0].value, 0);
-    assert.equal(loops.length, 1);
-    assert.equal(running().length, 1, 'steady state has one native loop');
-    ui.render('PlayingArtwork', { ...selected, playing: false }); ui.effects();
-    assert.equal(running().length, 0, 'pause also stops the steady-state loop');
+    assert.equal(loops.length, 1, 'the first cycle is already a native loop');
+    assert.equal(animations[0].callback, undefined, 'no JavaScript callback is required at a cycle boundary');
+    const duration = animations[0].config.duration;
+    for (const [advance, expected] of [[.4, .4], [.35, .75], [.6, .35]]) {
+      values[0].setValue(advance); // Native clock advances from its current origin.
+      assert(Math.abs(visiblePhase(ui.render('PlayingArtwork', selected)) - expected) < 1e-9);
+      ui.render('PlayingArtwork', { ...selected, playing: false }); ui.effects();
+      assert.equal(running().length, 0);
+      assert(Math.abs(visiblePhase(ui.render('PlayingArtwork', { ...selected, playing: false })) - expected) < 1e-9);
+      ui.render('PlayingArtwork', selected); ui.effects();
+      assert(Math.abs(visiblePhase(ui.render('PlayingArtwork', selected)) - expected) < 1e-9, 'resume preserves the visible phase');
+      assert.equal(animations.at(-1).config.duration, duration, 'resume keeps constant speed');
+      assert.equal(running().length, 1);
+    }
+    // A native loop reset is visually identical even with a nonzero pause origin.
+    values[0].setValue(1); const before = visiblePhase(ui.render('PlayingArtwork', selected));
+    values[0].setValue(0); const after = visiblePhase(ui.render('PlayingArtwork', selected));
+    assert(Math.abs(before - after) < 1e-9, 'no jump at the loop seam');
   }
-});
-
-test('late completion of the interrupted cycle cannot launch a loop after pause', () => {
-  const { ui, animations, running } = setup();
-  ui.render('PlayingArtwork', props); ui.effects();
-  const pending = animations[0];
-  ui.render('PlayingArtwork', { ...props, playing: false }); ui.effects();
-  pending.finish();
-  assert.equal(running().length, 0);
 });
 
 test('periodic decorations have matching values at both ends of the native loop', () => {

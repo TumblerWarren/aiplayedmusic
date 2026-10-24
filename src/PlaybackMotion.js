@@ -51,29 +51,28 @@ export function PlayingArtwork({ playing, color, children, size, variant = 'Puls
   const c = useTheme();
   const style = ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc'].includes(variant) ? variant : 'Pulse';
   const allowed = useMotionAllowed(playing);
-  const phase = useRef(new Animated.Value(0)).current;
+  const clock = useRef(new Animated.Value(0)).current;
+  const offset = useRef(new Animated.Value(0)).current;
+  const origin = useRef(0);
+  const phase = useMemo(() => Animated.modulo(Animated.add(clock, offset), 1), [clock, offset]);
   useEffect(() => {
-    let cancelled = false, loop, leadIn;
-    const duration = style === 'Disc' ? 14000 : style === 'Orbit' ? 16000 : style === 'Wave' ? 8000 : 4800;
-    const timing = time => Animated.timing(phase, { toValue: 1, duration: time, easing: Easing.linear, useNativeDriver: true, isInteraction: false });
-    phase.stopAnimation(value => {
-      if (!allowed || cancelled) return;
-      // Finish the interrupted cycle before entering the reusable native loop.
-      // Avoid jumping back to the beginning when resuming or changing theme.
-      const start = Math.max(0, Math.min(1, value));
-      phase.setValue(start);
-      leadIn = timing(duration * (1 - start));
-      leadIn.start(({ finished }) => {
-        if (!finished || cancelled) return;
-        phase.setValue(0);
-        loop = Animated.loop(timing(duration));
-        loop.start();
-      });
+    let cancelled = false, loop;
+    const duration = style === 'Disc' ? 14000 : style === 'Orbit' ? 10000 : style === 'Wave' ? 5400 : style === 'Equalizer' ? 1800 : 3200;
+    clock.stopAnimation(value => {
+      if (cancelled) return;
+      // Preserve orientation through pause/resume. Modulo makes the native clock
+      // reset visually identical, including when resumed partway through a turn.
+      origin.current = (origin.current + value) % 1;
+      offset.setValue(origin.current);
+      clock.setValue(0);
+      if (!allowed) return;
+      loop = Animated.loop(Animated.timing(clock, { toValue: 1, duration, easing: Easing.linear, useNativeDriver: true, isInteraction: false }));
+      loop.start();
     });
-    return () => { cancelled = true; leadIn?.stop(); loop?.stop(); phase.stopAnimation(); };
-  }, [allowed, style, phase]);
+    return () => { cancelled = true; loop?.stop(); clock.stopAnimation(); };
+  }, [allowed, style, clock, offset]);
   const decoration = { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants' };
-  const circle = { position: 'absolute', width: size * .9, height: size * .9, borderRadius: size / 2 };
+  const circle = { position: 'absolute', width: size * .92, height: size * .92, borderRadius: size / 2 };
   const rotation = phase.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
   const disc = size * 0.9;
   if (style === 'Disc')
@@ -92,20 +91,20 @@ export function PlayingArtwork({ playing, color, children, size, variant = 'Puls
       // Wrap only while invisible, so the expanding wave never snaps on screen.
       const points = Array.from({ length: 49 }, (_, j) => j / 48);
       const age = t => (t + offset) % 1;
-      return h(Animated.View, { key: i, ...decoration, style: { ...circle, borderWidth: i === 1 ? 2 : 1, borderColor: i === 1 ? c.mintInk : color,
-        opacity: phase.interpolate({ inputRange: points, outputRange: points.map(t => Math.sin(age(t) * Math.PI) ** 2 * .48) }),
-        transform: [{ scale: phase.interpolate({ inputRange: points, outputRange: points.map(t => .72 + .38 * age(t)) }) }] } });
+      return h(Animated.View, { key: i, ...decoration, style: { ...circle, borderWidth: i === 1 ? 2.5 : 1.5, borderColor: i === 1 ? c.mintInk : color,
+        opacity: phase.interpolate({ inputRange: points, outputRange: points.map(t => Math.sin(age(t) * Math.PI) ** 2 * .66) }),
+        transform: [{ scale: phase.interpolate({ inputRange: points, outputRange: points.map(t => .78 + .28 * age(t)) }) }] } });
     }),
-    style === 'Wave' && [0, 1, 2].map(i => h(Animated.View, { key: i, ...decoration, style: { position: 'absolute', width: size, height: size, opacity: .45 - i * .1,
-      transform: [{ translateY: cycle(phase, i / 3, -size * .045, size * .045) }, { rotate: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: ['0deg', '6deg', '0deg', '-6deg', '0deg'] }) }] } },
-      h(Svg, { width: size, height: size, viewBox: '0 0 300 300' }, h(Path, { d: `M18 ${160 + i * 14} C40 24 100 24 150 150 S260 276 282 ${140 - i * 14}`, fill: 'none', stroke: i === 1 ? c.mintInk : color, strokeWidth: 3 - i * .6, strokeLinecap: 'round' })))),
+    style === 'Wave' && [0, 1, 2].map(i => h(Animated.View, { key: i, ...decoration, style: { position: 'absolute', width: size, height: size, opacity: .5 - i * .1,
+      transform: [{ translateX: cycle(phase, i / 3, -size * .045, size * .045) }, { translateY: cycle(phase, i / 3 + .25, -size * .065, size * .065) }, { rotate: phase.interpolate({ inputRange: [0, .25, .5, .75, 1], outputRange: ['-4deg', '0deg', '4deg', '0deg', '-4deg'] }) }] } },
+      h(Svg, { width: size, height: size, viewBox: '0 0 300 300' }, h(Path, { d: `M12 ${155 + i * 10} C32 6 114 12 156 142 S260 290 288 ${135 - i * 10} C260 254 206 224 146 154 S48 36 12 ${155 + i * 10}Z`, fill: i === 1 ? c.mintInk : color })))),
     style === 'Orbit' && h(Animated.View, { ...decoration, style: { ...circle, borderWidth: 1, borderColor: c.line, transform: [{ rotate: rotation }] } },
-      ...Array.from({ length: 8 }, (_, i) => {
-        const angle = i * Math.PI / 4, dot = size * (i % 2 ? .018 : .034);
-        return h(View, { key: i, style: { position: 'absolute', left: size * .45 * (1 + Math.cos(angle)) - dot / 2, top: size * .45 * (1 + Math.sin(angle)) - dot / 2, width: dot, height: dot, borderRadius: dot, backgroundColor: i % 2 ? c.mintInk : color, opacity: 1 - i * .08 } });
-      })),
-    style === 'Equalizer' && h(View, { ...decoration, style: { position: 'absolute', bottom: size * .035, width: size * .66, height: size * .09, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } },
-      ...Array.from({ length: 11 }, (_, i) => h(Animated.View, { key: i, style: { width: size * .025, height: size * .09, borderRadius: size * .013, backgroundColor: i % 3 === 0 ? c.mintInk : color, transform: [{ scaleY: cycle(phase, i * .19, .18, 1) }] } }))),
+      ...Array.from({ length: 5 }, (_, i) => Array.from({ length: 5 }, (_, trail) => {
+        const angle = i * Math.PI * 2 / 5 - trail * .065, dot = size * (trail ? .022 - trail * .003 : .038);
+        return h(View, { key: `${i}:${trail}`, style: { position: 'absolute', left: size * .46 * (1 + Math.cos(angle)) - dot / 2, top: size * .46 * (1 + Math.sin(angle)) - dot / 2, width: dot, height: dot, borderRadius: dot, backgroundColor: i % 2 ? c.mintInk : color, opacity: trail ? .5 - trail * .09 : .95 } });
+      }))),
+    style === 'Equalizer' && h(View, { ...decoration, style: { position: 'absolute', bottom: size * .005, width: size * .68, height: size * .15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' } },
+      ...Array.from({ length: 11 }, (_, i) => h(Animated.View, { key: i, style: { width: size * .033, height: size * .15, borderRadius: size * .017, backgroundColor: i % 3 === 0 ? c.mintInk : color, transform: [{ scaleY: phase.interpolate({ inputRange: Array.from({ length: 49 }, (_, j) => j / 48), outputRange: Array.from({ length: 49 }, (_, j) => .16 + .84 * ((1 + Math.sin(j / 48 * Math.PI * 4 + i * 1.7)) / 2) * (.6 + .4 * (1 + Math.cos(j / 48 * Math.PI * 6 - i * .8)) / 2)) }) }] } }))),
     h(View, { testID: 'stationary-album-cover', style: { width: size * .64, height: size * .64, borderRadius: size * .055, alignItems: 'center', justifyContent: 'center', backgroundColor: c.card, borderWidth: 1, borderColor: c.line } }, children));
 }
 
