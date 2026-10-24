@@ -12,7 +12,7 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   const { palette, tones } = await import('../src/design.js');
   const state = { theme: 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', current: { id: 1, title: 'Track', artist: 'Infra' }, sound: {} };
   let darkTheme = false, artDraws = 0;
-  const artSamples = [0, .3, .6, .99];
+  const artSamples = [0, .25, .45, .65, .99];
   const commands = [], shared = [];
   const ui = harness('App.js', ['MusicApp'], { useTheme: () => palette(darkTheme), Math: Object.assign(Object.create(Math), { random: () => artSamples[artDraws++] }), ...navigation, ...browse, createLibraryIndex, formatTime, palette, tones, Native: { command: async (...args) => { commands.push(args); return JSON.stringify(state); }, shareSong: async raw => shared.push(JSON.parse(raw)) }, musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() },
     useMusicSlice: () => state, useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
@@ -63,6 +63,9 @@ test('Sound retains navbar/mini-player, ignores reselect, and restores searched 
   state.current = { ...previousSong, id: 3 }; tree = ui.render('MusicApp');
   assert.equal(nodes(tree).find(n => n.type === 'PlayingArtwork').props.variant, 'Equalizer');
   assert.equal(artDraws, 4);
+  state.current = { ...previousSong, id: 4 }; tree = ui.render('MusicApp');
+  assert.equal(nodes(tree).find(n => n.type === 'PlayingArtwork').props.variant, 'Disc');
+  assert.equal(artDraws, 5);
   const beforeLyrics = commands.length;
   nodes(tree).find(n => n.props.accessibilityLabel === 'Lyrics').props.onPress(); tree = ui.render('MusicApp');
   const lyricsSheet = nodes(tree).find(n => n.type === 'Sheet');

@@ -27,15 +27,21 @@ function setup(delayed = false) {
 const cover = h('Artwork', { song: { id: 'track' } });
 const props = { playing: true, color: '#7353BB', size: 300, children: cover };
 
-test('four non-disc artwork styles retain the cover and run without owning transport controls', () => {
+test('five artwork styles retain the cover and run without owning transport controls', () => {
   const { ui, theme, running, timings } = setup();
-  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer']) {
+  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc']) {
     const selected = { ...props, variant };
     let tree = ui.render('PlayingArtwork', selected); ui.effects();
     assert.equal(tree.props.testID, 'artwork-animation-' + variant.toLowerCase());
     assert(nodes(tree).includes(cover), 'every style preserves the supplied album artwork');
     assert.equal(running().length, 1);
-    assert(!nodes(tree).find(n => n.props.testID === 'stationary-album-cover').props.style.transform, 'cover stays steady in every style');
+    if (variant === 'Disc') {
+      const disc = nodes(tree).find(n => n.props.testID === 'rotating-vinyl-disc');
+      assert(disc.props.style.transform.some(t => t.rotate), 'the actual vinyl disc rotates');
+      const label = nodes(disc).find(n => n.props.testID === 'circular-album-label');
+      assert.equal(label.props.style.overflow, 'hidden');
+      assert(nodes(label).includes(cover), 'album artwork rotates inside the circular record label');
+    } else assert(!nodes(tree).find(n => n.props.testID === 'stationary-album-cover').props.style.transform, 'non-disc covers stay steady');
     const loops = running();
     theme(true);
     tree = ui.render('PlayingArtwork', { ...selected, color: '#BDA4F4', size: 240 }); ui.effects();
@@ -46,7 +52,7 @@ test('four non-disc artwork styles retain the cover and run without owning trans
 });
 
 test('each artwork style stops on pause, reduced motion or background and resumes the same style', () => {
-  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer']) {
+  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc']) {
     const selected = { ...props, variant };
     const { ui, motion, running } = setup();
     let tree = ui.render('PlayingArtwork', selected); ui.effects();
@@ -76,7 +82,7 @@ test('a late native stop callback cannot restart rotation after playback pauses'
 
 
 test('pause freezes the phase and resume completes the remaining cycle before looping', () => {
-  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer']) {
+  for (const variant of ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc']) {
     const { ui, animations, values, running, loops } = setup();
     const selected = { ...props, variant };
     ui.render('PlayingArtwork', selected); ui.effects();

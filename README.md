@@ -6,7 +6,7 @@ A local music player inspired by Mi Music, built with **Expo SDK 56 and React Na
 
 The v1.3.0 candidate adds offline personal mixes using a bundled, validated S-SONDO FP32 model. See [implementation and validation](docs/offline-personal-mixes.md). The published v1.2.6 APK remains available.
 
-Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. Version 1.3.0 refreshes these effects, adds Equalizer artwork, and gives page headers a tinted overlay and more breathing room. There is no animation style setting.
+Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. Version 1.3.0 refreshes these effects, retains the original rotating disc alongside the new Equalizer artwork, and gives page headers a tinted overlay and more breathing room. There is no animation style setting.
 
 Automated checks cover library behavior, navigation, live control previews, isolated playback updates and actual Java DSP signals. GitHub builds additionally verify native compilation, Android Lint, signing, launcher branding and offline permissions. This is a development-signed sideload APK. Physical-device playback/UI testing remains pending. See the [responsiveness design and measurement plan](docs/RESPONSIVENESS.md) and [sound engineering references](docs/AUDIO_ENGINE.md).
 

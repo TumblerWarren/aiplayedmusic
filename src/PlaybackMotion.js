@@ -41,7 +41,7 @@ export function PlayingBars({ playing, color, size = 24 }) {
 }
 
 // Periodic samples keep every decoration continuous at the native loop seam.
-// Only transforms and opacity change; album art and layout stay still.
+// Only transforms and opacity change; layout stays still.
 function cycle(phase, offset, low, high) {
   const inputRange = Array.from({ length: 33 }, (_, i) => i / 32);
   return phase.interpolate({ inputRange, outputRange: inputRange.map(t => low + (high - low) * (1 - Math.cos((t + offset) * Math.PI * 2)) / 2) });
@@ -49,12 +49,12 @@ function cycle(phase, offset, low, high) {
 
 export function PlayingArtwork({ playing, color, children, size, variant = 'Pulse' }) {
   const c = useTheme();
-  const style = ['Pulse', 'Wave', 'Orbit', 'Equalizer'].includes(variant) ? variant : 'Pulse';
+  const style = ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc'].includes(variant) ? variant : 'Pulse';
   const allowed = useMotionAllowed(playing);
   const phase = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     let cancelled = false, loop, leadIn;
-    const duration = style === 'Orbit' ? 16000 : style === 'Wave' ? 8000 : 4800;
+    const duration = style === 'Disc' ? 14000 : style === 'Orbit' ? 16000 : style === 'Wave' ? 8000 : 4800;
     const timing = time => Animated.timing(phase, { toValue: 1, duration: time, easing: Easing.linear, useNativeDriver: true, isInteraction: false });
     phase.stopAnimation(value => {
       if (!allowed || cancelled) return;
@@ -75,6 +75,18 @@ export function PlayingArtwork({ playing, color, children, size, variant = 'Puls
   const decoration = { pointerEvents: 'none', accessible: false, importantForAccessibility: 'no-hide-descendants' };
   const circle = { position: 'absolute', width: size * .9, height: size * .9, borderRadius: size / 2 };
   const rotation = phase.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] });
+  const disc = size * 0.9;
+  if (style === 'Disc')
+  return h(View, { testID: 'artwork-animation-disc', collapsable: false, style: { width: size, height: size, alignItems: 'center', justifyContent: 'center' } },
+    h(Animated.View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', width: size, height: size, borderRadius: size / 2, backgroundColor: color, opacity: cycle(phase, 0, .07, .18), transform: [{ scale: cycle(phase, 0, .94, 1) }] } }),
+    h(Animated.View, { testID: 'rotating-vinyl-disc', style: { width: disc, height: disc, borderRadius: disc / 2, backgroundColor: c.vinyl, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: phase.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] } },
+      ...[0.92, 0.84, 0.76, 0.68].map(scale => h(View, { key: scale, style: { position: 'absolute', width: disc * scale, height: disc * scale, borderRadius: disc, borderWidth: 1.2, borderColor: c.groove } })),
+      h(View, { testID: 'circular-album-label', style: { width: size * 0.52, height: size * 0.52, borderRadius: size, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' } }, children),
+      h(View, { pointerEvents: 'none', style: { position: 'absolute', width: size * 0.055, height: size * 0.055, borderRadius: size, backgroundColor: c.spindle, borderWidth: 2, borderColor: c.vinyl } })),
+    h(Animated.View, { pointerEvents: 'none', accessible: false, style: { position: 'absolute', width: size * 0.96, height: size * 0.96, opacity: playing ? 0.75 : 0, transform: [{ rotate: phase.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '-360deg'] }) }] } },
+      ...[{ left: '27%', top: '3%', scale: 1 }, { right: '13%', bottom: '14%', scale: 0.65 }].map(({ scale, ...position }, i) => h(View, { key: i, style: { position: 'absolute', ...position, width: Math.max(3, size * 0.025 * scale), height: Math.max(3, size * 0.025 * scale), borderRadius: size, backgroundColor: color } }))),
+    h(View, { pointerEvents: 'none', style: { position: 'absolute', right: size * 0.03, top: size * 0.03, width: size * 0.08, height: size * 0.38, borderRadius: 8, backgroundColor: c.tonearm, transform: [{ rotate: '25deg' }] } }),
+    h(View, { pointerEvents: 'none', style: { position: 'absolute', right: size * 0.045, top: size * 0.025, width: size * 0.09, height: size * 0.09, borderRadius: size, backgroundColor: color } }));
   return h(View, { testID: `artwork-animation-${style.toLowerCase()}`, collapsable: false, style: { width: size, height: size, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' } },
     style === 'Pulse' && [0, 1 / 3, 2 / 3].map((offset, i) => {
       // Wrap only while invisible, so the expanding wave never snaps on screen.

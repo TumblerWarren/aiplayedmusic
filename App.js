@@ -40,7 +40,7 @@ function MusicApp() {
   const [artBounds, setArtBounds] = useState({ width: 0, height: 0 });
   const artSize = Math.max(0, Math.min(370, artBounds.width, artBounds.height));
   const state = useMusicSlice('main');
-  const artworkVariant = useMemo(() => ['Pulse', 'Wave', 'Orbit', 'Equalizer'][Math.floor(Math.random() * 4)], [state.current?.id]);
+  const artworkVariant = useMemo(() => ['Pulse', 'Wave', 'Orbit', 'Equalizer', 'Disc'][Math.floor(Math.random() * 5)], [state.current?.id]);
   const active = useAppActive();
   const [soundTab, setSoundTab] = useState('Tone');
   const soundOffsets = useRef({});
@@ -268,7 +268,7 @@ function MusicApp() {
     const song = state.current;
     content = h(View, { style: styles.flex }, h(View, { style: [styles.pageHeader, styles.playerHeader] }, h(HeaderOverlay), icon('chevron-down', () => navigateRoot('Library')), text('NOW PLAYING', styles.overline), icon('more-vertical', () => song && options(song))),
       h(View, { style: [styles.playerBody, landscape && { flexDirection: 'row', gap: 20 }] },
-        h(View, { testID: 'player-artwork-space', style: styles.playerArtSpace, onLayout: ({ nativeEvent: { layout } }) => setArtBounds(previous => previous.width === layout.width && previous.height === layout.height ? previous : { width: layout.width, height: layout.height }) }, artSize > 0 && h(SwipeSurface, { testID: 'player-artwork-swipe', collapsable: false, accessible: true, accessibilityRole: 'image', accessibilityLabel: 'Album artwork', enabled: !!song && !sheet && !nameDialog, onAction: command }, h(PlayingArtwork, { variant: artworkVariant, playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * 0.62 })))),
+        h(View, { testID: 'player-artwork-space', style: styles.playerArtSpace, onLayout: ({ nativeEvent: { layout } }) => setArtBounds(previous => previous.width === layout.width && previous.height === layout.height ? previous : { width: layout.width, height: layout.height }) }, artSize > 0 && h(SwipeSurface, { testID: 'player-artwork-swipe', collapsable: false, accessible: true, accessibilityRole: 'image', accessibilityLabel: 'Album artwork', enabled: !!song && !sheet && !nameDialog, onAction: command }, h(PlayingArtwork, { variant: artworkVariant, playing: state.playing, color: c.accent, size: artSize }, h(Artwork, { song, size: artSize * (artworkVariant === 'Disc' ? .52 : .62), round: artworkVariant === 'Disc' })))),
         h(View, { style: [styles.playerControls, landscape && { flex: 1, justifyContent: 'center' }] },
         h(View, { style: [styles.playerTitles, landscape && { marginTop: 0, marginBottom: 0 }] }, h(View, { style: { flex: 1, minWidth: 0 } }, text(song?.title || 'Choose a song', [styles.playerTitle, landscape && { fontSize: 16 }], { numberOfLines: 1, maxFontSizeMultiplier: 1.3 }), text(state.loading ? 'Loading…' : song?.artist || 'Your music, offline', [styles.playerArtist, landscape && { fontSize: 12, marginTop: 2 }], { numberOfLines: 1, maxFontSizeMultiplier: 1.3 })), icon('heart', () => song && command('favorite', { song }), song && state.favorites.includes(String(song.id)) ? accent : c.muted, 26, { label: song && state.favorites.includes(String(song.id)) ? 'Remove from favourites' : 'Add to favourites', filled: !!song && state.favorites.includes(String(song.id)) })),
         h(PlayerProgress, { key: song?.id, c, styles, landscape, command }),
