@@ -221,32 +221,6 @@ def rotate_knob(name,degrees,cancel=False):
     assert 'rotated' in raw, raw
     time.sleep(.6)
 
-def verify_folder_header():
-    search=bounds(wait('Search folders and tracks'))
-    expanded,_=rail_bounds()
-    check('Expanded folder rail begins below the search field',expanded[1]>=search[3])
-    deadline=time.monotonic()+20
-    while True:
-        swipe(*scroll_gesture(tree()))
-        collapsed,_=rail_bounds()
-        if collapsed[1]<expanded[1]-20 or time.monotonic()>=deadline:break
-    print('Folder rail geometry: '+json.dumps({'search':search,'expanded_A':expanded,'collapsed_A':collapsed}),flush=True)
-    check('Folder search collapse expands the same alphabet rail',collapsed[1]<expanded[1]-20)
-    shot('folders-collapsed-no-gap')
-
-
-def check_folder_header():
-    # Reproduce reuse of the Songs list, including Activity recreation.
-    for scale,rotation in [('1.6','0'),('1.6','1'),('1.0','0')]:
-        shell('settings','put','system','font_scale',scale)
-        shell('settings','put','system','user_rotation',rotation)
-        time.sleep(1);wait('+ Browse')
-    browse('Folders')
-    for path in ['/storage/emulated/0','/storage/emulated/0/Music','/storage/emulated/0/Music/AiplayedChecks']:open_folder(path)
-    shot('folders-expanded-compact-controls')
-    verify_folder_header()
-
-
 def check_full_interactions():
     search_bounds = bounds(wait('Search your music'))
     check('Search retains its full intrinsic height before scrolling', search_bounds[3]-search_bounds[1] >= 100)
@@ -359,7 +333,6 @@ def check_full_interactions():
     check('Nested folder controls have no leftover search-sized gap', 0 <= bounds(folder_play)[1] - controls[3] < 108)
     check('Include subfolders is absent from folder screens', find('Include subfolders when playing') is None)
     shot('folders-expanded-compact-controls')
-    verify_folder_header()
     tap('Settings'); wait('Include subfolders when playing')
     shot('settings-include-subfolders')
     check('Include subfolders is available in Settings')
@@ -522,24 +495,20 @@ def run_checks(apk, scenario='all'):
             remote = '/sdcard/Music/AiplayedChecks/'+letter+'Folder/Nested'
             shell('mkdir', '-p', remote)
             for i in range(1 if scenario == 'sound' else 2):
-                if scenario in ['recommendations','folders']:
+                if scenario == 'recommendations':
                     # This focused UI path needs indexed audio, not an external encoder.
                     import array, math, sys, wave
-                    local = fixtures / (f'{letter}{i:02} Song.wav' if scenario=='recommendations' else f'{letter}{i:02}.wav')
+                    local = fixtures / f'{letter}{i:02} Song.wav'
                     samples=array.array('h',(int(300*math.sin(n*2*math.pi*440/8000)) for n in range(8000)))
                     if sys.byteorder!='little':samples.byteswap()
                     with wave.open(str(local),'wb') as output:
                         output.setnchannels(1);output.setsampwidth(2);output.setframerate(8000)
-                        for second in range(900 if scenario=='recommendations' else 30):output.writeframesraw(samples.tobytes())
+                        for second in range(900):output.writeframesraw(samples.tobytes())
                 else:
                     local = fixtures / f'{letter}{i:02}.mp3'
                     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=900', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
                 adb('push', local, remote+'/'+local.name)
-                if scenario=='folders':
-                    scanned=shell('am','instrument','-w','-r','-e','action','scan','-e','path',remote+'/'+local.name,'-e','mime','audio/wav','app.aiplayed.uicheck/app.aiplayed.uicheck.Dump')
-                    assert 'INSTRUMENTATION_RESULT: scanned=content://media/' in scanned,scanned
-                else:
-                    shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+(remote+'/'+local.name).replace(' ','%20'))
+                shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+(remote+'/'+local.name).replace(' ','%20'))
         time.sleep(2)
         activity = shell('cmd', 'package', 'resolve-activity', '--brief', PKG).strip().splitlines()[-1]
         shell('am', 'force-stop', PKG)
@@ -551,12 +520,11 @@ def run_checks(apk, scenario='all'):
         check('Cold start reaches the Library')
         if scenario == 'all':
             check_full_interactions()
-        elif scenario not in ['recommendations-reset','folders']:
+        elif scenario != 'recommendations-reset':
             play_sound_fixture()
-        if scenario not in ['recommendations', 'recommendations-reset','folders']: check_sound_controls()
+        if scenario not in ['recommendations', 'recommendations-reset']: check_sound_controls()
         if scenario in ['all', 'recommendations']: check_personal_mixes()
         if scenario == 'recommendations-reset': check_analysis_reset()
-        if scenario == 'folders': check_folder_header()
         assert not failures, '; '.join(failures)
         (OUT/'result.json').write_text(json.dumps({'passed':True,'checks':results},indent=2))
     except Exception as error:
@@ -579,7 +547,7 @@ def run_checks(apk, scenario='all'):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--apk', help='Existing standalone APK; defaults to the local release output')
-    parser.add_argument('--scenario', choices=['all', 'sound', 'recommendations', 'recommendations-reset','folders'], default='all')
+    parser.add_argument('--scenario', choices=['all', 'sound', 'recommendations', 'recommendations-reset'], default='all')
     parser.add_argument('--repeat', type=int, default=1, help='Repeat a focused scenario with fresh emulator app data')
     args = parser.parse_args()
     if not 1 <= args.repeat <= 5 or (args.scenario == 'all' and args.repeat != 1):

@@ -144,27 +144,16 @@ are uncompressed APK entries. See
 produces its own exact size report. The 20 MB ceiling applies to the model file,
 not to the complete application or all runtime ABIs combined.
 
-## Existing folder-header regression
+## Folder-header test scope
 
-The combined interaction run exposed an existing layout bug: the alphabet
-rail overlapped the expanded folder search and could not grow when search
-collapsed. A previous committed-height change passed a shortened test but still
-failed the complete interaction sequence. That focused result did not establish
-resolution.
+At the user's request, the native UI test no longer requires the alphabet rail to
+start below expanded search or grow when search collapses. Search disappearing
+on scroll is intentional. The focused `folders` scenario existed only for those
+assertions and has been removed.
 
-Reanimated 4.3.1 retains the first JavaScript style snapshot for an animated style.
-The parent created the rail style with a zero header height before conditionally
-attaching its native view. A new rail component owns its animated style only after
-header measurement and viewport layout, and remeasurement replaces that owner.
-A corrected regression uses a one-time initial snapshot: the previous production
-source fails with top 4 instead of 54; the new owner passes delayed attachment and
-large/small header remeasurement. The old mock incorrectly refreshed the snapshot
-using useMemo.
-
-A shortened retained-APK reproduction still passed the old code, so full original
-navigation, font, rotation, sound and recommendation interactions are required
-before approval. Two focused Android repetitions passed with the new owner. Complete original
-interaction validation is still running. These checks use a JS-only diagnostic APK
-with all native, model and resource entry bytes held unchanged. Evidence and limits
-are recorded in `verification/recommendations/header-layout.json`. A diagnostic
-APK is not a release artifact; final packaging must use the normal Gradle build.
+Folder navigation, compact control spacing, the Settings-only subfolder toggle,
+search collapse in the general library flow and For You interactions retain their
+existing checks. This test-only change does not alter the interface or claim that
+the previous rail layout attempts fixed the historical failure. Historical
+screenshots and diagnostics remain in
+`verification/recommendations/header-layout.json` and their retained artifacts.

@@ -21,9 +21,11 @@
   "shortened_baseline_limit": "Old APK passed Songs-to-Folders after font/rotation changes. The complete original sequence remains required; a short pass does not establish resolution.",
   "candidate_focused_run": 39996770074,
   "candidate_full_interaction_run": 39997009826,
-  "candidate_validation": "Corrected unit regression and two focused emulator repetitions pass. Complete original interaction run39997009826 remains in progress; not release-approved.",
+  "candidate_validation": "Historical full interaction runs failed these assertions; the assertions are now removed by product instruction. The revised source has not yet completed a new full APK validation.",
   "previous_fix": "Use the same committed intrinsic headerHeight for both collapse worklets and the FlatList spacer.",
   "fix": "Create the rail animated-style owner only after intrinsic header measurement and viewport layout; key that owner by headerHeight so remeasurement replaces its retained initial style snapshot.",
   "candidate_focused_source": "5f418e285e3c05e56103c7deb79fd7cc63401864",
-  "candidate_focused_result": "Passed two independent fresh-data runs, each checking fonts/rotation, expanded rail below search and expansion on collapse. All native/model/resource entry bytes matched the retained APK."
+  "candidate_focused_result": "Passed two independent fresh-data runs, each checking fonts/rotation, expanded rail below search and expansion on collapse. All native/model/resource entry bytes matched the retained APK.",
+  "status": "Historical evidence: the native rail position/expansion test and its focused folders scenario were removed at the user request on 2026-10-24. Search collapsing on scroll is intentional. No UI behavior change or verified layout-fix claim.",
+  "last_diagnostic_run": 40066376383
 }
