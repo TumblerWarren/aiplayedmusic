@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: unverified-candidate-apk
@@ -59,16 +59,7 @@ jobs:
           disable-animations: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -memory 4096
           script: |
-            adb logcat -G 16M
-            set +e
-            python scripts/android-ui-checks.py --apk /tmp/search-baseline.apk --scenario search
-            baseline_result=$?
-            set -e
-            mkdir -p verification/search-overlay/baseline
-            cp -r verification/android-v1.3.0/search-run-1/. verification/search-overlay/baseline/
-            test "$baseline_result" -ne 0
-            adb logcat -c
-            python scripts/android-ui-checks.py --apk /tmp/search-candidate.apk --scenario search --repeat 2
+            bash scripts/check-search-comparison.sh
       - uses: actions/upload-artifact@v4
         if: always()
         with:
