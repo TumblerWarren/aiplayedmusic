@@ -247,6 +247,16 @@ def check_search_layout():
         visible=state(name+'-up',search_label)
         check(name+': returned search occupies space above the list',visible['viewport'] is not None and visible['slot'] is not None and visible['slot'][3]<=visible['viewport'][1]+2)
         assert not failures,'; '.join(failures)
+    # Cold emulator media scanning is asynchronous. An empty library cannot
+    # exercise collapse; prove the fixture and rail exist before gestures.
+    end = time.monotonic() + 60
+    while True:
+        root = tree()
+        ready = find('Jump to Z', root) is not None and any(label(n).startswith('A00 Song, ') for n in root.iter('node'))
+        if ready: break
+        if find('Scan for songs', root) is not None: tap('Scan for songs')
+        assert time.monotonic() < end, 'Search fixture was not indexed; collapse was not tested'
+        time.sleep(.5)
     direction_cycle('songs','Search your music')
     tap('Jump to A');assert wait_absent('Search your music'),'A-Z jump must dismiss the search before tapping a song'
     root=tree();song=next((n for n in root.iter('node') if label(n).startswith('A00 Song, ')),None);assert song is not None
