@@ -14,7 +14,7 @@ sdk=Path(os.environ['ANDROID_HOME'])/'build-tools/36.0.0'
 report={}
 def run(*args):subprocess.run(list(map(str,args)),check=True)
 try:
-    for stage in ['baseline','candidate']:
+    for stage in ['candidate']:
         for name in paths:
             source=subprocess.check_output(['git','show',BASE+':'+name],text=True) if stage=='baseline' else fixed[name]
             if name.endswith('IndexedSongList.js'):
