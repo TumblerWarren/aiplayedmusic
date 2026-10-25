@@ -229,7 +229,8 @@ def check_search_layout():
         rail=find_view(root,'alphabet-rail')
         slot=find_view(root,'search-layout-slot')
         viewport=find_view(root,'indexed-list-viewport')
-        value={"search":bounds(search) if search is not None else None,"rail":bounds(rail) if rail is not None else None,"slot":bounds(slot) if slot is not None else None,"viewport":bounds(viewport) if viewport is not None else None}
+        bar=find_view(root,'library-search-bar')
+        value={"bar":bounds(bar) if bar is not None else None,"search":bounds(search) if search is not None else None,"rail":bounds(rail) if rail is not None else None,"slot":bounds(slot) if slot is not None else None,"viewport":bounds(viewport) if viewport is not None else None}
         (OUT/(name+'.json')).write_text(json.dumps(value,indent=2));shot(name)
         return value
     def direction_cycle(name, search_label):
@@ -242,10 +243,12 @@ def check_search_layout():
         check(name+': rail gains the released search space',after['rail'] is not None and before['rail'] is not None and after['rail'][1]<before['rail'][1]-20)
         assert not failures,'; '.join(failures)
         left,top,right,bottom=scroll_bounds(tree())
-        shell('input','swipe',left+25,top+80,left+25,min(bottom-40,top+340),500);time.sleep(.5)
+        shell('input','swipe',left+25,top+80,left+25,min(bottom-40,top+160),500);time.sleep(.5)
         wait(search_label)
         visible=state(name+'-up',search_label)
         check(name+': returned search occupies space above the list',visible['viewport'] is not None and visible['slot'] is not None and visible['slot'][3]<=visible['viewport'][1]+2)
+        check(name+': returned search has its full expanded height',visible['slot'] is not None and before['slot'] is not None and abs((visible['slot'][3]-visible['slot'][1])-(before['slot'][3]-before['slot'][1]))<=2)
+        check(name+': returned search keeps clear space below the complete field',visible['bar'] is not None and visible['viewport'] is not None and visible['viewport'][1]-visible['bar'][3]>=20)
         assert not failures,'; '.join(failures)
     # Cold emulator media scanning is asynchronous. An empty library cannot
     # exercise collapse; prove the fixture and rail exist before gestures.

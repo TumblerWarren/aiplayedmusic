@@ -9,6 +9,7 @@ function harness(file, exports, globals = {}) {
   const slots = []; let cursor = 0; const effects = []; const frames = new Map(); let nextFrame = 0;
   const context = {
     useTheme: () => lightTheme, initialTheme: () => 'System', palette: design.palette,
+    withTiming: value => value, cancelAnimation() {},
     React: { createElement: h, Fragment: 'Fragment' }, console, hideNativeSplash() {}, restoreFocus() {},
     useState(value) { const index = cursor++; if (!(index in slots)) slots[index] = typeof value === 'function' ? value() : value; return [slots[index], next => { slots[index] = typeof next === 'function' ? next(slots[index]) : next; }]; },
     useRef(value) { const index = cursor++; return slots[index] ||= { current: value }; },

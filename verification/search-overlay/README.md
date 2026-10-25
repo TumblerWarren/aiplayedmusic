@@ -1,3 +1,5 @@
+> Visual correction pending revalidation: the first candidate screenshots revealed a clipped search field after a short upward gesture. The earlier pass established separate layout bounds, not a complete search field. The new correction settles search fully open/closed after release and adds full-height and bottom-gap assertions. Earlier results below describe the previous candidate only.
+
 # Search hit-testing regression
 
 Original run: https://github.com/TumblerWarren/aiplayedmusic/actions/runs/40113472034/attempts/1

@@ -158,6 +158,16 @@ test('measured search occupies layout space, returns on upward drag and cannot c
   tree = ui.render('IndexedSongList', { ...props, focused: true }); ui.effects(); assert.equal(firstWorklet().height, 200);
   list().props.onScroll.onBeginDrag(); list().props.onScroll.onScroll({ contentOffset: { y: 1400 } });
   assert.equal(firstWorklet().height, 100, 'drag dismisses a focused input and can hide it');
+  list().props.onScroll.onScroll({ contentOffset: { y: 1390 } });
+  assert.equal(firstWorklet().height, 110, 'upward drag may reveal part of search during movement');
+  list().props.onScroll.onEndDrag();
+  assert.equal(firstWorklet().height, 200, 'releasing an upward drag reveals the entire search and its padding');
+  list().props.onScroll.onScroll({ contentOffset: { y: 1400 } });
+  assert.equal(firstWorklet().height, 200, 'layout-induced scroll events cannot clip settled search again');
+  list().props.onScroll.onBeginDrag();
+  list().props.onScroll.onScroll({ contentOffset: { y: 1410 } });
+  list().props.onScroll.onEndDrag();
+  assert.equal(firstWorklet().height, 0, 'releasing downward movement fully hides search instead of leaving a clipped field');
 });
 
 test('scrollability updates do not depend on an immediate JS read after a shared-value write', async () => {
