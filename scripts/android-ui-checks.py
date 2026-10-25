@@ -255,10 +255,16 @@ def check_search_layout():
     end = time.monotonic() + 60
     while True:
         root = tree()
-        ready = find('Jump to Z', root) is not None and any(label(n).startswith('A00 Song, ') for n in root.iter('node'))
+        ready = find('14 songs', root) is not None and find('Jump to Z', root) is not None and any(label(n).startswith('A00 Song, ') for n in root.iter('node'))
         if ready: break
-        if find('Scan for songs', root) is not None: tap('Scan for songs')
-        assert time.monotonic() < end, 'Search fixture was not indexed; collapse was not tested'
+        if find('Scan for songs', root) is not None:
+            tap('Scan for songs')
+        else:
+            viewport=find_view(root,'indexed-list-viewport')
+            if viewport is not None:
+                left,top,right,bottom=bounds(viewport)
+                swipe(left+30,top+30,left+30,bottom-30,500)
+        assert time.monotonic() < end, 'The app did not load all 14 search fixtures; collapse was not tested'
         time.sleep(.5)
     direction_cycle('songs','Search your music')
     tap('Jump to A');assert wait_absent('Search your music'),'A-Z jump must dismiss the search before tapping a song'
@@ -578,7 +584,7 @@ def run_checks(apk, scenario='all'):
             expected = [f'{letter}{i:02} Song' for letter in 'ABCDXYZ' for i in range(2)]
             deadline = time.monotonic() + 180
             while True:
-                indexed = shell('content', 'query', '--uri', 'content://media/external/audio/media', '--projection', 'title')
+                indexed = shell('content', 'query', '--uri', 'content://media/external/audio/media', '--projection', 'title', '--where', 'is_pending=0')
                 (OUT/'fixture-index.txt').write_text(indexed)
                 if all('title=' + title in indexed for title in expected): break
                 assert time.monotonic() < deadline, 'MediaStore did not index all search fixtures; UI checks were not started'
