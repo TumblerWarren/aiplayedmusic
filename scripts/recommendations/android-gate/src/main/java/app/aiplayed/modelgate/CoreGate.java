@@ -111,7 +111,7 @@ public final class CoreGate extends Instrumentation {
   ServiceConnection connection=new ServiceConnection(){public void onServiceConnected(ComponentName name,android.os.IBinder binder){holder[0]=((PlaybackService.LocalBinder)binder).service();bound.countDown();}public void onServiceDisconnected(ComponentName name){}};
   boolean connected=false;
   try{
-   command("dumpsys battery unplug");command("dumpsys battery set level 80");command("dumpsys battery set temp 450");
+   command("dumpsys battery unplug");command("dumpsys battery set level 80");setTemperature(context,450);
    engine.clearAnalysis().get();
    context.getSharedPreferences("personal-mixes",0).edit().remove("enabled").apply();
    check(engine.enabled(),"Missing preference defaults personal mixes to enabled");
@@ -120,21 +120,43 @@ public final class CoreGate extends Instrumentation {
    check(!engine.run(false,()->false),"Automatic analysis retains the temperature guard");
    engine.analyse(false);Thread.sleep(300);
    check(engine.status().getInt("analysed")==0&&"paused_thermal".equals(engine.status().getString("state")),"Battery temperature pauses manual analysis");
-   command("dumpsys battery set temp 250");
+   setTemperature(context,250);
    long deadline=android.os.SystemClock.elapsedRealtime()+40000;
    while(engine.status().getInt("analysed")<2&&android.os.SystemClock.elapsedRealtime()<deadline)Thread.sleep(200);
    check(engine.status().getInt("analysed")>=2,"Manual analysis resumes after cooling without a charging or playback transition");
-   command("dumpsys battery set temp 450");engine.clearAnalysis().get();engine.setEnabled(true);drain(engine);
+   setTemperature(context,450);engine.clearAnalysis().get();engine.setEnabled(true);drain(engine);
    check(!engine.run(false,()->true),"Work cancellation leaves audio pending for recovery");
    onMain(()->{context.startForegroundService(new Intent(context,PlaybackService.class).setAction("foreground"));context.bindService(new Intent(context,PlaybackService.class),connection,Context.BIND_AUTO_CREATE);});connected=true;
    check(bound.await(10,java.util.concurrent.TimeUnit.SECONDS),"Concurrent-analysis playback service binds");
    java.util.List<Song> songs=new Library(context).scan(context);
    onMain(()->{holder[0].setRepeat(2);holder[0].play(songs,0);});playing(holder[0]);
-   command("dumpsys battery set temp 250");
+   setTemperature(context,250);
    boolean completed=engine.run(false,()->false);
-   check(completed&&engine.status().getInt("analysed")>=2,"Automatic analysis completes while unplugged and music plays: "+engine.status());
+   check(completed&&engine.status().getInt("analysed")>=2,"Automatic analysis completes while unplugged and music plays: "+engine.status()+"; "+thermalState(context));
    playing(holder[0]);check(true,"Music remains playing after automatic analysis");
   }finally{if(holder[0]!=null)onMain(holder[0]::pause);if(connected)context.unbindService(connection);context.stopService(new Intent(context,PlaybackService.class));engine.pause();engine.setEnabled(false);command("dumpsys battery reset");}
+ }
+ private String thermalState(Context context){
+  Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+  int temperature=battery==null?Integer.MIN_VALUE:battery.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE,Integer.MIN_VALUE);
+  int status=android.os.Build.VERSION.SDK_INT>=29?((android.os.PowerManager)context.getSystemService(Context.POWER_SERVICE)).getCurrentThermalStatus():0;
+  return "batteryTemperature="+temperature+", thermalStatus="+status;
+ }
+ private void setTemperature(Context context,int expected)throws Exception{
+  command("dumpsys battery set temp "+expected);
+  // Shell completion is not delivery of ACTION_BATTERY_CHANGED. Establish the
+  // same app-visible precondition used by the real engine before running it.
+  long deadline=android.os.SystemClock.elapsedRealtime()+10000;
+  do{
+   Intent battery=context.registerReceiver(null,new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+   int actual=battery==null?Integer.MIN_VALUE:battery.getIntExtra(android.os.BatteryManager.EXTRA_TEMPERATURE,Integer.MIN_VALUE);
+   int status=android.os.Build.VERSION.SDK_INT>=29?((android.os.PowerManager)context.getSystemService(Context.POWER_SERVICE)).getCurrentThermalStatus():0;
+   if(actual==expected&&(expected>=400||status<android.os.PowerManager.THERMAL_STATUS_MODERATE)){
+    android.util.Log.i("CoreGate","Temperature fixture ready: "+thermalState(context));return;
+   }
+   Thread.sleep(25);
+  }while(android.os.SystemClock.elapsedRealtime()<deadline);
+  throw new AssertionError("Temperature fixture did not reach "+expected+": "+thermalState(context));
  }
  private void command(String value)throws Exception{
   try(android.os.ParcelFileDescriptor descriptor=getUiAutomation().executeShellCommand(value);InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(descriptor)){byte[] bytes=new byte[1024];while(input.read(bytes)!=-1){}}
