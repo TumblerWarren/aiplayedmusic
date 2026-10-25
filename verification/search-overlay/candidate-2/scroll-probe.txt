@@ -1,0 +1,13 @@
+Probe excerpt for final process 10890; full log is in the workflow artifact.
+10-25 05:40:30.887 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":875.8095092773438,"viewport":524.1904296875,"headerHeight":0}'
+10-25 05:40:31.196 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":1091.8095703125,"viewport":524.1904296875,"headerHeight":72.76189422607422}'
+10-25 05:40:32.213 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":1091.8094482421875,"viewport":403.4285583496094,"headerHeight":72.76189422607422}'
+10-25 05:40:38.330 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":1091.8095703125,"viewport":427.80950927734375,"headerHeight":72.76189422607422}'
+10-25 05:40:38.312 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":24.380952835083008,"scrollable":true,"maximum":688.3808898925781,"y":24.380952835083008,"raw":24.380952835083008}'
+10-25 05:40:38.428 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":35.80952453613281,"scrollable":true,"maximum":688.3808898925781,"y":35.80952453613281,"raw":35.80952453613281}'
+10-25 05:40:38.484 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":72.76189422607422,"scrollable":true,"maximum":688.3808898925781,"y":76.95237731933594,"raw":76.95237731933594}'
+10-25 05:40:38.509 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":72.76189422607422,"scrollable":true,"maximum":652.5715026855469,"y":128.38095092773438,"raw":128.38095092773438}'
+10-25 05:41:38.049 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":82.66666412353516,"focused":false,"hidden":0,"scrollable":true,"maximum":772.9524536132812,"y":68.19047546386719,"raw":68.19047546386719}'
+10-25 05:41:45.463 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":82.66666412353516,"focused":false,"hidden":82.66666412353516,"scrollable":true,"maximum":787.4286499023438,"y":71.61904907226562,"raw":71.61904907226562}'
+10-25 05:42:01.094 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":0,"scrollable":true,"maximum":1008.3808746337891,"y":71.61904907226562,"raw":71.61904907226562}'
+10-25 05:42:09.205 10890 10946 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","height":72.76189422607422,"focused":false,"hidden":72.76189422607422,"scrollable":true,"maximum":616.7618408203125,"y":68.19047546386719,"raw":68.19047546386719}'

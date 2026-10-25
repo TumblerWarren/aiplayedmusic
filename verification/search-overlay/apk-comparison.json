@@ -1,0 +1,12 @@
+{
+  "baseline": {
+    "apk_sha256": "794f6d9dd6ed4426063275b635769b142569d4c48630af3543a24fe0a0c7b32a",
+    "js_sha256": "40fb523e24f572ebd62939fdc986f5382800d591abeda1957c1aaa96a2814e02",
+    "native_resources_model_unchanged": true
+  },
+  "candidate": {
+    "apk_sha256": "86b9ca29c2644b6b4f3fde931923f914f136158ea0aac76b9b48561f1752bb74",
+    "js_sha256": "fb1fe13ba2e6efed0dadc4af2e6c5ae7115fd8e60c349d37cd234c809c457da6",
+    "native_resources_model_unchanged": true
+  }
+}

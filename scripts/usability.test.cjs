@@ -160,6 +160,37 @@ test('measured search occupies layout space, returns on upward drag and cannot c
   assert.equal(firstWorklet().height, 100, 'drag dismisses a focused input and can hide it');
 });
 
+test('scrollability updates do not depend on an immediate JS read after a shared-value write', async () => {
+  const alphabet = await import('../src/alphabet.js'), geometry = await import('../src/scrollGeometry.js');
+  const pending = new Map(); let onUI = false, ui;
+  const flushShared = () => { for (const [state, value] of pending) state.current = value; pending.clear(); };
+  const shared = initial => {
+    const ref = ui.context.useRef(null);
+    if (!ref.current) {
+      const state = { current: initial };
+      ref.current = { get value() { return state.current; }, set value(value) { if (onUI) state.current = value; else pending.set(state, value); } };
+    }
+    return ref.current;
+  };
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry,
+    scrollMemory: new Map(), rememberScroll() {}, clearTimeout, setTimeout,
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' }, useSharedValue: shared,
+    useAnimatedStyle: fn => ({ updater: fn }), useAnimatedScrollHandler: value => value, runOnJS: fn => fn,
+  });
+  const tree = ui.render('IndexedSongList', { data: [], c: {}, header: h('TextInput'), renderItem() {} });
+  const get = id => nodes(tree).find(n => n.props.testID === id);
+  get('search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 73 } } }); flushShared();
+  get('indexed-list-surface').props.onLayout({ nativeEvent: { layout: { height: 476 } } });
+  const list = nodes(tree).find(n => n.type === 'FlatList');
+  list.props.onLayout({ nativeEvent: { layout: { height: 403 } } }); flushShared();
+  list.props.onContentSizeChange(300, 516); flushShared();
+  onUI = true;
+  list.props.onScroll.onBeginDrag();
+  list.props.onScroll.onScroll({ contentOffset: { y: 60 }, contentSize: { height: 516 }, layoutMeasurement: { height: 403 } });
+  assert.equal(get('search-layout-slot').props.style[1].updater().height, 13,
+    'a newly scrollable library must collapse search on its first drag, even when JS shared writes are asynchronous');
+});
+
 test('polling is screen-scoped, stops in background and never overlaps bridge requests', async () => {
   const { createMusicStore } = await import('../src/stateStore.js');
   const { createSoundPreviewController } = await import('../src/soundPreview.js');

@@ -1,0 +1,34 @@
+{
+  "songs-expanded": {
+    "search": [
+      162,
+      270,
+      1020,
+      387
+    ],
+    "rail": [
+      970,
+      436,
+      1075,
+      1475
+    ],
+    "slot": null,
+    "viewport": null
+  },
+  "songs-down": {
+    "search": [
+      162,
+      270,
+      1020,
+      387
+    ],
+    "rail": [
+      970,
+      436,
+      1075,
+      1475
+    ],
+    "slot": null,
+    "viewport": null
+  }
+}

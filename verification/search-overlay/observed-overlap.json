@@ -1,0 +1,20 @@
+{
+  "run": 40113472034,
+  "song_bounds": [
+    42,
+    235,
+    954,
+    424
+  ],
+  "search_bounds": [
+    42,
+    266,
+    1038,
+    392
+  ],
+  "tap_centre": [
+    498.0,
+    329.5
+  ],
+  "tap_lands_inside_search": true
+}
