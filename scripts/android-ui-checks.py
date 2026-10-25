@@ -287,8 +287,19 @@ def check_search_layout():
         state('search-font-'+scale+'-rotation-'+rotation,'Search your music')
 
 
+def check_complete_search(name, expanded_height):
+    root=tree()
+    slot=find_view(root,'search-layout-slot')
+    viewport=find_view(root,'indexed-list-viewport')
+    bar=find_view(root,'library-search-bar')
+    check(name+': returned search has its full expanded height',slot is not None and abs((bounds(slot)[3]-bounds(slot)[1])-expanded_height)<=2)
+    check(name+': returned search stays above the list with clear spacing',bar is not None and viewport is not None and bounds(viewport)[1]-bounds(bar)[3]>=20)
+
+
 def check_full_interactions():
     search_bounds = bounds(wait('Search your music'))
+    slot_bounds = bounds(find_view(tree(),'search-layout-slot'))
+    expanded_search_height = slot_bounds[3]-slot_bounds[1]
     check('Search retains its full intrinsic height before scrolling', search_bounds[3]-search_bounds[1] >= 100)
     # Real press hold frames preserve the native clipped highlight for review.
     browse_button = wait('+ Browse'); x1,y1,x2,y2 = bounds(browse_button)
@@ -312,6 +323,7 @@ def check_full_interactions():
     check('Search hides on downward scrolling',find('Search your music') is None)
     swipe(400,800,400,1050)
     check('Search returns on upward scrolling before the top',find('Search your music') is not None)
+    check_complete_search('Songs release gate',expanded_search_height)
     shot('songs-search-returned')
     tap('Jump to Z'); root = tree()
     check('Z jump lands on displayed song names', any('Z00 Song' in label(n) for n in root.iter('node')))
@@ -405,6 +417,14 @@ def check_full_interactions():
     check('Nested folder controls have no leftover search-sized gap', 0 <= bounds(folder_play)[1] - controls[3] < 108)
     check('Include subfolders is absent from folder screens', find('Include subfolders when playing') is None)
     shot('folders-expanded-compact-controls')
+    folder_slot=bounds(find_view(tree(),'search-layout-slot'))
+    swipe(*scroll_gesture(tree()))
+    check('Folder search hides on downward scrolling',wait_absent('Search folders and tracks'))
+    left,top,right,bottom=scroll_bounds(tree())
+    swipe(left+25,top+80,left+25,min(bottom-40,top+160),500)
+    wait('Search folders and tracks')
+    check_complete_search('Folders release gate',folder_slot[3]-folder_slot[1])
+    shot('folders-search-returned')
     tap('Settings'); wait('Include subfolders when playing')
     shot('settings-include-subfolders')
     check('Include subfolders is available in Settings')
