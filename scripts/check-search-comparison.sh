@@ -10,8 +10,8 @@ python - "$baseline_result" <<'CHECK'
 import json,sys
 from pathlib import Path
 assert int(sys.argv[1]) != 0, 'Baseline unexpectedly passed; inspect comparison validity'
-result=Path('verification/search-overlay/baseline/result.json').read_text()
-assert 'songs: search hides on downward scroll' in result, 'Baseline failed before the target regression'
+result=json.loads(Path('verification/search-overlay/baseline/result.json').read_text())
+assert 'songs: search hides on downward scroll' in result.get('failures', []), 'Baseline failed before the target regression'
 CHECK
 adb logcat -c
 python scripts/android-ui-checks.py --apk /tmp/search-candidate.apk --scenario search --repeat 2

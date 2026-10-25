@@ -568,7 +568,21 @@ def run_checks(apk, scenario='all'):
                     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=900', '-af', 'volume=0.01', '-codec:a', 'libmp3lame', '-b:a', '32k', '-metadata', f'title={letter}{i:02} Song', '-metadata', f'album={letter}Album', '-metadata', f'artist={letter}Artist', str(local)], check=True, timeout=30)
                 adb('push', local, remote+'/'+local.name)
                 shell('am', 'broadcast', '-a', 'android.intent.action.MEDIA_SCANNER_SCAN_FILE', '-d', 'file://'+(remote+'/'+local.name).replace(' ','%20'))
-        time.sleep(2)
+        if scenario == 'search':
+            # A cold MediaProvider scans system media first (86 seconds in the
+            # captured failure). Wait on actual indexing, before the app caches
+            # a partial library; never test collapse on an empty/partial seed.
+            expected = [f'{letter}{i:02} Song' for letter in 'ABCDXYZ' for i in range(2)]
+            deadline = time.monotonic() + 180
+            while True:
+                indexed = shell('content', 'query', '--uri', 'content://media/external/audio/media', '--projection', 'title')
+                (OUT/'fixture-index.txt').write_text(indexed)
+                if all('title=' + title in indexed for title in expected): break
+                assert time.monotonic() < deadline, 'MediaStore did not index all search fixtures; UI checks were not started'
+                time.sleep(2)
+            print('SETUP: all 14 search fixtures indexed before app launch', flush=True)
+        else:
+            time.sleep(2)
         activity = shell('cmd', 'package', 'resolve-activity', '--brief', PKG).strip().splitlines()[-1]
         shell('am', 'force-stop', PKG)
         start_record('startup-and-browse')
