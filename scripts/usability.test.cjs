@@ -201,6 +201,34 @@ test('scrollability updates do not depend on an immediate JS read after a shared
     'a newly scrollable library must collapse search on its first drag, even when JS shared writes are asynchronous');
 });
 
+test('search direction excludes movement of the viewport under the dragging finger', async () => {
+  const alphabet = await import('../src/alphabet.js'), geometry = await import('../src/scrollGeometry.js');
+  let ui;
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry,
+    scrollMemory: new Map(), rememberScroll() {}, clearTimeout, setTimeout,
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' },
+    useSharedValue: value => ui.context.useRef({ value }).current,
+    useAnimatedStyle: fn => ({ updater: fn }), useAnimatedScrollHandler: value => value, runOnJS: fn => fn,
+  });
+  const tree = ui.render('IndexedSongList', { data: [], c: {}, header: h('TextInput'), renderItem() {} });
+  const get = id => nodes(tree).find(n => n.props.testID === id);
+  get('search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 73 } } });
+  get('indexed-list-surface').props.onLayout({ nativeEvent: { layout: { height: 476 } } });
+  const list = nodes(tree).find(n => n.type === 'FlatList');
+  list.props.onLayout({ nativeEvent: { layout: { height: 403 } } });
+  list.props.onContentSizeChange(300, 744);
+  const event = (y, height) => list.props.onScroll.onScroll({ contentOffset: { y }, contentSize: { height: 744 }, layoutMeasurement: { height } });
+  const remaining = () => get('search-layout-slot').props.style[1].updater().height;
+  list.props.onScroll.onBeginDrag();
+  event(10, 403); event(21, 403); event(115, 425); event(101, 476);
+  assert.equal(remaining(), 0, 'a growing viewport must not turn a downward gesture into search reveal');
+  list.props.onScroll.onEndDrag(); assert.equal(remaining(), 0);
+  list.props.onScroll.onBeginDrag();
+  event(80, 476); event(86, 453);
+  assert(remaining() > 0, 'an upward gesture still reveals search when viewport shrink raises contentOffset');
+  list.props.onScroll.onEndDrag(); assert.equal(remaining(), 73);
+});
+
 test('polling is screen-scoped, stops in background and never overlaps bridge requests', async () => {
   const { createMusicStore } = await import('../src/stateStore.js');
   const { createSoundPreviewController } = await import('../src/soundPreview.js');

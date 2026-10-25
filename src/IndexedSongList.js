@@ -17,6 +17,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const forcedHidden = useSharedValue(-1);
   const settledTarget = useSharedValue(-1);
   const direction = useSharedValue(0);
+  const lastViewport = useSharedValue(0);
   const maxOffset = useSharedValue(0);
   const scrollable = useSharedValue(false);
   const dimensions = useRef({ content: 0, viewport: 0, available: 0 });
@@ -63,13 +64,18 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
     hidden.value = withTiming(target, { duration: 160 });
   };
   const scrollHandler = useAnimatedScrollHandler({
-    onBeginDrag: () => { cancelAnimation(hidden); settledTarget.value = -1; direction.value = 0; forcedHidden.value = -1; inputFocused.value = false; if (y.value <= 0) hidden.value = 0; runOnJS(beginDrag)(); },
+    onBeginDrag: () => { cancelAnimation(hidden); settledTarget.value = -1; direction.value = 0; lastViewport.value = 0; forcedHidden.value = -1; inputFocused.value = false; if (y.value <= 0) hidden.value = 0; runOnJS(beginDrag)(); },
     onScroll: event => {
       const maximum = event.contentSize && event.layoutMeasurement ? Math.max(0, event.contentSize.height - event.layoutMeasurement.height) : maxOffset.value;
       const next = Math.max(0, Math.min(maximum, event.contentOffset.y));
-      const delta = next - Math.min(y.value, maximum);
+      const viewport = event.layoutMeasurement?.height || 0;
+      // Shrinking search moves the viewport under the finger. Android reports
+      // that movement in contentOffset too; remove it from gesture direction.
+      const viewportDelta = lastViewport.value > 0 && viewport > 0 ? viewport - lastViewport.value : 0;
+      lastViewport.value = viewport;
+      const delta = next - Math.min(y.value, maximum) + viewportDelta;
       if (settledTarget.value < 0 && Math.abs(delta) > 0.5) direction.value = delta < 0 ? -1 : 1;
-      if (settledTarget.value < 0) hidden.value = !scrollable.value || inputFocused.value ? 0 : forcedHidden.value >= 0 ? forcedHidden.value : next <= 0 ? 0 : nextHeaderHidden(hidden.value, Math.min(y.value, maximum), next, measuredHeader.value, inputFocused.value, scrollable.value);
+      if (settledTarget.value < 0) hidden.value = !scrollable.value || inputFocused.value ? 0 : forcedHidden.value >= 0 ? forcedHidden.value : nextHeaderHidden(hidden.value, Math.min(y.value, maximum), next, measuredHeader.value, inputFocused.value, scrollable.value, viewportDelta);
       forcedHidden.value = -1; y.value = next; runOnJS(saveScroll)(next);
     },
     onEndDrag: settleSearch,
