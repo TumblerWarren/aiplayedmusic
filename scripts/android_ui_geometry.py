@@ -43,6 +43,26 @@ def scroll_bounds(root):
     return max(boxes, key=lambda box: (box[2] - box[0]) * (box[3] - box[1]))
 
 
+
+def scroll_signature(root, package=None):
+    # Content motion must not depend on the animated player outside this viewport.
+    box = scroll_bounds(root)
+    containers = [node for node in root.iter('node') if node.get('scrollable') == 'true' and visible_bounds(node) == box]
+    if not containers:
+        return ()
+    left, top, right, bottom = box
+    anchors = []
+    for node in containers[0].iter('node'):
+        label = node.get('content-desc') or node.get('text', '')
+        bounds = visible_bounds(node)
+        if not label or not bounds or (package and node.get('package') != package):
+            continue
+        x1, y1, x2, y2 = bounds
+        if x2 > left and x1 < right and y2 > top and y1 < bottom:
+            anchors.append((label, bounds))
+    return tuple(anchors)
+
+
 def scroll_gesture(root, reverse=False):
     left, top, right, bottom = scroll_bounds(root)
     x = round(left + (right - left) * .06)
