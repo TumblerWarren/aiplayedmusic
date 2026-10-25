@@ -1,0 +1,512 @@
+[
+  {
+    "iteration": 1,
+    "result": {
+      "passed": true,
+      "checks": [
+        "Cold start reaches the Library",
+        "songs: search hides on downward scroll",
+        "songs: rail gains the released search space",
+        "songs: returned search occupies space above the list",
+        "songs: returned search has its full expanded height",
+        "songs: returned search keeps clear space below the complete field",
+        "Song tap starts playback after A-Z navigation",
+        "folders: search hides on downward scroll",
+        "folders: rail gains the released search space",
+        "folders: returned search occupies space above the list",
+        "folders: returned search has its full expanded height",
+        "folders: returned search keeps clear space below the complete field",
+        "Search and rail survive font 1.6 rotation 0",
+        "Search and rail survive font 1.6 rotation 1",
+        "Search and rail survive font 1.0 rotation 0"
+      ]
+    },
+    "geometry": {
+      "songs-up": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "songs-expanded": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "songs-down": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "songs-after-focused-jump": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "search-font-1.6-rotation-1": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          1810,
+          259,
+          1915,
+          613
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          248,
+          1920,
+          623
+        ]
+      },
+      "search-font-1.6-rotation-0": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          259,
+          1075,
+          1453
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          248,
+          1080,
+          1463
+        ]
+      },
+      "search-font-1.0-rotation-0": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "folders-up": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "folders-expanded": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "folders-down": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      }
+    }
+  },
+  {
+    "iteration": 2,
+    "result": {
+      "passed": true,
+      "checks": [
+        "Cold start reaches the Library",
+        "songs: search hides on downward scroll",
+        "songs: rail gains the released search space",
+        "songs: returned search occupies space above the list",
+        "songs: returned search has its full expanded height",
+        "songs: returned search keeps clear space below the complete field",
+        "Song tap starts playback after A-Z navigation",
+        "folders: search hides on downward scroll",
+        "folders: rail gains the released search space",
+        "folders: returned search occupies space above the list",
+        "folders: returned search has its full expanded height",
+        "folders: returned search keeps clear space below the complete field",
+        "Search and rail survive font 1.6 rotation 0",
+        "Search and rail survive font 1.6 rotation 1",
+        "Search and rail survive font 1.0 rotation 0"
+      ]
+    },
+    "geometry": {
+      "songs-up": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "songs-expanded": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "songs-down": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "songs-after-focused-jump": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "search-font-1.6-rotation-1": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          1810,
+          259,
+          1915,
+          613
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          248,
+          1920,
+          623
+        ]
+      },
+      "search-font-1.6-rotation-0": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          259,
+          1075,
+          1453
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          248,
+          1080,
+          1463
+        ]
+      },
+      "search-font-1.0-rotation-0": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      },
+      "folders-up": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "folders-expanded": {
+        "bar": [
+          42,
+          266,
+          1038,
+          392
+        ],
+        "search": [
+          162,
+          270,
+          1020,
+          387
+        ],
+        "rail": [
+          970,
+          436,
+          1075,
+          1475
+        ],
+        "slot": [
+          0,
+          234,
+          1080,
+          425
+        ],
+        "viewport": [
+          0,
+          425,
+          1080,
+          1484
+        ]
+      },
+      "folders-down": {
+        "bar": null,
+        "search": null,
+        "rail": [
+          970,
+          245,
+          1075,
+          1475
+        ],
+        "slot": null,
+        "viewport": [
+          0,
+          234,
+          1080,
+          1484
+        ]
+      }
+    }
+  }
+]

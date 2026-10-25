@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "checks": [
+    "Cold start reaches the Library",
+    "songs: search hides on downward scroll",
+    "songs: rail gains the released search space",
+    "songs: returned search occupies space above the list",
+    "Song tap starts playback after A-Z navigation",
+    "folders: search hides on downward scroll",
+    "folders: rail gains the released search space",
+    "folders: returned search occupies space above the list",
+    "Search and rail survive font 1.6 rotation 0",
+    "Search and rail survive font 1.6 rotation 1",
+    "Search and rail survive font 1.0 rotation 0"
+  ]
+}

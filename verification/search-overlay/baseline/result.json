@@ -1,0 +1,11 @@
+{
+  "passed": false,
+  "checks": [
+    "Cold start reaches the Library"
+  ],
+  "failures": [
+    "songs: search hides on downward scroll",
+    "songs: rail gains the released search space"
+  ],
+  "error": "songs: search hides on downward scroll; songs: rail gains the released search space"
+}

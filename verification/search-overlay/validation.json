@@ -1,0 +1,13 @@
+{
+  "run": 40176053556,
+  "source": "345c78b6ee0d993faf5016cecc31ae41874ea3d4",
+  "platform": "API 35 x86_64 Google APIs emulator, pixel_2",
+  "candidate_fresh_data_repeats": 2,
+  "candidate_checks_per_repeat": 15,
+  "fixture_tracks_loaded": 14,
+  "returned_slot_height_px": 191,
+  "space_below_complete_field_px": 33,
+  "physical_phone_tested": false,
+  "release_build_started": false,
+  "previous_bounds_only_run": 40165842603
+}

@@ -115,61 +115,118 @@ test('rotary controls keep their UI-thread position free, update the label, prev
   }
 });
 
-test('UI-thread header and rail share partial collapse geometry, restore scroll and align A-Z jumps', async () => {
-  const alphabet = await import('../src/alphabet.js');
-  const geometry = await import('../src/scrollGeometry.js');
+test('measured search occupies layout space, returns on upward drag and cannot cover A-Z targets', async () => {
+  const alphabet = await import('../src/alphabet.js'), geometry = await import('../src/scrollGeometry.js');
   const { scrollMemory, rememberScroll } = await import('../src/navigation.js');
   scrollMemory.clear(); rememberScroll('songs', 900);
-  let ui;
-  const pan = () => { const g = {}; for (const key of ['minDistance', 'maxPointers', 'onBegin', 'onUpdate', 'onFinalize']) g[key] = value => { g[key + 'Value'] = value; return g; }; return g; };
+  const calls = []; let dismissed = 0, ui;
   ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry, rememberScroll, scrollMemory, clearTimeout, setTimeout,
-    Animated: { FlatList: 'FlatList', View: 'AnimatedView' }, GestureDetector: 'GestureDetector', Gesture: { Pan: pan },
-    useSharedValue: value => ui.context.useRef({ value }).current, useAnimatedRef: () => ui.context.useRef(null),
-    useAnimatedStyle: fn => fn(), useAnimatedScrollHandler: handlers => e => handlers.onScroll(e.nativeEvent), runOnJS: fn => fn,
-    measure: () => ({ pageY: 104, height: 392 }) });
-  let railUi;
-  railUi = harness('src/IndexedSongList.js', ['AlphabetRail'], { ...alphabet, ...geometry,
-    Animated: { View: 'AnimatedView' }, GestureDetector: 'GestureDetector', Gesture: { Pan: pan },
-    useAnimatedRef: () => railUi.context.useRef(null), useAnimatedStyle: fn => fn(), runOnJS: fn => fn,
-    measure: () => ({ pageY: 104, height: 392 }) });
-  const railTree = () => railUi.render('AlphabetRail', nodes(tree).find(n => typeof n.type === 'function' && n.type.name === 'AlphabetRail').props);
-  const data = [{ id: 1, title: 'Alpha' }, { id: 2, title: 'Zebra' }], calls = [];
-  const props = { data, indexed: true, c: { bg: '#ffffff' }, header: h('TextInput'), prelude: h('Actions'), sessionKey: 'songs', rowHeight: 72, renderItem: ({ item }) => h('SongRow', { item }) };
-  let tree = ui.render('IndexedSongList', props), list = nodes(tree).find(n => n.type === 'FlatList');
-  list.props.ref.current = { scrollToOffset: options => calls.push(['offset', options]), scrollToIndex: options => calls.push(['index', options]) };
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } }); assert.equal(scrollMemory.get('songs'), 900);
-  ui.effects(); ui.frames(); ui.frames(); assert.equal(calls[0][1].offset, 900);
-  list.props.onLayout({ nativeEvent: { layout: { height: 500 } } }); list.props.onContentSizeChange(300, 400);
-  nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout).props.onLayout({ nativeEvent: { layout: { height: 200 } } });
-  list.props.renderItem({ item: list.props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
-  tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204, 'short list keeps search visible');
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 0 } } }); ui.effects();
-  list.props.onContentSizeChange(300, 10000); list.props.onScrollBeginDrag(); list.props.onScroll({ nativeEvent: { contentOffset: { y: 100 } } });
-  tree = ui.render('IndexedSongList', props); list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 104);
-  const measuredHeader = nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID);
-  assert.equal(measuredHeader.props.style[1].transform[0].translateY, -100);
-  assert.equal(measuredHeader.props.style[1].height, undefined, 'intrinsic search measurement must not be constrained by its collapsing height');
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1600 } } });
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1550 } } });
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' },
+    useSharedValue: value => ui.context.useRef({ value }).current,
+    // Capture the first UI worklet; reading shared measurements must work even before React rerenders.
+    useAnimatedStyle: fn => ({ updater: fn }), useAnimatedScrollHandler: handlers => handlers, runOnJS: fn => fn,
+  });
+  const props = { data: [{ id: 1, title: 'Alpha' }, { id: 2, title: 'Zebra' }], indexed: true, c: {}, header: h('TextInput'), prelude: h('Actions'), sessionKey: 'songs', rowHeight: 72, onDismissSearch: () => dismissed++, renderItem: ({ item }) => h('SongRow', { item }) };
+  let tree = ui.render('IndexedSongList', props);
+  const slot = () => nodes(tree).find(n => n.props.testID === 'search-layout-slot');
+  const viewport = () => nodes(tree).find(n => n.props.testID === 'indexed-list-viewport');
+  const list = () => nodes(tree).find(n => n.type === 'FlatList');
+  list().props.ref.current = { scrollToOffset: value => calls.push(['offset', value]), scrollToIndex: value => calls.push(['index', value]) };
+  assert(tree.children.indexOf(slot()) < tree.children.indexOf(viewport()), 'search is a layout sibling above the list');
+  assert.equal(slot().props.style[0].position, undefined, 'the outer hit rectangle is never an absolute overlay');
+  assert.equal(list().props.ListHeaderComponent, undefined, 'no obsolete search spacer remains inside the list');
+  const firstWorklet = slot().props.style[1].updater;
+  nodes(tree).find(n => n.props.testID === 'search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 200 } } });
+  assert.equal(firstWorklet().height, 200, 'a worklet installed before measurement sees the shared height without rerender');
+  ui.effects(); ui.frames(); ui.frames();
   tree = ui.render('IndexedSongList', props);
-  assert.equal(nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID).props.style[1].transform[0].translateY, -150, 'search returns on upward scroll at depth');
-  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 54, 'rail follows the revealed search');
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 1300 } } });
+  list().props.onLayout({ nativeEvent: { layout: { height: 500 } } }); list().props.onContentSizeChange(300, 400);
+  assert.equal(firstWorklet().height, 200, 'non-scrolling lists keep search visible');
+  list().props.onScroll.onScroll({ contentOffset: { y: 0 } });
+  list().props.onContentSizeChange(300, 10000); list().props.onScroll.onBeginDrag();
+  list().props.onScroll.onScroll({ contentOffset: { y: 100 } });
+  assert.equal(firstWorklet().height, 100);
+  list().props.onScroll.onScroll({ contentOffset: { y: 1600 } }); assert.equal(firstWorklet().height, 0);
+  list().props.onScroll.onScroll({ contentOffset: { y: 1550 } }); assert.equal(firstWorklet().height, 50, 'upward movement reveals search at depth');
+  list().props.onScroll.onScroll({ contentOffset: { y: 1300 } }); assert.equal(firstWorklet().height, 200);
+  list().props.renderItem({ item: list().props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
   tree = ui.render('IndexedSongList', props);
-  assert.equal(nodes(tree).find(n => n.type === 'AnimatedView' && n.props.onLayout && !n.props.testID).props.style[1].transform[0].translateY, 0, 'search becomes fully visible without returning to the top');
+  assert.equal(list().props.getItemLayout(null, 2).offset, 192, 'row offsets exclude the external search panel');
+  const rail = nodes(tree).find(n => typeof n.type === 'function' && n.type.name === 'AlphabetRail');
+  rail.props.onJump('A'); assert.equal(firstWorklet().height, 0, 'A-Z jumps hide the search immediately even if no scroll event fires');
+  assert.equal(calls.at(-1)[1].viewOffset, 0); assert(dismissed >= 2, 'drag and alphabet jump dismiss editing');
+  tree = ui.render('IndexedSongList', { ...props, focused: true }); ui.effects(); assert.equal(firstWorklet().height, 200);
+  list().props.onScroll.onBeginDrag(); list().props.onScroll.onScroll({ contentOffset: { y: 1400 } });
+  assert.equal(firstWorklet().height, 100, 'drag dismisses a focused input and can hide it');
+  list().props.onScroll.onScroll({ contentOffset: { y: 1390 } });
+  assert.equal(firstWorklet().height, 110, 'upward drag may reveal part of search during movement');
+  list().props.onScroll.onEndDrag();
+  assert.equal(firstWorklet().height, 200, 'releasing an upward drag reveals the entire search and its padding');
+  list().props.onScroll.onScroll({ contentOffset: { y: 1400 } });
+  assert.equal(firstWorklet().height, 200, 'layout-induced scroll events cannot clip settled search again');
+  list().props.onScroll.onBeginDrag();
+  list().props.onScroll.onScroll({ contentOffset: { y: 1410 } });
+  list().props.onScroll.onEndDrag();
+  assert.equal(firstWorklet().height, 0, 'releasing downward movement fully hides search instead of leaving a clipped field');
+});
 
-  assert.equal(tree.props.style.overflow, 'hidden', 'the viewport clips the translated header above the list');
-  assert.equal(list.props.getItemLayout(null, 2).offset, 392);
-  nodes(railTree()).find(n => n.props.accessibilityLabel === 'Jump to Z').props.onPress();
-  assert.equal(calls.at(-1)[1].index, 2); assert.equal(calls.at(-1)[1].viewOffset, 0);
-  tree = ui.render('IndexedSongList', { ...props, focused: true });
-  assert.equal(nodes(railTree()).find(n => n.props.testID === 'alphabet-rail').props.style[1].top, 204);
-  list.props.onScroll({ nativeEvent: { contentOffset: { y: 222 } } }); assert.equal(scrollMemory.get('songs'), 222);
-  tree = ui.render('IndexedSongList', { ...props, prelude: null, sessionKey: 'filtered-songs' });
-  list = nodes(tree).find(n => n.type === 'FlatList');
-  assert.equal(list.props.getItemLayout(null, 0).offset, 200, 'removing a folder prelude must remove its measured height from song offsets');
+test('scrollability updates do not depend on an immediate JS read after a shared-value write', async () => {
+  const alphabet = await import('../src/alphabet.js'), geometry = await import('../src/scrollGeometry.js');
+  const pending = new Map(); let onUI = false, ui;
+  const flushShared = () => { for (const [state, value] of pending) state.current = value; pending.clear(); };
+  const shared = initial => {
+    const ref = ui.context.useRef(null);
+    if (!ref.current) {
+      const state = { current: initial };
+      ref.current = { get value() { return state.current; }, set value(value) { if (onUI) state.current = value; else pending.set(state, value); } };
+    }
+    return ref.current;
+  };
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry,
+    scrollMemory: new Map(), rememberScroll() {}, clearTimeout, setTimeout,
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' }, useSharedValue: shared,
+    useAnimatedStyle: fn => ({ updater: fn }), useAnimatedScrollHandler: value => value, runOnJS: fn => fn,
+  });
+  const tree = ui.render('IndexedSongList', { data: [], c: {}, header: h('TextInput'), renderItem() {} });
+  const get = id => nodes(tree).find(n => n.props.testID === id);
+  get('search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 73 } } }); flushShared();
+  get('indexed-list-surface').props.onLayout({ nativeEvent: { layout: { height: 476 } } });
+  const list = nodes(tree).find(n => n.type === 'FlatList');
+  list.props.onLayout({ nativeEvent: { layout: { height: 403 } } }); flushShared();
+  list.props.onContentSizeChange(300, 516); flushShared();
+  onUI = true;
+  list.props.onScroll.onBeginDrag();
+  list.props.onScroll.onScroll({ contentOffset: { y: 60 }, contentSize: { height: 516 }, layoutMeasurement: { height: 403 } });
+  assert.equal(get('search-layout-slot').props.style[1].updater().height, 13,
+    'a newly scrollable library must collapse search on its first drag, even when JS shared writes are asynchronous');
+});
+
+test('search direction excludes movement of the viewport under the dragging finger', async () => {
+  const alphabet = await import('../src/alphabet.js'), geometry = await import('../src/scrollGeometry.js');
+  let ui;
+  ui = harness('src/IndexedSongList.js', ['IndexedSongList'], { ...alphabet, ...geometry,
+    scrollMemory: new Map(), rememberScroll() {}, clearTimeout, setTimeout,
+    Animated: { FlatList: 'FlatList', View: 'AnimatedView' },
+    useSharedValue: value => ui.context.useRef({ value }).current,
+    useAnimatedStyle: fn => ({ updater: fn }), useAnimatedScrollHandler: value => value, runOnJS: fn => fn,
+  });
+  const tree = ui.render('IndexedSongList', { data: [], c: {}, header: h('TextInput'), renderItem() {} });
+  const get = id => nodes(tree).find(n => n.props.testID === id);
+  get('search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 73 } } });
+  get('indexed-list-surface').props.onLayout({ nativeEvent: { layout: { height: 476 } } });
+  const list = nodes(tree).find(n => n.type === 'FlatList');
+  list.props.onLayout({ nativeEvent: { layout: { height: 403 } } });
+  list.props.onContentSizeChange(300, 744);
+  const event = (y, height) => list.props.onScroll.onScroll({ contentOffset: { y }, contentSize: { height: 744 }, layoutMeasurement: { height } });
+  const remaining = () => get('search-layout-slot').props.style[1].updater().height;
+  list.props.onScroll.onBeginDrag();
+  event(10, 403); event(21, 403); event(115, 425); event(101, 476);
+  assert.equal(remaining(), 0, 'a growing viewport must not turn a downward gesture into search reveal');
+  list.props.onScroll.onEndDrag(); assert.equal(remaining(), 0);
+  list.props.onScroll.onBeginDrag();
+  event(80, 476); event(86, 453);
+  assert(remaining() > 0, 'an upward gesture still reveals search when viewport shrink raises contentOffset');
+  list.props.onScroll.onEndDrag(); assert.equal(remaining(), 73);
 });
 
 test('polling is screen-scoped, stops in background and never overlaps bridge requests', async () => {

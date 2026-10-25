@@ -1,0 +1,7 @@
+Probe excerpt for final process 2948; full log is in the workflow artifact.
+10-25 05:36:52.425  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":363.0476379394531,"viewport":476.1904602050781,"headerHeight":0}'
+10-25 05:36:52.552  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":435.8095397949219,"viewport":476.1904602050781,"headerHeight":72.76189422607422}'
+10-25 05:37:44.412  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"content","content":588.5714111328125,"viewport":476.1904602050781,"headerHeight":72.76189422607422}'
+10-25 05:37:53.034  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","headerHeight":72.76189422607422,"focused":false,"hidden":0,"scrollable":false,"maximum":112.38095092773438,"y":55.238094329833984,"raw":55.238094329833984}'
+10-25 05:37:53.065  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","headerHeight":72.76189422607422,"focused":false,"hidden":0,"scrollable":false,"maximum":112.38095092773438,"y":107.80952453613281,"raw":107.80952453613281}'
+10-25 05:37:53.101  2948  3050 I ReactNativeJS: 'SEARCH_PROBE', '{"kind":"scroll","headerHeight":72.76189422607422,"focused":false,"hidden":0,"scrollable":false,"maximum":112.38095092773438,"y":112.38095092773438,"raw":112.38095092773438}'

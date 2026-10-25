@@ -9,13 +9,14 @@ function harness(file, exports, globals = {}) {
   const slots = []; let cursor = 0; const effects = []; const frames = new Map(); let nextFrame = 0;
   const context = {
     useTheme: () => lightTheme, initialTheme: () => 'System', palette: design.palette,
+    withTiming: value => value, cancelAnimation() {},
     React: { createElement: h, Fragment: 'Fragment' }, console, hideNativeSplash() {}, restoreFocus() {},
     useState(value) { const index = cursor++; if (!(index in slots)) slots[index] = typeof value === 'function' ? value() : value; return [slots[index], next => { slots[index] = typeof next === 'function' ? next(slots[index]) : next; }]; },
     useRef(value) { const index = cursor++; return slots[index] ||= { current: value }; },
     useMemo(fn, deps) { const index = cursor++; const previous = slots[index]; if (!previous || !deps || deps.some((value, i) => value !== previous.deps?.[i])) slots[index] = { deps, value: fn() }; return slots[index].value; }, useCallback(fn) { cursor++; return fn; }, useDeferredValue: value => value,
     useEffect(fn, deps) { const index = cursor++; const previous = slots[index]; if (!previous || !deps || deps.some((value, i) => value !== previous.deps?.[i])) { effects.push(() => { previous?.cleanup?.(); slots[index] = { deps, cleanup: fn() }; }); } },
     memo: fn => fn, requestAnimationFrame(fn) { frames.set(++nextFrame, fn); return nextFrame; }, cancelAnimationFrame: id => frames.delete(id),
-    StyleSheet: { create: x => x }, ...globals,
+    StyleSheet: { create: x => x }, Keyboard: { dismiss() {} }, ...globals,
   };
   for (const name of ['KeyboardAvoidingView', 'ActivityIndicator', 'FlatList', 'Image', 'Modal', 'Pressable', 'ScrollView', 'StatusBar', 'Switch', 'Text', 'TextInput', 'View', 'SafeAreaProvider', 'SafeAreaView', 'Slider', 'Feather', 'ThemeProvider', 'MotionProvider', 'PlayingBars', 'PlayingArtwork', 'PlaybackRipple', 'ScrollSurface', 'ScrollEdge', 'Sheet', 'Startup', 'GestureHandlerRootView', 'SwipeSurface', 'IndexedSongList', 'Artwork', 'SongRow', 'RotaryKnob', 'PlayerProgress', 'SleepRemaining', 'FolderPicker', 'SoundStudio', 'LibrarySettings', 'ForYou', 'PersonalMixesSettings', 'Lyrics', 'SleepTimer', 'Pattern', 'TabHighlight', 'FallbackArt', 'SectionBanner', 'HeaderOverlay']) if (!(name in context)) context[name] = name;
   const source = fs.readFileSync(file, 'utf8').replace(/^import .*;\n/gm, '').replace(/export (?:default )?function/g, 'function').replace(/export const /g, 'const ').replace(/^export default memo\(.*\);$/gm, '');
