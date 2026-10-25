@@ -1,7 +1,7 @@
 name: Verify personal mix core
 on:
   push:
-    branches: [feat/offline-personal-mixes, qa/offline-personal-mixes, qa/core-thermal-fixture]
+    branches: [feat/offline-personal-mixes, qa/offline-personal-mixes]
   workflow_dispatch:
   workflow_call:
     inputs:
