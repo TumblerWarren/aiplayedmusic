@@ -3,16 +3,20 @@ import ast
 from pathlib import Path
 from types import SimpleNamespace
 import xml.etree.ElementTree as ET
-from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll_gesture, system_night, fixture_indexed, find_folder_row, find_view, configuration_night
+from android_ui_geometry import visible_bounds, find_node, scroll_bounds, scroll_gesture, scroll_signature, system_night, fixture_indexed, find_folder_row, find_view, configuration_night
 
 
 class GeometryChecks(unittest.TestCase):
-    def test_personal_mix_search_reaches_controls_beyond_three_landscape_swipes(self):
+    def test_personal_mix_search_ignores_animated_player_and_reaches_deep_landscape_controls(self):
         source=ast.parse(Path('scripts/android-ui-checks.py').read_text())
         functions=[n for n in source.body if isinstance(n,ast.FunctionDef) and n.name in ['label','find','mix_control']]
-        root=ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,220][1920,623]"><node text="Banner" bounds="[110,276][1810,564]"/></node></hierarchy>')
+        root=ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,220][1920,623]"><node text="Banner" bounds="[110,276][1810,564]"/></node><node content-desc="Open now playing" bounds="[74,650][770,770]"/></hierarchy>')
         for node in root.iter('node'):node.set('package','app.localmusic.player')
-        clock=SimpleNamespace(seconds=0,offset=0);gestures=[]
+        clock=SimpleNamespace(seconds=0,offset=0,frame=0);gestures=[]
+        def read_tree():
+            clock.frame+=1
+            root[-1].set('bounds',f'[74,{650+clock.frame%3}][770,{770+clock.frame%3}]')
+            return root
         def swipe(x1,y1,x2,y2):
             self.assertTrue(220<y1<623 and 220<y2<623,'gesture stays inside the compact content viewport')
             gestures.append(y1>y2)
@@ -20,7 +24,7 @@ class GeometryChecks(unittest.TestCase):
             root[0][0].set('bounds',f'[110,{276-clock.offset}][1810,{564-clock.offset}]')
             if clock.offset>=500 and len(root[0])==1:
                 ET.SubElement(root[0],'node',{'package':'app.localmusic.player','content-desc':'Refresh suggestions','clickable':'true','bounds':'[58,300][1862,427]'})
-        namespace=dict(tree=lambda:root,PKG='app.localmusic.player',find_node=find_node,scroll_bounds=scroll_bounds,scroll_gesture=scroll_gesture,
+        namespace=dict(tree=read_tree,PKG='app.localmusic.player',find_node=find_node,scroll_bounds=scroll_bounds,scroll_gesture=scroll_gesture,scroll_signature=scroll_signature,
             swipe=swipe,re=__import__('re'),time=SimpleNamespace(monotonic=lambda:clock.seconds,sleep=lambda seconds:setattr(clock,'seconds',clock.seconds+seconds)))
         exec(compile(ast.Module(body=functions,type_ignores=[]),'<personal mix navigation>','exec'),namespace)
         control=namespace['mix_control']('Refresh suggestions',reverse=True)

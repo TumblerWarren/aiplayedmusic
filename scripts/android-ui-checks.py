@@ -10,7 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
 from android_recording import stop_recording
-from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, find_folder_row, find_view, find_node
+from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, scroll_signature, find_folder_row, find_view, find_node
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 PKG = 'app.localmusic.player'
@@ -473,8 +473,9 @@ def mix_control(value, timeout=60, reverse=False):
         # clipped bounds are inverted. Follow the target instead of oscillating
         # after three short swipes in a compact landscape viewport.
         raw=next((n for n in root.iter('node') if n.get('package')==PKG and label(n)==value),None)
-        signature=tuple((label(n),n.get('bounds')) for n in root.iter('node'))
-        if signature==previous:direction=not direction
+        try: signature=scroll_signature(root,package=PKG)
+        except AssertionError: signature=None
+        if signature is not None and signature==previous:direction=not direction
         previous=signature
         if raw is not None:
             box=list(map(int,re.findall(r'-?\d+',raw.get('bounds',''))))
