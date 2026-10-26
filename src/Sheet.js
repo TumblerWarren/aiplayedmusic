@@ -66,13 +66,13 @@ export default function Sheet({ visible, title, c, onClose, returnFocus, childre
     h(KeyboardAvoidingView, { behavior: 'padding', pointerEvents: visible ? 'auto' : 'none', style: { flex: 1, justifyContent: 'flex-end' } },
       h(Animated.View, { testID: 'sheet-backdrop', pointerEvents: 'none', accessible: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: c.scrim, opacity: reveal } }),
       h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close sheet', feedback: false, style: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 } }),
-      h(Animated.View, { testID: 'sheet-panel', style: { maxHeight: height * 0.9, backgroundColor: c.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: Animated.add(drag, reveal.interpolate({ inputRange: [0, 1], outputRange: [height, 0] })) }] } },
+      h(Animated.View, { testID: 'sheet-panel', style: { maxHeight: height * 0.9, backgroundColor: c.sheet, borderWidth: 1, borderColor: c.controlBorder, borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden', transform: [{ translateY: Animated.add(drag, reveal.interpolate({ inputRange: [0, 1], outputRange: [height, 0] })) }] } },
         h(SafeAreaView, { edges: ['bottom'], style: { flexShrink: 1 } },
-          h(View, { ...pan.panHandlers, accessibilityLabel: 'Drag down to close', style: { minHeight: 48, justifyContent: 'center', alignItems: 'center' } }, h(View, { style: { width: 40, height: 4, borderRadius: 4, backgroundColor: c.track } })),
-          h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingBottom: 12 } },
+          h(View, { ...pan.panHandlers, accessibilityLabel: 'Drag down to close', style: { minHeight: 48, backgroundColor: c.mint, justifyContent: 'center', alignItems: 'center' } }, h(View, { style: { width: 40, height: 4, borderRadius: 4, backgroundColor: c.track } })),
+          h(View, { style: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.mint, borderBottomWidth: 1, borderBottomColor: c.headerLine, paddingHorizontal: 20, paddingBottom: 12 } },
             h(Text, { ref: heading, accessibilityRole: 'header', style: { flex: 1, color: c.ink, fontSize: 24, fontWeight: '700' } }, content.current.title),
-            h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close', style: { minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: c.lavender } }, h(Text, { style: { color: c.accent, fontWeight: '600', fontSize: 15 } }, 'Close'))),
+            h(Pressable, { onPress: onClose, accessibilityRole: 'button', accessibilityLabel: 'Close', style: { minHeight: 48, paddingHorizontal: 18, justifyContent: 'center', borderRadius: 24, overflow: 'hidden', backgroundColor: c.accent, borderWidth: 1, borderColor: c.accent } }, h(Text, { style: { color: c.onAccent, fontWeight: '700', fontSize: 15 } }, 'Close'))),
           content.current.scrollable
-            ? h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, content.current.children)
-            : h(View, { style: { flexShrink: 1, minHeight: 0, paddingHorizontal: 20, paddingBottom: 16 } }, content.current.children)))));
+            ? h(ScrollView, { style: { flexShrink: 1 }, contentContainerStyle: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 }, keyboardShouldPersistTaps: 'handled' }, content.current.children)
+            : h(View, { style: { flexShrink: 1, minHeight: 0, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16 } }, content.current.children)))));
 }

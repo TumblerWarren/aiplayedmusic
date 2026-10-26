@@ -5,6 +5,85 @@ const vm = require('node:vm');
 const { harness, nodes, palette } = require('./ui-harness.cjs');
 const json = value => JSON.parse(JSON.stringify(value));
 
+test('About cards open themed panels, show the current version and do not invoke Android alerts', async () => {
+  const browse = await import('../src/browse.js'), navigation = await import('../src/navigation.js');
+  const { createLibraryIndex } = await import('../src/libraryIndex.js');
+  const { formatTime } = await import('../src/music.js');
+  const { tones } = await import('../src/design.js');
+  for (const dark of [false, true]) {
+    const c = palette(dark), commands = [], alerts = [], opened = [];
+    const state = { theme: dark ? 'Dark' : 'Light', queue: [], favorites: [], recent: [], playlists: {}, sort: 'Title', speed: 1, sound: {} };
+    const ui = harness('App.js', ['MusicApp'], { ...browse, ...navigation, createLibraryIndex, formatTime, palette, tones,
+      useTheme: () => c, Native: { clearListeningHistory: async () => commands.push('clear'), snapshot: async () => JSON.stringify(state) },
+      musicStore: { accept: x => x }, soundPreview: { perform: fn => fn() }, useMusicSlice: () => state,
+      useAppActive: () => true, useStatusPolling() {}, useStableCallback: fn => fn,
+      useWindowDimensions: () => ({ width: 393, height: 852, fontScale: 1.6 }), Platform: { OS: 'android', Version: 35 },
+      PermissionsAndroid: { PERMISSIONS: {} }, Alert: { alert: (...args) => alerts.push(args) }, Linking: { openSettings: async () => opened.push(true) } });
+    let tree = ui.render('MusicApp');
+    const permission = ui.slots.indexOf(false), ready = ui.slots.indexOf(false, permission + 1);
+    ui.slots[permission] = ui.slots[ready] = true;
+    const render = () => tree = ui.render('MusicApp'); render();
+    const button = title => nodes(tree).find(n => n.type === 'Pressable' && n.props.accessibilityLabel === title) || nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Text' && child.children.includes(title)));
+    button('Settings').props.onPress(); render();
+    for (const [label, kind] of [['Aiplayed', 'about'], ['App permissions', 'permissions'], ['Clear listening history', 'history']]) {
+      button(label).props.onPress(); render();
+      const panel = nodes(tree).find(n => n.type === 'SettingsDetails');
+      assert.equal(panel.props.kind, kind); assert.equal(panel.props.c, c);
+      assert.equal(panel.props.version, require('../package.json').version);
+      assert.deepEqual(commands, [], 'opening history is not confirmation');
+      if (kind === 'permissions') { assert.equal(opened.length, 0); await panel.props.onOpenSettings(); assert.equal(opened.length, 1); }
+      panel.props.onClose(); render();
+      assert.equal(nodes(tree).find(n => n.type === 'Sheet').props.visible, false);
+    }
+    assert.deepEqual(alerts, []);
+    button('Clear listening history').props.onPress(); render();
+    const oldHistory = nodes(tree).find(n => n.type === 'SettingsDetails');
+    await oldHistory.props.onClearHistory(); assert.deepEqual(commands, ['clear']);
+    oldHistory.props.onClose(); render();
+    button('Aiplayed').props.onPress(); render();
+    oldHistory.props.onClose(); render();
+    assert.equal(nodes(tree).find(n => n.type === 'SettingsDetails').props.kind, 'about', 'a late close cannot dismiss a different panel');
+    nodes(tree).find(n => n.type === 'SettingsDetails').props.onClose(); render();
+    button('Sleep timer').props.onPress(); render();
+    const off = button('Off');
+    assert.equal(off.props.accessibilityState.selected, true);
+    assert.equal(off.props.style[1].backgroundColor, c.accent);
+    assert.equal(nodes(off).find(n => n.type === 'Text').props.style[1][1].color, c.onAccent);
+    assert.equal(button('15 minutes').props.style[1].backgroundColor, c.mint);
+  }
+});
+
+test('history confirmation is explicit, single-flight, retryable and cannot close a replacement after unmount', async () => {
+  const c = palette(true);
+  let finish, calls = 0, closed = 0;
+  const ui = harness('src/SettingsDetails.js', ['SettingsDetails']);
+  const props = { kind: 'history', c, onClose: () => closed++, onClearHistory: () => { calls++; return new Promise(resolve => { finish = resolve; }); } };
+  let tree = ui.render('SettingsDetails', props); ui.effects();
+  const button = title => nodes(tree).find(n => n.props.accessibilityLabel === title);
+  button('Cancel').props.onPress(); assert.equal(calls, 0); assert.equal(closed, 1);
+  const first = button('Clear history').props.onPress(); button('Clear history').props.onPress(); assert.equal(calls, 1);
+  finish(undefined); await first; tree = ui.render('SettingsDetails', props);
+  assert(nodes(tree).some(n => n.props.accessibilityRole === 'alert')); assert.equal(closed, 1);
+  const second = button('Clear history').props.onPress(); finish({}); await second;
+  assert.equal(calls, 2); assert.equal(closed, 2);
+  const late = button('Clear history').props.onPress(); ui.slots.forEach(slot => slot?.cleanup?.()); finish({}); await late;
+  assert.equal(closed, 2);
+});
+
+test('About copy is factual and permissions remain an explicit system-settings action', async () => {
+  for (const dark of [false, true]) {
+    const c = palette(dark), ui = harness('src/SettingsDetails.js', ['SettingsDetails']);
+    const about = ui.render('SettingsDetails', { kind: 'about', version: '9.8.7', c });
+    const copy = nodes(about).filter(n => n.type === 'Text').flatMap(n => n.children).join(' ');
+    assert.match(copy, /Version 9.8.7/); assert.match(copy, /audio stored on your phone/); assert.doesNotMatch(copy, /Mi Music|Xiaomi/);
+    let calls = 0;
+    const permissions = ui.render('SettingsDetails', { kind: 'permissions', c, onClose() {}, onOpenSettings: async () => { calls++; } });
+    const open = nodes(permissions).find(n => n.props.accessibilityLabel === 'Open Android settings');
+    assert.equal(calls, 0); assert.equal(open.props.style.backgroundColor, c.accent);
+    await open.props.onPress(); assert.equal(calls, 1);
+  }
+});
+
 test('all appearance/phone combinations, missing and existing preferences resolve before initialization', async () => {
   const { themePreference, themeIsDark, initialTheme } = await import('../src/theme.js');
   for (const system of ['light', 'dark']) for (const preference of ['System', 'Light', 'Dark']) {
