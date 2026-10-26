@@ -4,7 +4,7 @@ import Animated, { cancelAnimation, measure, runOnJS, useAnimatedRef, useAnimate
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { alphabet, alphabetTargets, nearestLetter } from './alphabet';
 import { rememberScroll, scrollMemory } from './navigation';
-import { headerRemaining, nextHeaderHidden, railFraction } from './scrollGeometry';
+import { headerRemaining, nextHeaderHidden, railFraction, searchOpacity } from './scrollGeometry';
 const h = React.createElement;
 const PRELUDE = { prelude: true };
 
@@ -61,7 +61,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
     if (settledTarget.value >= 0) return;
     const target = !scrollable.value || inputFocused.value || direction.value < 0 || (direction.value === 0 && hidden.value < measuredHeader.value / 2) ? 0 : measuredHeader.value;
     settledTarget.value = target;
-    hidden.value = withTiming(target, { duration: 160 });
+    hidden.value = withTiming(target, { duration: 220 });
   };
   const scrollHandler = useAnimatedScrollHandler({
     onBeginDrag: () => { cancelAnimation(hidden); settledTarget.value = -1; direction.value = 0; lastViewport.value = 0; forcedHidden.value = -1; inputFocused.value = false; if (y.value <= 0) hidden.value = 0; runOnJS(beginDrag)(); },
@@ -84,6 +84,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   // Keep the measured size in a shared value: the first worklet is installed
   // before Yoga has measured search, and must never capture a permanent zero.
   const headerStyle = useAnimatedStyle(() => ({ height: headerRemaining(hidden.value, measuredHeader.value, inputFocused.value, scrollable.value) }));
+  const searchStyle = useAnimatedStyle(() => ({ opacity: searchOpacity(hidden.value, measuredHeader.value, inputFocused.value, scrollable.value) }));
   const measureHeader = event => {
     const height = event.nativeEvent.layout.height;
     measuredHeader.value = height; setHeaderHeight(height); updateScrollability();
@@ -122,7 +123,7 @@ export default function IndexedSongList({ data, c, indexed = false, field = 'tit
   const empty = typeof ListEmptyComponent === 'function' ? h(ListEmptyComponent) : ListEmptyComponent;
   return h(View, { testID: 'indexed-list-surface', onLayout: event => { dimensions.current.available = event.nativeEvent.layout.height; updateScrollability(); }, style: { flex: 1, minHeight: 0 } },
     header && h(Animated.View, { testID: 'search-layout-slot', style: [{ flexShrink: 0, overflow: 'hidden' }, headerStyle] },
-      h(View, { testID: 'search-intrinsic-content', onLayout: measureHeader, style: { position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 12, paddingBottom: 12, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.headerLine } }, header)),
+      h(Animated.View, { testID: 'search-intrinsic-content', onLayout: measureHeader, style: [{ position: 'absolute', top: 0, left: 0, right: 0, paddingTop: 12, paddingBottom: 12, backgroundColor: c.bg, borderBottomWidth: 1, borderBottomColor: c.headerLine }, searchStyle] }, header)),
     h(View, { testID: 'indexed-list-viewport', style: { flex: 1, minHeight: 0, overflow: 'hidden' } },
     h(Animated.FlatList, { ...props, ref: list, data: rows, keyExtractor: (item, index) => item === PRELUDE ? 'library-prelude' : keyExtractor(item, index - prefix),
       renderItem: info => info.item === PRELUDE ? h(View, { onLayout: e => setPreludeHeight(e.nativeEvent.layout.height) }, prelude, !data.length && empty) : renderItem({ ...info, index: info.index - prefix }),
