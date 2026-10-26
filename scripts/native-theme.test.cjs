@@ -73,6 +73,40 @@ public class ThemePreferencesTest {
  }
 }`,
 };
+
+test('notification artwork paints an opaque square with the shared mask-safe foreground', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiplayed-notification-art-'));
+  const artworkFixtures = {
+    'android/content/Context.java': 'package android.content; public class Context { public final android.content.res.Resources resources=new android.content.res.Resources(); public android.content.res.Resources getResources(){return resources;} }',
+    'android/content/res/Resources.java': 'package android.content.res; public class Resources { public int requested; public final android.graphics.drawable.Drawable foreground=new android.graphics.drawable.Drawable(); public android.graphics.drawable.Drawable getDrawable(int id,Object theme){requested=id;return foreground;} }',
+    'android/graphics/Bitmap.java': 'package android.graphics; public class Bitmap { public enum Config {ARGB_8888} public int width,height,color; public Config config; public static Bitmap createBitmap(int w,int h,Config c){Bitmap b=new Bitmap();b.width=w;b.height=h;b.config=c;return b;} public int getWidth(){return width;} public int getHeight(){return height;} }',
+    'android/graphics/Canvas.java': 'package android.graphics; public class Canvas { public final Bitmap bitmap; public Canvas(Bitmap b){bitmap=b;} public void drawColor(int color){bitmap.color=color;} }',
+    'android/graphics/Color.java': 'package android.graphics; public class Color {public static int rgb(int r,int g,int b){return 0xff000000|(r<<16)|(g<<8)|b;}}',
+    'android/graphics/drawable/Drawable.java': 'package android.graphics.drawable; public class Drawable { public int left,top,right,bottom,draws; public android.graphics.Canvas canvas; public Drawable mutate(){return this;} public void setBounds(int l,int t,int r,int b){left=l;top=t;right=r;bottom=b;} public void draw(android.graphics.Canvas c){draws++;canvas=c;} }',
+    'app/localmusic/engine/R.java': 'package app.localmusic.engine; public class R {public static class drawable {public static final int aiplayed_launcher_foreground=71;}}',
+    'app/localmusic/player/NotificationArtworkTest.java': `package app.localmusic.player;
+public class NotificationArtworkTest {
+ public static void main(String[] args){
+  android.content.Context context=new android.content.Context();
+  android.graphics.Bitmap art=NotificationArtwork.create(context);
+  android.graphics.drawable.Drawable foreground=context.resources.foreground;
+  if(art.getWidth()!=art.getHeight()||art.getWidth()<128||art.getWidth()>512)throw new AssertionError("bounded square card artwork");
+  if(art.config!=android.graphics.Bitmap.Config.ARGB_8888||art.color!=0xfffffbf6)throw new AssertionError("opaque ivory background");
+  if(context.resources.requested!=app.localmusic.engine.R.drawable.aiplayed_launcher_foreground)throw new AssertionError("do not draw launcher masks or badges");
+  if(foreground.left!=0||foreground.top!=0||foreground.right!=art.getWidth()||foreground.bottom!=art.getHeight())throw new AssertionError("preserve the foreground's built-in safe padding");
+  if(foreground.draws!=1||foreground.canvas.bitmap!=art)throw new AssertionError("render foreground into notification pixels");
+ }
+}`,
+  };
+  try {
+    const sources = Object.entries(artworkFixtures).map(([name, source]) => { const file=path.join(dir,name); fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,source);return file; });
+    sources.push('modules/local-music/android/src/main/java/app/localmusic/player/NotificationArtwork.java');
+    const compile=spawnSync('java',['com.sun.tools.javac.Main','-d',dir,...sources],{encoding:'utf8',timeout:30000});
+    assert.equal(compile.status,0,compile.stderr);
+    const run=spawnSync('java',['-cp',dir,'app.localmusic.player.NotificationArtworkTest'],{encoding:'utf8',timeout:30000});
+    assert.equal(run.status,0,run.stderr);
+  } finally {fs.rmSync(dir,{recursive:true,force:true});}
+});
 test('production Android appearance helper preserves preferences and handles API26/31/35 system bars', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aiplayed-theme-'));
   try {
