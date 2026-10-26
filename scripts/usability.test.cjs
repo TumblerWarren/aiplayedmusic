@@ -4,6 +4,33 @@ const { harness, nodes, h } = require('./ui-harness.cjs');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const findText = (tree, text) => nodes(tree).find(n => n.type === 'Pressable' && nodes(n).some(child => child.type === 'Text' && child.children.includes(text)));
 
+test('Sound edge stays clear at the top, fades with scrolling and restores per-tab offsets', () => {
+  let ui;
+  const forwarded = [];
+  ui = harness('src/ScrollSurface.js', ['ScrollSurface', 'ScrollEdge'], {
+    React: { createElement: h, cloneElement: (node, props) => h(node.type, { ...node.props, ...props }, ...node.children) },
+    Animated: { View: 'AnimatedView' }, useId: () => 'edge1',
+    useSharedValue: value => ui.context.useRef({ value }).current,
+    useAnimatedStyle: fn => ({ updater: fn }), Svg: 'Svg', Defs: 'Defs', LinearGradient: 'LinearGradient', Stop: 'Stop', Rect: 'Rect',
+  });
+  const props = { color: '#17191E', children: h('ScrollView', { onScroll: event => forwarded.push(event.nativeEvent.contentOffset.y) }) };
+  let tree = ui.render('ScrollSurface', props); ui.effects();
+  const opacity = () => tree.children[1].props.style.updater().opacity;
+  assert.equal(opacity(), 0, 'the opening banner is not darkened');
+  for (const [offset, expected] of [[11, 0.5], [22, 1], [400, 1], [0, 0], [-8, 0]]) {
+    tree.children[0].props.onScroll({ nativeEvent: { contentOffset: { y: offset } } });
+    assert.equal(opacity(), expected);
+  }
+  assert.deepEqual(forwarded, [11, 22, 400, 0, -8], 'existing scroll-position persistence remains active');
+  tree = ui.render('ScrollSurface', { ...props, initialOffset: 55 }); ui.effects();
+  assert.equal(opacity(), 1, 'restoring a scrolled tab restores the edge');
+  tree = ui.render('ScrollSurface', { ...props, initialOffset: 0 }); ui.effects();
+  assert.equal(opacity(), 0, 'a fresh tab has a clean banner');
+  const edge = ui.render('ScrollEdge', tree.children[1].props);
+  assert.equal(edge.props.pointerEvents, 'none');
+  assert.equal(edge.props.importantForAccessibility, 'no-hide-descendants');
+});
+
 test('Sound retains navbar/mini-player, ignores reselect, and restores searched library and Sound section', async () => {
   const navigation = await import('../src/navigation.js');
   const browse = await import('../src/browse.js');
@@ -136,8 +163,10 @@ test('measured search occupies layout space, returns on upward drag and cannot c
   assert.equal(slot().props.style[0].position, undefined, 'the outer hit rectangle is never an absolute overlay');
   assert.equal(list().props.ListHeaderComponent, undefined, 'no obsolete search spacer remains inside the list');
   const firstWorklet = slot().props.style[1].updater;
+  const searchFade = () => nodes(tree).find(n => n.props.testID === 'search-intrinsic-content').props.style[1].updater().opacity;
   nodes(tree).find(n => n.props.testID === 'search-intrinsic-content').props.onLayout({ nativeEvent: { layout: { height: 200 } } });
   assert.equal(firstWorklet().height, 200, 'a worklet installed before measurement sees the shared height without rerender');
+  assert.equal(searchFade(), 1, 'search starts fully legible');
   ui.effects(); ui.frames(); ui.frames();
   tree = ui.render('IndexedSongList', props);
   list().props.onLayout({ nativeEvent: { layout: { height: 500 } } }); list().props.onContentSizeChange(300, 400);
@@ -146,9 +175,13 @@ test('measured search occupies layout space, returns on upward drag and cannot c
   list().props.onContentSizeChange(300, 10000); list().props.onScroll.onBeginDrag();
   list().props.onScroll.onScroll({ contentOffset: { y: 100 } });
   assert.equal(firstWorklet().height, 100);
+  assert.equal(searchFade(), 0.5, 'the field fades continuously while its layout slot collapses');
   list().props.onScroll.onScroll({ contentOffset: { y: 1600 } }); assert.equal(firstWorklet().height, 0);
+  assert.equal(searchFade(), 0, 'collapsed search has no residual artwork');
   list().props.onScroll.onScroll({ contentOffset: { y: 1550 } }); assert.equal(firstWorklet().height, 50, 'upward movement reveals search at depth');
+  assert(searchFade() > 0 && searchFade() < 0.5, 'search fades in instead of abruptly appearing');
   list().props.onScroll.onScroll({ contentOffset: { y: 1300 } }); assert.equal(firstWorklet().height, 200);
+  assert.equal(searchFade(), 1);
   list().props.renderItem({ item: list().props.data[0], index: 0 }).props.onLayout({ nativeEvent: { layout: { height: 120 } } });
   tree = ui.render('IndexedSongList', props);
   assert.equal(list().props.getItemLayout(null, 2).offset, 192, 'row offsets exclude the external search panel');

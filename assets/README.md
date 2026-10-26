@@ -1,6 +1,8 @@
 # Aiplayed branding
 
-`aiplayed-icon.png` is the generated multicolour vinyl/music-note artwork, prepared at 512px for the Expo app icon. The Android module includes matching mask-safe vector foreground, standard launcher, and Android 13 monochrome assets, all using a beamed music note in place of the previous play symbol. The central artwork fits inside the 66dp adaptive safe zone. `scripts/render-branding.cjs` regenerates the native vectors from one shared note silhouette.
+The approved launcher is concept 3: three purple/coral play ribbons on warm ivory. `aiplayed-icon.svg` and the Android standard, adaptive and monochrome vectors share the paths in `scripts/render-launcher.cjs`. The inset artwork fits the 66dp adaptive safe zone. `aiplayed-icon.png` is a 1024px rendering of that SVG for Expo.
+
+Run `node scripts/render-launcher.cjs` to regenerate the SVG and native vectors, then render the SVG at 1024×1024 to update the PNG. `scripts/render-branding.cjs` also calls this generator after regenerating the separate startup artwork.
 
 The native and React startup screens use the separate `startup-turntable` artwork, with light and dark variants.
 
