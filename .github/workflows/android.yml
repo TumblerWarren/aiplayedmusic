@@ -258,7 +258,7 @@ jobs:
         with:
           name: aiplayedmusic-apk
           path: verified-apk
-      - name: Publish verified APK
+      - name: Publish verified APK and ZIP
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -274,4 +274,8 @@ jobs:
           apk="Aiplayed-$tag.apk"
           cp verified-apk/app-release.apk "$apk"
           sha256sum "$apk" > "$apk.sha256"
-          gh release create "$tag" "$apk" "$apk.sha256" --target "$GITHUB_SHA" --title "Aiplayed $tag" --notes-file "$notes"
+          archive="Aiplayed-$tag.zip"
+          zip -9 "$archive" "$apk" "$apk.sha256"
+          unzip -t "$archive"
+          sha256sum "$archive" > "$archive.sha256"
+          gh release create "$tag" "$apk" "$apk.sha256" "$archive" "$archive.sha256" --target "$GITHUB_SHA" --title "Aiplayed $tag" --notes-file "$notes"
