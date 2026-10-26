@@ -10,7 +10,7 @@ import time
 import xml.etree.ElementTree as ET
 from android_media_session import is_playing, session_text
 from android_recording import stop_recording
-from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, scroll_signature, find_folder_row, find_view, find_node
+from android_ui_geometry import visible_bounds, scroll_bounds, scroll_gesture, scroll_signature, find_folder_row, find_view, find_node, launcher_anr_close
 
 OUT = Path('verification/android-v'+json.loads(Path('package.json').read_text())['version'])
 PKG = 'app.localmusic.player'
@@ -52,11 +52,23 @@ def find(value, root=None):
     root = root if root is not None else tree()
     return find_node(root, value, package=PKG, exact=True)
 
-def wait(value, timeout=40):
+def wait(value, timeout=40, recover_launcher=False):
     end = time.monotonic() + timeout
     sheet_scrolls = 0
+    launcher_recoveries = 0
     while time.monotonic() < end:
         root = tree()
+        close = launcher_anr_close(root) if recover_launcher else None
+        if close is not None:
+            assert launcher_recoveries == 0, 'Emulator infrastructure failure: Pixel Launcher ANR persisted after recovery'
+            shot('launcher-anr', dump=False)
+            (OUT / 'launcher-anr.xml').write_text(ET.tostring(root, encoding='unicode'))
+            x1, y1, x2, y2 = bounds(close)
+            shell('input', 'tap', (x1+x2)//2, (y1+y2)//2)
+            launcher_recoveries += 1
+            print('RECOVER: dismissed emulator Pixel Launcher ANR; continuing cold-start checks', flush=True)
+            time.sleep(.3)
+            continue
         node = find(value, root)
         precision = value.startswith(('Increase ', 'Decrease ')) and find('Sound studio', root) is not None
         if node is not None and precision:
@@ -619,7 +631,7 @@ def run_checks(apk, scenario='all'):
         subprocess.Popen(['adb', 'shell', 'am', 'start', '-n', activity], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for i, delay in enumerate([.08, .12, .2, .4]):
             time.sleep(delay); shot('startup-'+str(i), dump=False)
-        wait('+ Browse', timeout=60); shot('songs-expanded')
+        wait('+ Browse', timeout=60, recover_launcher=True); shot('songs-expanded')
         check('Cold start reaches the Library')
         if scenario == 'all':
             check_full_interactions()
