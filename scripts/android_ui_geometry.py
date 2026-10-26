@@ -91,3 +91,19 @@ def configuration_night(raw):
     if 'notnight' in qualifiers:
         return False
     raise AssertionError('Android did not report an applied night resource qualifier')
+
+def launcher_anr_close(root):
+    # Only this known emulator component may be bypassed; app ANRs remain failures.
+    titles = [node for node in root.iter('node')
+              if node.get('package') == 'android'
+              and node.get('resource-id') == 'android:id/alertTitle'
+              and node.get('text') == "Pixel Launcher isn't responding"
+              and visible_bounds(node)]
+    if not titles:
+        return None
+    return next((node for node in root.iter('node')
+                 if node.get('package') == 'android'
+                 and node.get('resource-id') == 'android:id/aerr_close'
+                 and node.get('enabled') != 'false'
+                 and node.get('clickable') == 'true'
+                 and visible_bounds(node)), None)
