@@ -20,6 +20,17 @@ def driver_functions(*names, **globals):
 
 
 class ThemeDriverChecks(unittest.TestCase):
+    def test_sheet_appearance_is_measured_inside_its_actual_panel(self):
+        root = ET.fromstring('<hierarchy><node resource-id="app.localmusic.player:id/sheet-panel" bounds="[0,900][1080,1800]"/></hierarchy>')
+        crops = []
+        image = SimpleNamespace(crop=lambda box: crops.append(box) or 'panel pixels')
+        driver = driver_functions('appearance_region')
+        self.assertIs(driver['appearance_region'](image, None, 'background'), image)
+        self.assertEqual(driver['appearance_region'](image, root, 'sheet'), 'panel pixels')
+        self.assertEqual(crops, [(0, 900, 1080, 1800)])
+        with self.assertRaisesRegex(AssertionError, 'sheet panel is not visible'):
+            driver['appearance_region'](image, ET.fromstring('<hierarchy/>'), 'sheet')
+
     def test_phone_dark_case_cannot_pass_when_android_did_not_apply_dark_mode(self):
         class Evidence:
             def __truediv__(self, path): return self

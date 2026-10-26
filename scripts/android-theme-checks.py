@@ -112,6 +112,14 @@ def shot(name):
     (out / (name + '.xml')).write_text(ET.tostring(tree(), encoding='unicode'))
     return file
 
+def appearance_region(image, root, surface):
+    if surface != 'sheet':
+        return image
+    panel = find_view(root, 'sheet-panel')
+    assert panel is not None, 'The themed sheet panel is not visible'
+    return image.crop(visible_bounds(panel))
+
+
 def appearance(name, dark, surface='background'):
     end = time.monotonic() + 10
     while True:
@@ -119,6 +127,9 @@ def appearance(name, dark, surface='background'):
         file.write_bytes(adb('exec-out', 'screencap', '-p').stdout)
         with Image.open(file) as image:
             image = image.convert('RGB')
+            # Judge the sheet itself: its coloured header and cards need not
+            # occupy an arbitrary fraction of the whole phone display.
+            image = appearance_region(image, tree() if surface == 'sheet' else None, surface)
             expected = ((45, 48, 57) if surface == 'sheet' else (23, 25, 30)) if dark else (255, 251, 246)
             count = next((count for count, color in image.getcolors(image.width * image.height) if color == expected), 0)
             matched = count > image.width * image.height * .08
