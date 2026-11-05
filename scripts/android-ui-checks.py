@@ -205,6 +205,16 @@ def visible_knob(name):
         raw = next((n for n in root.iter('node') if n.get('resource-id', '').split(':id/')[-1] == 'knob-' + name), None)
         box = list(map(int, re.findall(r'-?\d+', raw.get('bounds', '')))) if raw is not None else []
         reverse = len(box) == 4 and box[1] <= top + 8
+        # Centre a positive fragment precisely: full-page swipes can oscillate
+        # past a small landscape dial without ever revealing its whole face.
+        if len(box) == 4 and box[3] > box[1] and box[2] - box[0] <= bottom - top - 16:
+            center = (top + bottom) // 2
+            delta = (box[1] + box[3]) // 2 - center
+            delta = max(-(bottom-top)//2+16, min((bottom-top)//2-16, delta))
+            if abs(delta) >= 4:
+                x = round(left + (right-left)*.06)
+                swipe(x, center, x, center-delta)
+                continue
         # Scroll inside the current viewport's margin, clear of every dial.
         swipe(*scroll_gesture(root, reverse=reverse))
     raise AssertionError('Rotary control not visible: ' + name)
