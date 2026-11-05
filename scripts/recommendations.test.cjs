@@ -3,6 +3,23 @@ const assert = require('node:assert/strict');
 const { harness, nodes, palette } = require('./ui-harness.cjs');
 const flush = () => new Promise(resolve => setImmediate(resolve));
 
+test('new listening or local-time context reloads suggestions without playing or saving', async () => {
+  const { createRecommendationStore } = await import('../src/recommendations.js');
+  let listener, requests=0;
+  const ready={enabled:true,mixesAvailable:true,historyVersion:0,mixVersion:'2026-11-05|8|Asia/Kolkata|1'};
+  const api={addListener:(name,fn)=>{listener=fn;return {remove(){}};},recommendationStatus:async()=>ready,
+    recommendationMixes:async()=>[{id:'snapshot-'+(++requests)}]};
+  const store=createRecommendationStore(api),stop=store.start();await flush();
+  const before=requests;
+  listener({json:JSON.stringify({...ready,mixVersion:'2026-11-05|8|Asia/Kolkata|2'})});await flush();
+  assert.equal(requests,before+1,'a meaningful listening update invalidates a loaded snapshot');
+  listener({json:JSON.stringify({...ready,mixVersion:'2026-11-05|20|Asia/Kolkata|2'})});await flush();
+  assert.equal(requests,before+2,'evening context does not reuse morning suggestions');
+  listener({json:JSON.stringify({...ready,mixVersion:'2026-11-05|20|Asia/Kolkata|2'})});await flush();
+  assert.equal(requests,before+2,'identical progress events do not create repeated requests');
+  stop();
+});
+
 test('local recommendation state stays separate and refresh never starts playback', async () => {
   const { createRecommendationStore, analysisMessage } = await import('../src/recommendations.js');
   let listener, plays = 0, refreshes = 0;

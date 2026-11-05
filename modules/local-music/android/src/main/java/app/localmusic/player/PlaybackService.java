@@ -100,6 +100,7 @@ public class PlaybackService extends Service {
                 else {player.pause();if(foreground){stopForeground(STOP_FOREGROUND_REMOVE);foreground=false;}publish();}
             }
         });
+        listening.restoreOrigin(library.prefs().getString("queueOrigin","restored"));
         queue.addAll(library.loadQueue());
         if(!queue.isEmpty()){index=Math.min(Math.max(0,library.prefs().getInt("index",0)),queue.size()-1);player.setMediaItems(items(queue),index,Math.max(0,library.prefs().getInt("position",0)));player.prepare();}
         handler.post(tick);publish();
@@ -116,14 +117,15 @@ public class PlaybackService extends Service {
     public boolean loading(){return player!=null&&player.getPlaybackState()==Player.STATE_BUFFERING;}
     public int position(){return player==null?0:(int)Math.min(Integer.MAX_VALUE,Math.max(0,player.getCurrentPosition()));}
     public int duration(){long d=player==null?C.TIME_UNSET:player.getDuration();return (int)Math.min(Integer.MAX_VALUE,d==C.TIME_UNSET?current()==null?0:current().duration:Math.max(0,d));}
-    public void play(List<Song> songs,int at){if(songs.isEmpty())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());ensureForeground();queueDirty=true;queue.clear();queue.addAll(songs);index=Math.max(0,Math.min(at,queue.size()-1));failures=0;player.setMediaItems(items(queue),index,0);player.prepare();player.play();save();publish();}
+    public void play(List<Song> songs,int at){play(songs,at,"library");}
+    public void play(List<Song> songs,int at,String origin){if(songs.isEmpty())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());listening.selectOrigin(origin);library.prefs().edit().putString("queueOrigin",app.localmusic.player.recommendations.ListeningContext.origin(origin)).apply();ensureForeground();queueDirty=true;queue.clear();queue.addAll(songs);index=Math.max(0,Math.min(at,queue.size()-1));failures=0;player.setMediaItems(items(queue),index,0);player.prepare();player.play();save();publish();}
     public void resume(){if(current()==null)return;ensureForeground();if(player.getPlaybackState()==Player.STATE_ENDED)player.seekTo(0);if(player.getPlaybackState()==Player.STATE_IDLE)player.prepare();player.play();publish();}
     public void pause(){player.pause();player.setVolume(1);save();if(foreground){stopForeground(STOP_FOREGROUND_DETACH);foreground=false;}publish();}
     public void toggle(){if(playing()||(loading()&&player.getPlayWhenReady()))pause();else resume();}
     public void seek(int ms){player.seekTo(Math.max(0,Math.min(ms,duration())));save();publish();}
     public void next(boolean manual){if(queue.isEmpty())return;listening.finish(manual?"next":"completion",position(),playing(),listeningSpeed());ensureForeground();if(player.hasNextMediaItem())player.seekToNextMediaItem();else player.seekToDefaultPosition(0);player.play();publish();}
     public void previous(){if(queue.isEmpty())return;listening.finish("replay",position(),playing(),listeningSpeed());if(position()>3000)seek(0);else if(player.hasPreviousMediaItem())player.seekToPreviousMediaItem();else player.seekToDefaultPosition(queue.size()-1);resume();}
-    public void jump(int at){if(at<0||at>=queue.size())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());ensureForeground();player.seekToDefaultPosition(at);player.play();publish();}
+    public void jump(int at){if(at<0||at>=queue.size())return;listening.finish("queue_replacement",position(),playing(),listeningSpeed());listening.selectTrack();ensureForeground();player.seekToDefaultPosition(at);player.play();publish();}
     public void enqueue(Song s,boolean next){int at=next?Math.max(0,index+1):queue.size();queueDirty=true;queue.add(at,s);player.addMediaItem(at,item(s));if(index<0){index=0;player.prepare();}save();publish();}
     public void removeQueue(int at){if(at<0||at>=queue.size())return;if(at==index)listening.finish("queue_replacement",position(),playing(),listeningSpeed());queueDirty=true;queue.remove(at);player.removeMediaItem(at);index=queue.isEmpty()?-1:player.getCurrentMediaItemIndex();if(queue.isEmpty()){pause();getSystemService(NotificationManager.class).cancel(7);}save();publish();}
     public void moveQueue(int from,int to){if(from<0||to<0||from>=queue.size()||to>=queue.size())return;queueDirty=true;Song song=queue.remove(from);queue.add(to,song);player.moveMediaItem(from,to);index=player.getCurrentMediaItemIndex();save();publish();}

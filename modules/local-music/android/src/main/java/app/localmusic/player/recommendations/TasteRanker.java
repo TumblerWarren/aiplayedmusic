@@ -10,8 +10,13 @@ public final class TasteRanker {
         public final float[] vector;
         public final double preference, recentPenalty, skipPenalty;
         public final boolean favorite;
+        public final ListeningHabits.Signal habits;
         public Track(long id, String artist, String album, String duplicateKey, float[] vector,
                      boolean favorite, double preference, double recentPenalty, double skipPenalty) {
+            this(id,artist,album,duplicateKey,vector,favorite,preference,recentPenalty,skipPenalty,null);
+        }
+        public Track(long id,String artist,String album,String duplicateKey,float[] vector,boolean favorite,double preference,double recentPenalty,double skipPenalty,ListeningHabits.Signal habits){
+            this.habits=habits;
             this.id=id; this.artist=known(artist,"unknown artist"); this.album=known(album,"unknown album");
             this.duplicateKey=duplicateKey==null?"":duplicateKey; this.vector=normalize(vector); this.favorite=favorite;
             this.preference=clamp(preference,0,1); this.recentPenalty=clamp(recentPenalty,0,1); this.skipPenalty=clamp(skipPenalty,0,1);
@@ -21,6 +26,11 @@ public final class TasteRanker {
         public final float[] profile;
         public final List<Track> tracks;
         Mix(float[] profile,List<Track> tracks){this.profile=profile;this.tracks=Collections.unmodifiableList(tracks);}
+        public String explanation(){
+            for(int i=0;i<Math.min(3,tracks.size());i++){ListeningHabits.Signal s=tracks.get(i).habits;if(s!=null&&!s.explanation().isEmpty())return s.explanation();}
+            return "From your music library";
+        }
+        double priority(){double total=0;int n=Math.min(5,tracks.size());for(int i=0;i<n;i++){ListeningHabits.Signal s=tracks.get(i).habits;if(s!=null)total+=.6*s.routine*s.confidence+.2*s.recentTaste+.2*s.preference-.1*s.contextSkip;}return n==0?0:total/n;}
         public String subtitle(){
             LinkedHashSet<String> artists=new LinkedHashSet<>();
             for(Track track:tracks)if(!track.artist.isEmpty()){artists.add(track.artist);if(artists.size()==3)break;}
@@ -28,7 +38,8 @@ public final class TasteRanker {
         }
     }
     private TasteRanker(){}
-    public static List<Mix> mixes(List<Track> input) {
+    public static List<Mix> mixes(List<Track> input){return mixes(input,new ListeningHabits.Ranker(),0);}
+    public static List<Mix> mixes(List<Track> input,ListeningHabits.Ranker ranker,double confidence) {
         List<Track> library=new ArrayList<>(input);
         library.sort(Comparator.comparingLong(t->t.id));
         if(library.isEmpty())return Collections.emptyList();
@@ -56,17 +67,20 @@ public final class TasteRanker {
         }
         List<Mix> result=new ArrayList<>();
         for(float[] center:centers){
-            List<Track> ranked=new ArrayList<>();
+            List<Track> ranked=new ArrayList<>();Map<Track,Double> scores=new IdentityHashMap<>();
             for(Track track:library){
                 double own=cosine(track.vector,center),best=own;
                 for(float[] other:centers)best=Math.max(best,cosine(track.vector,other));
                 // A mix may be shorter than thirty; do not fill it with a separate taste.
-                if(own>=best-.04)ranked.add(track);
+                if(own>=best-.04){ranked.add(track);scores.put(track,score(track,center,ranker,confidence));}
             }
-            ranked.sort(Comparator.<Track>comparingDouble(t->score(t,center)).reversed().thenComparingLong(t->t.id));
+            ranked.sort(Comparator.<Track>comparingDouble(t->scores.get(t)).reversed().thenComparingLong(t->t.id));
             List<Track> chosen=new ArrayList<>();Set<Long> ids=new HashSet<>();Set<String> duplicates=new HashSet<>();
             while(chosen.size()<30){Track next=null;
+                boolean explore=confidence>=.3&&chosen.size()%10==9;
+                for(int pass=0;pass<(explore?2:1)&&next==null;pass++)
                 for(int relaxation=0;relaxation<3&&next==null;relaxation++)for(Track t:ranked){
+                    if(explore&&pass==0&&(t.favorite||t.preference>0||t.recentPenalty>0||t.skipPenalty>0))continue;
                     if(ids.contains(t.id)||(!t.duplicateKey.isEmpty()&&duplicates.contains(t.duplicateKey)))continue;
                     if(relaxation==0&&recentAlbum(chosen,t))continue;
                     if(relaxation<2&&recentArtist(chosen,t))continue;
@@ -77,9 +91,13 @@ public final class TasteRanker {
             }
             result.add(new Mix(center,chosen));
         }
+        if(confidence>0)result.sort(Comparator.comparingDouble(Mix::priority).reversed());
         return result;
     }
-    private static double score(Track t,float[] center){return .88*cosine(t.vector,center)+.12*t.preference-.12*t.recentPenalty-.16*t.skipPenalty;}
+    private static double score(Track t,float[] center,ListeningHabits.Ranker ranker,double confidence){
+        if(t.habits==null)return .88*cosine(t.vector,center)+.12*t.preference-.12*t.recentPenalty-.16*t.skipPenalty;
+        return ranker.score(cosine(t.vector,center),t.favorite,t.habits,confidence);
+    }
     private static boolean recentArtist(List<Track> chosen,Track t){
         if(t.artist.isEmpty())return false;
         for(int i=Math.max(0,chosen.size()-2);i<chosen.size();i++)if(t.artist.equalsIgnoreCase(chosen.get(i).artist))return true;

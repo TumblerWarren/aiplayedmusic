@@ -192,7 +192,7 @@ function MusicApp() {
   const selectFolder = async path => { const result = await command('addRoot', { path }); if (!result) return false; await scan(); return true; };
   const backFolder = () => { if (selection.name === selection.root) { setTab('Folders'); go('library'); } else { setSelection({ ...selection, name: selection.name.slice(0, selection.name.lastIndexOf('/')) || '/' }); setQuery(''); } };
   const folderOptions = path => setSheet({ title: folderName(path), items: [{ label: 'Exclude folder and subfolders', icon: 'folder-minus', action: async () => { await command('excludeFolder', { path, value: true }); await scan(); setTab('Folders'); go('library'); } }] });
-  const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle }); };
+  const play = (items, index = 0, shuffle = false) => { if (items.length) command('play', { songs: items, index, shuffle, source: shuffle ? 'shuffle' : deferredQuery.trim() ? 'search' : selection?.kind === 'playlist' ? 'playlist' : (tab === 'Folders' || selection?.kind === 'Folders') ? 'folder' : 'library' }); };
   const openSound = () => { if (!canOpenSound(page)) return; rememberBrowsing(); setSoundBack(captureRoute()); setPage('sound'); };
   const openLyrics = e => { overlayReturn.current = e?.nativeEvent?.target; setSheet({ title: 'Lyrics', lyrics: true }); };
   const shareSong = async song => { try { await Native.shareSong(JSON.stringify(song)); } catch { report(new Error('Couldn’t share this audio file. Check that it is still on your phone and a sharing app is available.')); } };

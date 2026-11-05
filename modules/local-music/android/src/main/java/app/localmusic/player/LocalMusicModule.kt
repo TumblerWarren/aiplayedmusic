@@ -110,7 +110,7 @@ class LocalMusicModule : Module() {
           if (songs.isNotEmpty()) {
             context.startForegroundService(Intent(context, PlaybackService::class.java).setAction("foreground"))
             service.setShuffle(data.optBoolean("shuffle", false))
-            service.play(songs, data.optInt("index", 0))
+            service.play(songs, data.optInt("index", 0), data.optString("source", "library"))
           }
         }
         "toggle" -> service.toggle()
@@ -192,7 +192,7 @@ class LocalMusicModule : Module() {
           val service = requireNotNull(playback) { "Initialize music playback first" }
           context.startForegroundService(Intent(context, PlaybackService::class.java).setAction("foreground"))
           service.setShuffle(false)
-          service.play(songs, 0)
+          service.play(songs, 0, "recommendation")
           promise.resolve(true)
         } catch (error: Exception) { promise.reject("E_MIX_PLAY", error.message, error) }
       }

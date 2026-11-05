@@ -4,7 +4,7 @@ A local music player inspired by Mi Music, built with **Expo SDK 56 and React Na
 
 **Current release:** [Aiplayed v1.2.6 APK](https://github.com/TumblerWarren/aiplayedmusic/releases/download/v1.2.6/Aiplayed-v1.2.6.apk), Android version code **9**. [Release notes and checksum](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.6). The previous stable [v1.2.5](https://github.com/TumblerWarren/aiplayedmusic/releases/tag/v1.2.5) is retained.
 
-The v1.3.0 candidate adds offline personal mixes using a bundled, validated S-SONDO FP32 model. See [implementation and validation](docs/offline-personal-mixes.md). The published v1.2.6 APK remains available.
+Offline personal mixes use a bundled, validated S-SONDO FP32 model. See [implementation and validation](docs/offline-personal-mixes.md). The unreleased [contextual personalisation update](docs/contextual-personalization.md) adds listening duration, local dates, time-of-day routines and a small on-device ranking learner. Existing published APKs remain unchanged.
 
 Version 1.2.6 includes System/Light/Dark themes, the music-note launcher icon, compact folder controls, Settings-only folder selection and subfolder preferences, and automatic Pulse/Wave/Orbit playback artwork. Version 1.3.0 refreshes these effects, retains the original rotating disc alongside the new Equalizer artwork, and gives page headers a tinted overlay and more breathing room. There is no animation style setting.
 

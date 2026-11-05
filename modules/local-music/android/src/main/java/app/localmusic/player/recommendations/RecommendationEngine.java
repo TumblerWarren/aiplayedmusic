@@ -35,10 +35,15 @@ public final class RecommendationEngine {
     private volatile int[] counts=new int[]{0,0,0};
     private volatile String error="";
     private boolean eventPending, coolingCheckPending;
+    private volatile long habitRevision;
+    private String lastContext="";
+    private final Runnable contextTick=new Runnable(){public void run(){if(!foreground)return;String current=listeningContext().key();if(!current.equals(lastContext)){lastContext=current;emit();}handler.postDelayed(this,60000);}};
+    private static ListeningContext listeningContext(){return new ListeningContext(System.currentTimeMillis(),java.time.ZoneId.systemDefault());}
+    public void habitsChanged(){habitRevision=store.revision();emit();}
     private RecommendationEngine(Context context){
         this.context=context;library=new Library(context);prefs=context.getSharedPreferences("personal-mixes",0);store=new RecommendationStore(context);
         if(ModelRuntime.MODEL_SHA.equals(prefs.getString("modelFailure","")))error="Audio analysis couldn’t start. Try Analyse now again.";else prefs.edit().remove("modelFailure").apply();
-        events.execute(()->{store.recoverSessions();counts=store.counts();if(enabled())schedule();emit();});
+        events.execute(()->{store.recoverSessions();habitRevision=store.revision();counts=store.counts();if(enabled())schedule();emit();});
         if(Build.VERSION.SDK_INT>=29){PowerManager power=(PowerManager)context.getSystemService(Context.POWER_SERVICE);power.addThermalStatusListener(status->{emit();if(status<PowerManager.THERMAL_STATUS_MODERATE)resumeManual();});}
     }
     public boolean enabled(){return prefs.getBoolean("enabled",AnalysisPolicy.DEFAULT_ENABLED);}
@@ -47,7 +52,7 @@ public final class RecommendationEngine {
         if(value){events.execute(()->{synchronize();schedule();emit();});}
         else{manualRequested=false;events.execute(store::recoverSessions);cancelScheduled();emit();}
     }
-    public void foreground(boolean value){foreground=value;if(!value&&activeManual)generation.incrementAndGet();else if(value){resumeManual();schedule();}emit();}
+    public void foreground(boolean value){foreground=value;handler.removeCallbacks(contextTick);if(value)handler.post(contextTick);if(!value&&activeManual)generation.incrementAndGet();else if(value){resumeManual();schedule();}emit();}
     public void libraryChanged(){if(!enabled())return;events.execute(()->{synchronize();error="";if(enabled())schedule();emit();});}
     public void analyse(boolean retryFailed){
         if(!foreground)throw new IllegalStateException("Open the app to analyse now");
@@ -142,7 +147,7 @@ public final class RecommendationEngine {
     public JSONObject status(){
         JSONObject out=new JSONObject();int[] c=counts;
         String reason=!enabled()?"disabled":prefs.getBoolean("paused",false)?"paused_user":!error.isEmpty()?"error":c[0]==0?"empty":c[0]==c[1]+c[2]?"ready":hot()?"paused_thermal":running?"analysing":manualRequested&&!foreground?"waiting_foreground":!manualRequested&&batteryLow()?"waiting_battery":"waiting";
-        try{out.put("enabled",enabled()).put("state",reason).put("eligible",c[0]).put("analysed",c[1]).put("failed",c[2]).put("running",running).put("error",error).put("historyVersion",historyGeneration.get())
+        try{out.put("enabled",enabled()).put("state",reason).put("eligible",c[0]).put("analysed",c[1]).put("failed",c[2]).put("running",running).put("error",error).put("historyVersion",historyGeneration.get()).put("mixVersion",listeningContext().key()+"|"+habitRevision)
             .put("mixesAvailable",c[1]>0&&(c[1]>=10||(c[0]<10&&c[0]==c[1]+c[2])));}catch(JSONException impossible){throw new IllegalStateException(impossible);}return out;
     }
     public void emit(){synchronized(eventLock){if(eventPending)return;eventPending=true;}handler.postDelayed(()->{
@@ -154,23 +159,23 @@ public final class RecommendationEngine {
         Set<String> favorites=library.favorites();List<RecommendationStore.Indexed> indexed=store.indexed();
         StringBuilder identities=new StringBuilder();indexed.sort(Comparator.comparingLong(t->t.file.id));for(RecommendationStore.Indexed item:indexed)identities.append(item.file.id).append(':').append(item.file.fingerprint).append(';');
         List<String> sortedFavorites=new ArrayList<>(favorites);Collections.sort(sortedFavorites);
-        String day=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.ROOT).format(new Date());String key=digest(day+identities+sortedFavorites);
+        long now=System.currentTimeMillis();store.pruneHistory(now);long revision=store.revision();habitRevision=revision;ListeningContext currentContext=listeningContext();String key=digest("habits-v2|"+currentContext.key()+"|"+revision+"|"+identities+sortedFavorites);
         String cached=refresh?null:store.cached(key);JSONArray result;
         if(cached!=null)result=new JSONArray(cached);
         else{
-            Map<Long,double[]> affinity=store.affinity(System.currentTimeMillis());List<TasteRanker.Track> tracks=new ArrayList<>();Map<Long,String> fingerprints=new HashMap<>();
-            for(RecommendationStore.Indexed item:indexed){RecommendationStore.FileEntry f=item.file;double[] a=affinity.getOrDefault(f.id,new double[3]);
+            Set<Long> available=new HashSet<>();for(RecommendationStore.Indexed item:indexed)available.add(item.file.id);List<ListeningHabits.Session> sessions=store.listeningSessions();sessions.removeIf(s->!available.contains(s.track));ListeningHabits.Snapshot habits=ListeningHabits.summarize(sessions,now,currentContext);ListeningHabits.Ranker ranker=store.ranker(revision,sessions,now);List<TasteRanker.Track> tracks=new ArrayList<>();Map<Long,String> fingerprints=new HashMap<>();
+            for(RecommendationStore.Indexed item:indexed){RecommendationStore.FileEntry f=item.file;ListeningHabits.Signal a=habits.signal(f.id);
                 String duplicate=(f.title==null||f.title.equals("Untitled")||f.artist==null||f.artist.equals("Unknown artist"))?f.identity:f.title.toLowerCase(Locale.ROOT).trim()+"|"+f.artist.toLowerCase(Locale.ROOT).trim()+"|"+(f.duration/2000);
-                tracks.add(new TasteRanker.Track(f.id,f.artist,f.album,duplicate,item.vector,favorites.contains(""+f.id),Math.min(1,a[0]/6),a[2],Math.min(1,a[1]/4)));fingerprints.put(f.id,f.fingerprint);
+                tracks.add(new TasteRanker.Track(f.id,f.artist,f.album,duplicate,item.vector,favorites.contains(""+f.id),a.preference,a.recentPenalty,a.skipPenalty,a));fingerprints.put(f.id,f.fingerprint);
             }
-            List<TasteRanker.Mix> mixes=TasteRanker.mixes(tracks);result=new JSONArray();
+            List<TasteRanker.Mix> mixes=TasteRanker.mixes(tracks,ranker,habits.confidence);result=new JSONArray();
             for(int i=0;i<mixes.size();i++){TasteRanker.Mix mix=mixes.get(i);JSONArray ids=new JSONArray();JSONObject files=new JSONObject();for(TasteRanker.Track t:mix.tracks){ids.put(t.id);files.put(""+t.id,fingerprints.get(t.id));}
-                result.put(new JSONObject().put("id",UUID.randomUUID().toString()).put("title","Your mix "+(i+1)).put("subtitle",mix.subtitle()).put("created",System.currentTimeMillis()).put("ids",ids).put("files",files));
+                result.put(new JSONObject().put("id",UUID.randomUUID().toString()).put("title","Your mix "+(i+1)).put("subtitle",mix.subtitle()).put("reason",mix.explanation()).put("created",System.currentTimeMillis()).put("ids",ids).put("files",files));
             }store.cache(key,result.toString(),mixes);
         }
         remember(result);Map<Long,Song> songs=new HashMap<>();for(Song song:eligible)songs.put(song.id,song);JSONArray publicMixes=new JSONArray();
         for(int i=0;i<result.length();i++){JSONObject mix=result.getJSONObject(i);JSONArray songsJson=new JSONArray();JSONArray ids=mix.getJSONArray("ids");for(int j=0;j<ids.length();j++){Song song=songs.get(ids.getLong(j));if(song!=null)songsJson.put(song.json());}
-            publicMixes.put(new JSONObject().put("id",mix.getString("id")).put("title",mix.getString("title")).put("subtitle",mix.getString("subtitle")).put("created",mix.getLong("created")).put("tracks",songsJson));
+            publicMixes.put(new JSONObject().put("id",mix.getString("id")).put("title",mix.getString("title")).put("subtitle",mix.getString("subtitle")).put("reason",mix.optString("reason","")).put("created",mix.getLong("created")).put("tracks",songsJson));
         }return publicMixes.toString();
     }
     private void remember(JSONArray mixes)throws JSONException{for(int i=0;i<mixes.length();i++){JSONObject mix=mixes.getJSONObject(i);snapshots.put(mix.getString("id"),mix);}while(snapshots.size()>32)snapshots.remove(snapshots.keySet().iterator().next());}
@@ -184,8 +189,8 @@ public final class RecommendationEngine {
         }if(songs.isEmpty())throw new IllegalArgumentException("These songs are no longer available. Refresh the mix.");return songs;
     }
     public void saveMix(String id,String name)throws Exception{String chosen=name.trim();if(chosen.isEmpty()||chosen.length()>100)throw new IllegalArgumentException("Use a playlist name between 1 and 100 characters");if(library.playlists().has(chosen))throw new IllegalArgumentException("Choose a new playlist name");List<Song> songs=songsForMix(id);library.createPlaylist(chosen);for(Song song:songs)library.addToPlaylist(chosen,song);}
-    public Future<?> clearHistory(){historyGeneration.incrementAndGet();return events.submit(()->{synchronized(this){store.clearHistory();snapshots.clear();}emit();});}
-    public Future<?> clearAnalysis(){setEnabled(false);return events.submit(()->{analysis.lock();try{synchronized(this){store.clearAnalysis();snapshots.clear();counts=store.counts();}}finally{analysis.unlock();}emit();});}
+    public Future<?> clearHistory(){historyGeneration.incrementAndGet();return events.submit(()->{synchronized(this){store.clearHistory();habitRevision=store.revision();snapshots.clear();}emit();});}
+    public Future<?> clearAnalysis(){setEnabled(false);return events.submit(()->{analysis.lock();try{synchronized(this){store.clearAnalysis();habitRevision=store.revision();snapshots.clear();counts=store.counts();}}finally{analysis.unlock();}emit();});}
     private static final class InferenceFailure extends Exception { InferenceFailure(Throwable cause){super(cause);} }
     private static String digest(String input){try{MessageDigest hash=MessageDigest.getInstance("SHA-256");StringBuilder value=new StringBuilder();for(byte b:hash.digest(input.getBytes(java.nio.charset.StandardCharsets.UTF_8)))value.append(String.format(Locale.ROOT,"%02x",b&255));return value.toString();}catch(Exception impossible){throw new IllegalStateException(impossible);}}
 }

@@ -7,7 +7,7 @@ import { tones } from './design';
 import { analysisMessage } from './recommendations';
 import { useRecommendations } from './useRecommendations';
 const h = React.createElement;
-const privacy = 'When personal mixes are on, your music is analysed automatically on this phone. Audio, listening information and personal mixes stay local. No account or internet connection is needed.';
+const privacy = 'When personal mixes are on, your music is analysed automatically on this phone. Listening duration, local dates and times help personalise your mixes. Audio, listening information and personal mixes stay local. No account or internet connection is needed.';
 
 function Action({ title, onPress, c, disabled = false }) {
   return h(Pressable, { accessibilityRole: 'button', accessibilityLabel: title, accessibilityState: { disabled }, disabled, onPress, style: { minHeight: 48, padding: 14, paddingHorizontal: 20, borderRadius: 24, backgroundColor: c.lavender, alignItems: 'center', justifyContent: 'center', opacity: disabled ? .45 : 1 } }, h(Text, { style: { color: c.purpleInk, fontSize: 15, fontWeight: '700', textAlign: 'center' } }, title));
@@ -43,6 +43,7 @@ export default function ForYou({ c, onSaved }) {
       ...mix.tracks.map((song, index) => h(View, { key: song.id }, text(`${index + 1}. ${song.title}`), text(song.artist, { fontSize: 13, color: c.muted }))));
     return h(View, { key: mix.id, testID: 'personal-mix', style: { padding: 18, gap: 12, backgroundColor: c.card, borderRadius: 26 } },
       text(mix.title, { fontSize: 22, fontWeight: '700' }), text(mix.subtitle, { color: c.muted }),
+      mix.reason && text(mix.reason, { color: c.purpleInk, fontSize: 13 }),
       text(`${mix.tracks.length} songs · Fixed mix`, { color: c.muted, fontSize: 13 }), controls, songs);
   });
   const dialogContent = h(View, { accessibilityViewIsModal: true, style: { backgroundColor: c.card, borderRadius: 26, padding: 22, gap: 16 } },

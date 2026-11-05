@@ -70,7 +70,7 @@ for i,record in enumerate(records):
     order=[int(j) for j in np.argsort(-similarity[i]) if j!=i][:3]
     record['nearest']=[{'id':records[j]['id'],'cosine':float(similarity[i,j]),'category':records[j]['category']} for j in order]
 classes=ROOT/'classes';classes.mkdir(exist_ok=True)
-subprocess.run(['javac','-d',str(classes),'modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java','scripts/recommendations/tests/QualityRanking.java'],check=True)
+subprocess.run(['javac','-d',str(classes),'modules/local-music/android/src/main/java/app/localmusic/player/recommendations/TasteRanker.java','modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningContext.java','modules/local-music/android/src/main/java/app/localmusic/player/recommendations/ListeningHabits.java','scripts/recommendations/tests/QualityRanking.java'],check=True)
 mixes=json.loads(subprocess.check_output(['java','-cp',str(classes),'QualityRanking',str(ROOT/'tracks.tsv')],text=True))
 for mix in mixes:mix['tracks']=[records[i]['id'] for i in mix.pop('ids')]
 report={'study':'small licensed public corpus','model_sha256':manifest['sha256'],'records':records,'taste_snapshots':mixes,
