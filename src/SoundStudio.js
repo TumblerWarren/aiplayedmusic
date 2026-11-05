@@ -18,7 +18,7 @@ const frequencies = ['31 Hz', '63 Hz', '125 Hz', '250 Hz', '500 Hz', '1 kHz', '2
 const defaults = { eqEnabled: false, bands: Array(10).fill(0), volume: 100, preamp: 0, bass: 0, treble: 0, balance: 0, width: 100, mono: false, limiter: true, autoHeadroom: true, bypass: false, dynamics: 0 };
 const db = value => `${value > 0 ? '+' : ''}${Number(value || 0).toFixed(1)} dB`;
 
-export function Fader({ label, value, min, max, step = 1, onCommit, live, onError = () => {}, format = db, c, disabled = false, detail, compact = false }) {
+export function Fader({ label, value, min, max, step = 1, onCommit, live, onError = () => {}, format = db, c, disabled = false, detail, compact = false, size = 128 }) {
   const [draft, setDraft] = useState(null);
   const editing = useRef(null), gesture = useRef(0), pending = useRef(false), mounted = useRef(true), frame = useRef(null), latest = useRef(value), thumb = useRef(value);
   if (draft === null) thumb.current = value;
@@ -49,7 +49,7 @@ export function Fader({ label, value, min, max, step = 1, onCommit, live, onErro
   };
   return h(View, { style: [{ marginBottom: 16, gap: 8, alignItems: 'center', opacity: disabled ? 0.45 : 1 }, compact ? { flexGrow: 1, flexBasis: 150, minWidth: 150 } : { width: '100%' }] },
     h(Text, { style: { color: c.ink, fontSize: 15, lineHeight: 22, fontWeight: '600', textAlign: 'center' } }, label),
-    h(RotaryKnob, { minimumValue: min, maximumValue: max, step, value: thumb.current, disabled, c,
+    h(RotaryKnob, { size, minimumValue: min, maximumValue: max, step, value: thumb.current, disabled, c,
       onSlidingStart: start, onValueChange: move, onSlidingComplete: finish, onCancel: cancel, accessibilityLabel: label,
       accessibilityValue: { min, max, now: draft ?? value, text: format(draft ?? value) } }),
     detail && h(Text, { style: { color: c.muted, fontSize: 12, marginTop: 5, lineHeight: 18, textAlign: 'center' } }, detail));
@@ -83,6 +83,7 @@ function SoundSignal({ c }) {
 
 export default function SoundStudio({ state, command, c, onBack, onTimer, tab: chosenTab, onTab, offsets, report = () => {} }) {
   const [localTab, setLocalTab] = useState('Tone');
+  const [knobSize, setKnobSize] = useState(128);
   const tab = chosenTab ?? localTab, setTab = onTab || setLocalTab;
   const scroll = useRef(null), offsetMap = useRef(offsets || {}).current, controls = useRef(new Map()).current;
   const active = useAppActive();
@@ -103,7 +104,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     h(View, { style: s.flex }, txt(title, s.label), detail && txt(detail, s.detail)),
     h(Switch, { value: !!value, onValueChange: run, disabled, trackColor: { false: c.track, true: c.mintInk }, thumbColor: value ? c.onAccent : c.muted, accessibilityLabel: title }));
   const title = (value, detail) => h(View, { style: s.sectionHead }, txt(value, s.heading), detail && txt(detail, s.detail));
-  const fader = (key, label, min, max, options = {}) => h(MemoFader, { key, label, min, max, c, live: control(key), onError: report, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
+  const fader = (key, label, min, max, options = {}) => h(MemoFader, { key, label, min, max, c, size: knobSize, live: control(key), onError: report, value: sound[key], onCommit: value => update({ [key]: value }), disabled: sound.bypass, ...options });
   const pill = (label, selected, run, props = {}) => {
     const variants = [{ bg: c.lavender, ink: c.purpleInk, detail: c.mintInk, pattern: 'arcs' }, { bg: c.mint, ink: c.mintInk, detail: c.blueInk, pattern: 'checks' }, { bg: c.peach, ink: c.peachInk, detail: c.purpleInk, pattern: 'waves' }, { bg: c.blue, ink: c.blueInk, detail: c.roseInk, pattern: 'dots' }];
     const index = ['Tone', 'Output', 'Playback'].includes(label) ? ['Tone', 'Output', 'Playback'].indexOf(label) : Array.from(label).reduce((sum, char) => sum + char.charCodeAt(0), 0) % 4;
@@ -135,7 +136,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     toggle('Equalizer', 'Ten bands, from sub-bass to air.', sound.eqEnabled, value => update({ eqEnabled: value }), sound.bypass),
     h(View, { style: s.pills }, ...builtins.map(value => pill(value, selectedPreset === value, () => command('equalizerPreset', { name: value }), { disabled: sound.bypass })), sound.eqEnabled && !selectedPreset && pill('Custom', true, () => {})),
     selectedPreset && state.equalizerPresetDetails?.[selectedPreset] && txt(state.equalizerPresetDetails[selectedPreset], s.detail, { accessibilityLiveRegion: 'polite' }),
-    h(View, { style: [s.panel, s.knobGrid, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(MemoFader, {
+    h(View, { style: [s.panel, s.knobGrid, { opacity: sound.eqEnabled ? 1 : 0.6 }] }, ...frequencies.map((label, index) => h(MemoFader, { size: knobSize,
       key: label, label, min: -12, max: 12, step: 0.5, live: control('band:' + index), onError: report, value: sound.bands[index], c, compact: true, disabled: !sound.eqEnabled || sound.bypass,
       onCommit: value => { const bands = [...sound.bands]; bands[index] = value; return update({ bands }); }
     }))),
@@ -159,8 +160,8 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
     h(SoundSignal, { c }));
   else body = h(React.Fragment, null,
     title('Speed & pitch', 'Change tempo and pitch independently.'),
-    h(MemoFader, { label: 'Playback speed', live: control('speed', 'speed'), onError: report, min: 0.5, max: 2, step: 0.05, value: state.speed, c, format: v => `${Number(v).toFixed(2)}×`, onCommit: value => command('speed', { value }) }),
-    h(MemoFader, { label: 'Pitch', live: control('pitch', 'pitch'), onError: report, min: -12, max: 12, step: 1, value: state.pitch || 0, c, format: v => `${v > 0 ? '+' : ''}${Math.round(v)} semitones`, onCommit: value => command('pitch', { value }) }),
+    h(MemoFader, { size: knobSize, label: 'Playback speed', live: control('speed', 'speed'), onError: report, min: 0.5, max: 2, step: 0.05, value: state.speed, c, format: v => `${Number(v).toFixed(2)}×`, onCommit: value => command('speed', { value }) }),
+    h(MemoFader, { size: knobSize, label: 'Pitch', live: control('pitch', 'pitch'), onError: report, min: -12, max: 12, step: 1, value: state.pitch || 0, c, format: v => `${v > 0 ? '+' : ''}${Math.round(v)} semitones`, onCommit: value => command('pitch', { value }) }),
     h(Pressable, { style: s.secondary, onPress: async () => { await command('speed', { value: 1 }); await command('pitch', { value: 0 }); }, accessibilityRole: 'button' }, txt('Reset speed & pitch', { color: c.accent, fontWeight: '600' })),
     toggle('Skip silence', 'Useful for spoken audio. Can remove intentional pauses in music.', state.skipSilence, value => command('skipSilence', { value })),
     title('Listening'),
@@ -172,7 +173,7 @@ export default function SoundStudio({ state, command, c, onBack, onTimer, tab: c
   return h(View, { style: s.root },
     h(View, { style: s.header }, h(HeaderOverlay), action('Back', 'arrow-left', onBack), txt('Sound studio', s.screenTitle), h(Pressable, { style: s.resetButton, onPress: e => { dialogTrigger.current = e?.nativeEvent?.target; setDialog({ kind: 'reset' }); }, accessibilityRole: 'button' }, txt('Reset', { color: c.accent, fontWeight: '600' }))),
     h(View, { style: s.tabs }, ...['Tone', 'Output', 'Playback'].map(value => pill(value, tab === value, () => { if (value !== tab) { soundPreview.cancel().catch(report); setTab(value); } }, { style: { flex: 1, alignItems: 'center' } }))),
-    h(ScrollSurface, { color: c.bg, initialOffset: offsetMap[tab] || 0 }, h(ScrollView, { ref: scroll, onScroll: event => { offsetMap[tab] = Math.max(0, event.nativeEvent.contentOffset.y); }, scrollEventThrottle: 16, contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
+    h(ScrollSurface, { color: c.bg, initialOffset: offsetMap[tab] || 0 }, h(ScrollView, { ref: scroll, onLayout: event => { const height = event.nativeEvent.layout.height; if (height > 0) setKnobSize(Math.max(48, Math.min(128, Math.floor(height - 24)))); }, onScroll: event => { offsetMap[tab] = Math.max(0, event.nativeEvent.contentOffset.y); }, scrollEventThrottle: 16, contentContainerStyle: s.body, keyboardShouldPersistTaps: 'handled' },
       h(SectionBanner, { title: tab === 'Tone' ? 'Find your colour.' : tab === 'Output' ? 'Make every note yours.' : 'Set your own pace.', detail: tab === 'Tone' ? 'Shape your sound, from the first bass note to the last shimmer.' : tab === 'Output' ? 'Fine-tune volume, dynamics and your stereo balance.' : 'Your speed, your pitch, your listening routine.', icon: tab === 'Tone' ? 'sliders' : tab === 'Output' ? 'volume-2' : 'headphones', tone: tones(c)[tab === 'Tone' ? 0 : tab === 'Output' ? 1 : 2] }),
       toggle('Bypass sound effects', 'Compare with EQ, tone, gain and dynamics bypassed.', sound.bypass, value => update({ bypass: value })),
       sound.bypass && txt('Sound effects are bypassed. Playback speed and pitch remain as set.', s.notice), body)),

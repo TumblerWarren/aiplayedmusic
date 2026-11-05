@@ -222,6 +222,21 @@ class GeometryChecks(unittest.TestCase):
         self.assertIs(namespace['visible_knob']('bass'), root[0][0])
         self.assertEqual(len(swipes), 3)
 
+    def test_small_landscape_dial_is_centred_without_full_swipe_oscillation(self):
+        source=ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions=[n for n in source.body if isinstance(n,ast.FunctionDef) and n.name in ['bounds','knob_node','visible_knob']]
+        root=ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,410][1920,644]"><node resource-id="knob-bass" bounds="[400,550][571,644]"/></node></hierarchy>')
+        position=[550];swipes=[]
+        def swipe(x1,y1,x2,y2):
+            self.assertTrue(410<y1<644 and 410<y2<644)
+            position[0]+=y2-y1;swipes.append((y1,y2))
+            root[0][0].set('bounds',f'[400,{max(410,position[0])}][571,{min(644,position[0]+171)}]')
+        namespace=dict(tree=lambda:root,visible_bounds=visible_bounds,find_view=find_view,scroll_gesture=scroll_gesture,scroll_bounds=scroll_bounds,swipe=swipe,re=__import__('re'))
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'<compact dial>','exec'),namespace)
+        node=namespace['visible_knob']('bass');box=visible_bounds(node)
+        self.assertEqual(box[3]-box[1],171)
+        self.assertLessEqual(len(swipes),3)
+
     def test_actual_os_mode_is_distinct_from_a_requested_setting(self):
         self.assertFalse(system_night('mNightMode=2 mCurUiMode=0x11'))
         self.assertTrue(system_night('mNightMode=2 mCurUiMode=0x21'))
