@@ -1,4 +1,5 @@
 import unittest
+import time
 import ast
 from pathlib import Path
 from types import SimpleNamespace
@@ -209,7 +210,7 @@ class GeometryChecks(unittest.TestCase):
             swipes.append((x1, y1, x2, y2))
             root[0][0].set('bounds', '[126,700][462,1036]')
         namespace = dict(tree=lambda: root, visible_bounds=visible_bounds, find_view=find_view,
-            scroll_gesture=scroll_gesture, scroll_bounds=scroll_bounds, swipe=swipe, re=__import__('re'))
+            scroll_gesture=scroll_gesture, scroll_bounds=scroll_bounds, swipe=swipe, re=__import__('re'), time=time, scroll_signature=scroll_signature)
         exec(compile(ast.Module(body=functions, type_ignores=[]), '<rotary navigation>', 'exec'), namespace)
         self.assertIs(namespace['visible_knob']('bass'), root[0][0])
         self.assertEqual(len(swipes), 1)
@@ -231,11 +232,39 @@ class GeometryChecks(unittest.TestCase):
             self.assertTrue(410<y1<644 and 410<y2<644)
             position[0]+=y2-y1;swipes.append((y1,y2))
             root[0][0].set('bounds',f'[400,{max(410,position[0])}][571,{min(644,position[0]+171)}]')
-        namespace=dict(tree=lambda:root,visible_bounds=visible_bounds,find_view=find_view,scroll_gesture=scroll_gesture,scroll_bounds=scroll_bounds,swipe=swipe,re=__import__('re'))
+        namespace=dict(tree=lambda:root,visible_bounds=visible_bounds,find_view=find_view,scroll_gesture=scroll_gesture,scroll_bounds=scroll_bounds,swipe=swipe,re=__import__('re'),time=time,scroll_signature=scroll_signature)
         exec(compile(ast.Module(body=functions,type_ignores=[]),'<compact dial>','exec'),namespace)
         node=namespace['visible_knob']('bass');box=visible_bounds(node)
         self.assertEqual(box[3]-box[1],171)
         self.assertLessEqual(len(swipes),3)
+
+    def test_rotary_search_reaches_bass_after_more_than_ten_landscape_gestures(self):
+        source=ast.parse(Path('scripts/android-ui-checks.py').read_text())
+        functions=[n for n in source.body if isinstance(n,ast.FunctionDef) and n.name in ['bounds','knob_node','visible_knob']]
+        root=ET.fromstring('<hierarchy><node scrollable="true" bounds="[0,410][1920,644]"><node text="Preamp" bounds="[100,521][1800,579]"/></node><node content-desc="Open now playing" bounds="[74,673][1526,799]"/></hierarchy>')
+        offset=[0];gestures=[]
+        def swipe(x1,y1,x2,y2):
+            self.assertTrue(0<x1==x2<200 and 410<min(y1,y2)<max(y1,y2)<644)
+            gestures.append((y1,y2));offset[0]=max(0,min(2200,offset[0]+y1-y2))
+            # The animated player outside the scroll view must not mask boundaries.
+            root[-1].set('bounds',f'[74,{673+len(gestures)%3}][1526,799]')
+            root[0][0].set('text',f'Content at {offset[0]}')
+            if offset[0]>=1500 and len(root[0])==1:
+                ET.SubElement(root[0],'node',{'resource-id':'knob-bass','content-desc':'Bass, 0.0 dB'})
+            if len(root[0])>1:
+                y=2200-offset[0]
+                root[0][1].set('bounds',f'[875,{max(410,y)}][1045,{min(644,y+170)}]')
+        namespace=dict(tree=lambda:root,visible_bounds=visible_bounds,find_view=find_view,scroll_gesture=scroll_gesture,scroll_bounds=scroll_bounds,scroll_signature=scroll_signature,swipe=swipe,re=__import__('re'),time=time)
+        exec(compile(ast.Module(body=functions,type_ignores=[]),'<deep compact dial>','exec'),namespace)
+        node=namespace['visible_knob']('bass')
+        self.assertGreater(len(gestures),10)
+        self.assertEqual(visible_bounds(node)[3]-visible_bounds(node)[1],170)
+        self.assertLess(len(gestures),25)
+        # A genuinely absent dial fails at both boundaries, even if the player moves.
+        root[0].remove(node);offset[0]=0;gestures.clear()
+        with self.assertRaisesRegex(AssertionError,r'boundaries=\[False, True\]'):
+            namespace['visible_knob']('missing')
+        self.assertLess(len(gestures),50)
 
     def test_actual_os_mode_is_distinct_from_a_requested_setting(self):
         self.assertFalse(system_night('mNightMode=2 mCurUiMode=0x11'))

@@ -191,8 +191,17 @@ def artwork_style():
 def knob_node(name, root=None):
     return find_view(tree() if root is None else root, 'knob-' + name)
 
-def visible_knob(name):
-    for _ in range(10):
+def visible_knob(name, timeout=120):
+    deadline = time.monotonic() + timeout
+    previous = None
+    stationary = 0
+    direction = False
+    boundaries = set()
+    # A short landscape viewport needs many small gestures to reach Bass.
+    # Bound elapsed time and actual scroll boundaries, not arbitrary page count.
+    for attempt in range(100):
+        if time.monotonic() >= deadline:
+            break
         root = tree()
         left, top, right, bottom = scroll_bounds(root)
         node = knob_node(name, root)
@@ -204,7 +213,18 @@ def visible_knob(name):
                 return node
         raw = next((n for n in root.iter('node') if n.get('resource-id', '').split(':id/')[-1] == 'knob-' + name), None)
         box = list(map(int, re.findall(r'-?\d+', raw.get('bounds', '')))) if raw is not None else []
-        reverse = len(box) == 4 and box[1] <= top + 8
+        signature = scroll_signature(root)
+        stationary = stationary + 1 if signature == previous else 0
+        previous = signature
+        if len(box) == 4:
+            direction = box[1] <= top + 8
+        if stationary >= 2:
+            boundaries.add(direction)
+            if len(boundaries) == 2:
+                break
+            direction = not direction
+            previous = None
+            stationary = 0
         # Centre a positive fragment precisely: full-page swipes can oscillate
         # past a small landscape dial without ever revealing its whole face.
         if len(box) == 4 and box[3] > box[1] and box[2] - box[0] <= bottom - top - 16:
@@ -216,8 +236,9 @@ def visible_knob(name):
                 swipe(x, center, x, center-delta)
                 continue
         # Scroll inside the current viewport's margin, clear of every dial.
-        swipe(*scroll_gesture(root, reverse=reverse))
-    raise AssertionError('Rotary control not visible: ' + name)
+        print(f'ROTARY NAV: {name}, gesture={attempt+1}, viewport={(left, top, right, bottom)}, target={box}, reverse={direction}', flush=True)
+        swipe(*scroll_gesture(root, reverse=direction))
+    raise AssertionError(f'Rotary control not visible: {name}; viewport={(left, top, right, bottom)}, target={box}, boundaries={sorted(boundaries)}')
 
 def knob_value(name):
     # Reading an accessibility value does not require an onscreen hit target.
