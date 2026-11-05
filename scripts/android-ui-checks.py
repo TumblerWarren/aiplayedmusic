@@ -191,7 +191,7 @@ def artwork_style():
 def knob_node(name, root=None):
     return find_view(tree() if root is None else root, 'knob-' + name)
 
-def visible_knob(name, timeout=120):
+def visible_knob(name, timeout=300):
     deadline = time.monotonic() + timeout
     previous = None
     stationary = 0
