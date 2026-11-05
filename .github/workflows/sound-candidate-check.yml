@@ -26,6 +26,8 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-36 build-tools;36.0.0'
       - run: sdkmanager "platforms;android-36" "build-tools;36.0.0"
       - uses: actions/download-artifact@v4
         with:
@@ -53,6 +55,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: sound-candidate-rotation-${{ matrix.rotation }}
-          path: verification/
+          path: verification/android-v1.3.3/sound-rotation-${{ matrix.rotation }}/
           retention-days: 7
           if-no-files-found: warn
