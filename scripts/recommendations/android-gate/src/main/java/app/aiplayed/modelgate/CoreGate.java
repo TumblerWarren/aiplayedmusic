@@ -16,7 +16,7 @@ public final class CoreGate extends Instrumentation {
  private int checks;
  public void onCreate(Bundle arguments){super.onCreate(arguments);start();}
  public void onStart(){Bundle result=new Bundle();try{
-  Context context=getTargetContext();context.deleteDatabase("personal-mixes.db");
+  Context context=getTargetContext();context.deleteDatabase("personal-mixes.db");verifyHistoryUpgrade(context);context.deleteDatabase("personal-mixes.db");
   check(Arrays.equals(RecommendationEngine.sections(3000),new long[]{0}),"Short songs get one padded section");
   check(Arrays.equals(RecommendationEngine.sections(15000),new long[]{0}),"Mostly overlapping short sections are not analysed repeatedly");
   check(Arrays.equals(RecommendationEngine.sections(25000),new long[]{0,15000}),"Medium tracks use two distinct sections");
@@ -100,6 +100,10 @@ public final class CoreGate extends Instrumentation {
    check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE entry_reason='replay'"))>0,"Repeat starts a fresh replay session");
    onMain(()->{service.setRepeat(0);service.play(songs,0);service.pause();});Thread.sleep(300);onMain(()->service.next(true));drain(engine);
    check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='next' AND played=0 AND early_next=1")),"An unheard paused selection is not interpreted as dislike");
+   onMain(()->service.play(songs,0,"recommendation"));playing(service);Thread.sleep(1000);onMain(()->service.next(true));drain(engine);
+   check("recommendation".equals(scalar(engine.store.getReadableDatabase(),"SELECT origin FROM sessions WHERE reason='next' ORDER BY ended DESC LIMIT 1")),"Mix playback records recommendation origin");
+   check("0".equals(scalar(engine.store.getReadableDatabase(),"SELECT selected FROM sessions WHERE reason='next' ORDER BY ended DESC LIMIT 1")),"Starting a mix does not masquerade as choosing its first song");
+   check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM listening_context"))>0,"Native playback records active local-time buckets");
    Song missing=new Song();missing.id=Long.MAX_VALUE/2;missing.duration=30000;missing.title="Missing";missing.artist="Unknown artist";missing.album="Unknown album";
    onMain(()->service.play(Collections.singletonList(missing),0));Thread.sleep(1500);drain(engine);
    check(Long.parseLong(scalar(engine.store.getReadableDatabase(),"SELECT COUNT(*) FROM sessions WHERE reason='error' AND early_next=0"))>0,"Playback failure is recorded without dislike");
@@ -187,6 +191,40 @@ public final class CoreGate extends Instrumentation {
  private void playing(PlaybackService service)throws Exception{
   long end=android.os.SystemClock.elapsedRealtime()+10000;java.util.concurrent.atomic.AtomicBoolean active=new java.util.concurrent.atomic.AtomicBoolean();
   while(android.os.SystemClock.elapsedRealtime()<end){onMain(()->active.set(service.playing()));if(active.get())return;Thread.sleep(50);}throw new AssertionError("Media3 fixture did not start");
+ }
+ private void verifyHistoryUpgrade(Context context)throws Exception{
+  byte[] fp32=new byte[3840];fp32[13]=71;
+  try(SQLiteDatabase db=context.openOrCreateDatabase("personal-mixes.db",0,null)){
+
+        db.execSQL("CREATE TABLE tracks(id INTEGER PRIMARY KEY,identity TEXT NOT NULL,fingerprint TEXT NOT NULL,title TEXT,artist TEXT,album TEXT,duration INTEGER,added INTEGER,eligible INTEGER NOT NULL DEFAULT 1,status TEXT NOT NULL DEFAULT 'pending',error TEXT,embedding BLOB)");
+        db.execSQL("CREATE TABLE segments(track_id INTEGER NOT NULL REFERENCES tracks(id) ON DELETE CASCADE,section INTEGER NOT NULL,start_ms INTEGER NOT NULL,embedding BLOB NOT NULL,PRIMARY KEY(track_id,section))");
+        db.execSQL("CREATE TABLE sessions(id TEXT PRIMARY KEY,track_id INTEGER NOT NULL,started INTEGER NOT NULL,ended INTEGER,played INTEGER NOT NULL DEFAULT 0,covered INTEGER NOT NULL DEFAULT 0,maximum_position INTEGER NOT NULL DEFAULT 0,duration INTEGER NOT NULL,reason TEXT NOT NULL DEFAULT 'open',entry_reason TEXT NOT NULL DEFAULT 'play',early_next INTEGER NOT NULL DEFAULT 0)");
+        db.execSQL("CREATE INDEX sessions_track_started ON sessions(track_id,started)");
+        db.execSQL("CREATE TABLE profiles(id INTEGER PRIMARY KEY,embedding BLOB NOT NULL,updated INTEGER NOT NULL)");
+        db.execSQL("CREATE TABLE snapshots(id INTEGER PRIMARY KEY CHECK(id=1),cache_key TEXT NOT NULL,json TEXT NOT NULL)");
+
+   db.execSQL("INSERT INTO tracks(id,identity,fingerprint,status,embedding) VALUES(1,'uri','fp','ready',?)",new Object[]{fp32});
+   db.execSQL("INSERT INTO segments VALUES(1,0,0,?)",new Object[]{fp32});
+   db.execSQL("INSERT INTO sessions(id,track_id,started,duration,played,covered,reason) VALUES('old',1,?,120000,90000,90000,'completion')",new Object[]{System.currentTimeMillis()});
+   db.setVersion(1);
+  }
+  try(RecommendationStore upgraded=new RecommendationStore(context)){
+   SQLiteDatabase db=upgraded.getWritableDatabase();
+   check(db.getVersion()==2,"The installed v1 history schema upgrades in place");
+   try(Cursor c=db.rawQuery("SELECT embedding FROM tracks WHERE id=1",null)){check(c.moveToFirst()&&Arrays.equals(fp32,c.getBlob(0)),"Upgrade preserves FP32 audio embeddings byte-for-byte");}
+   check("1".equals(scalar(db,"SELECT COUNT(*) FROM segments")),"Upgrade retains segment analysis");
+   check("legacy".equals(scalar(db,"SELECT origin FROM sessions WHERE id='old'")),"Unknown historical intent is not fabricated");
+   check("0".equals(scalar(db,"SELECT COUNT(*) FROM listening_context")),"Upgrade does not invent historical local hours");
+   ListeningClock clock=new ListeningClock();clock.playedMs=clock.coveredMs=clock.uniqueCoveredMs=60000;
+   long now=System.currentTimeMillis();ListeningContext local=new ListeningContext(now,java.time.ZoneId.systemDefault());
+   upgraded.session("context",1,now-60000,now,120000,clock,"completion",false,"play","search",true,Collections.singletonList(new ListeningContext.Bucket(local.day,local.weekday,local.hour,local.zone,60000)));
+   check(upgraded.listeningSessions().size()==2,"New listening context round-trips alongside legacy sessions");
+   upgraded.ranker(upgraded.revision(),upgraded.listeningSessions(),now);
+   check("1".equals(scalar(db,"SELECT COUNT(*) FROM habit_ranker")),"The bounded local learner persists separately from audio embeddings");
+   upgraded.clearHistory();
+   check("0".equals(scalar(db,"SELECT COUNT(*) FROM listening_context"))&&"0".equals(scalar(db,"SELECT COUNT(*) FROM habit_ranker")),"History reset removes routines and learned weights");
+   check("1".equals(scalar(db,"SELECT COUNT(*) FROM tracks")),"History reset retains analysed tracks after migration");
+  }
  }
  private void check(boolean value,String message){checks++;if(!value)throw new AssertionError(message);}
  private String scalar(SQLiteDatabase db,String query){try(Cursor cursor=db.rawQuery(query,null)){if(!cursor.moveToFirst())return "";return cursor.getString(0);}}

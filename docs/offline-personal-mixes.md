@@ -1,5 +1,7 @@
 # Offline personal mixes — v1.3.0 implementation
 
+For the unreleased listening-habit layer, additive history migration and validation limits, see [contextual personalisation](contextual-personalization.md). This document describes the initial model integration.
+
 Status: model gate passed; v1.3.0 integration is under validation on
 `feat/offline-personal-mixes`. The source targets version code 10.
 The published v1.2.6 APK must be preserved.

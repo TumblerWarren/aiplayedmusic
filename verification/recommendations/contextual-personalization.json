@@ -1,0 +1,12 @@
+{
+  "environment": "Java host; not emulator or physical phone",
+  "data": "synthetic habits and embeddings; not a human relevance study",
+  "chronological_holdout_decisions": 16,
+  "baseline_top_mix_hits": 8,
+  "contextual_top_mix_hits": 16,
+  "sessions": 20000,
+  "library_tracks": 10000,
+  "embedding_dimensions": 960,
+  "aggregation_ms": 31.49,
+  "ranking_ms": 171.24
+}
